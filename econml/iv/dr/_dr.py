@@ -44,15 +44,13 @@ def _combine(W, Z, n_samples):
 
 
 class _BaseDRIVNuisanceSelector(ModelSelector):
-    def __init__(self, *, prel_model_effect, model_y_xw, model_t_xw, model_tz_xw, model_z,
-                 projection, fit_cov_directly,
+    def __init__(self, *, prel_model_effect, model_y_xw, model_t_xw, model_z,
+                 projection,
                  discrete_treatment, discrete_instrument):
         self._prel_model_effect = prel_model_effect
         self._model_y_xw = model_y_xw
         self._model_t_xw = model_t_xw
-        self._model_tz_xw = model_tz_xw
         self._projection = projection
-        self._fit_cov_directly = fit_cov_directly
         self._discrete_treatment = discrete_treatment
         self._discrete_instrument = discrete_instrument
         if self._projection:
@@ -67,85 +65,12 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
 
         self._model_y_xw.train(is_selecting, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
         self._model_t_xw.train(is_selecting, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
-        if is_selecting and self._fit_cov_directly:
-            # need to fit, too, since we call predict later inside this train method
-            self._model_t_xw.train(False, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
 
         if self._projection:
             WZ = _combine(W, Z, Y.shape[0])
             self._model_t_xwz.train(is_selecting, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
-            if is_selecting:
-                # need to fit, too, since we call predict later inside this train method
-                self._model_t_xwz.train(False, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
         else:
             self._model_z_xw.train(is_selecting, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
-            if is_selecting:
-                # need to fit, too, since we call predict later inside this train method
-                self._model_z_xw.train(False, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
-
-        if self._projection:
-            T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
-            if self._fit_cov_directly:
-                # We're projecting, so we're treating E[T|X,Z] as the instrument (ignoring W for simplicity)
-                # Then beta(X) = E[T̃ (E[T|X,Z]-E[E[T|X,Z]|X)|X] and we can apply the tower rule several times to get
-                #              = E[(E[T|X,Z]-E[T|X])^2|X]
-                # and also     = E[(E[T|X,Z]-T)^2|X]
-                # so we can compute it either from (T_proj-T_pred)^2 or from (T_proj-T)^2
-                T_pred = self._model_t_xw.predict(X, W)
-                if X is None and W is None:
-                    T_pred = np.broadcast_to(T_pred, T.shape)
-                else:
-                    T_pred = T_pred.reshape(T.shape)
-                target = (T_proj - T_pred)**2
-                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
-                                        sample_weight=sample_weight, groups=groups)
-            else:
-                # return shape (n,)
-                target = (T * T_proj).reshape(T.shape[0],)
-                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
-                                        sample_weight=sample_weight, groups=groups)
-        else:
-            if self._fit_cov_directly:
-                Z_pred = self._model_z_xw.predict(X, W)
-                T_pred = self._model_t_xw.predict(X, W)
-
-                if X is None and W is None:
-                    Z_pred = np.broadcast_to(Z_pred, Z.shape)
-                    T_pred = np.broadcast_to(T_pred, T.shape)
-                else:
-                    Z_pred = Z_pred.reshape(Z.shape)
-                    T_pred = T_pred.reshape(T.shape)
-
-                Z_res = Z - Z_pred
-                T_res = T - T_pred
-
-                # need to avoid erroneous broadcasting when one of Z_res or T_res is (n,1) and the other is (n,)
-                assert Z_res.shape[0] == T_res.shape[0] and (Z_res.ndim == 1 or Z_res.shape[1:] == (
-                    1,)) and (T_res.ndim == 1 or T_res.shape[1:] == (1,))
-                target_shape = Z_res.shape if Z_res.ndim > 1 else T_res.shape
-                target = T_res.reshape(target_shape) * Z_res.reshape(target_shape)
-                # TODO: if the T and Z models overfit, then this will be biased towards 0;
-                #       consider using nested cross-fitting
-                #       a similar comment applies to the projection case
-                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
-                                        sample_weight=sample_weight, groups=groups)
-            else:
-                if self._discrete_treatment:
-                    if self._discrete_instrument:
-                        # target will be discrete and will be inversed from FirstStageWrapper, shape (n,1)
-                        target = T * Z
-                    else:
-                        # shape (n,)
-                        target = inverse_onehot(T) * Z
-                else:
-                    if self._discrete_instrument:
-                        # shape (n,)
-                        target = T * inverse_onehot(Z)
-                    else:
-                        # shape(n,)
-                        target = T * Z
-                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
-                                        sample_weight=sample_weight, groups=groups)
 
         # TODO: prel_model_effect could allow sample_var and freq_weight?
         if self._discrete_instrument:
@@ -187,14 +112,7 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
             else:
                 t_xwz_score = None
 
-            if hasattr(self._model_tz_xw, 'score'):
-                T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
-                # if discrete, return shape (n,1); if continuous return shape (n,)
-                target = (T * T_proj).reshape(T.shape[0],)
-                tz_xw_score = self._model_tz_xw.score(X=X, W=W, Target=target, sample_weight=sample_weight)
-            else:
-                tz_xw_score = None
-            return y_xw_score, t_xw_score, t_xwz_score, tz_xw_score, effect_score
+            return y_xw_score, t_xw_score, t_xwz_score, effect_score
 
         else:
             if hasattr(self._model_z_xw, 'score'):
@@ -202,28 +120,11 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
             else:
                 z_xw_score = None
 
-            if hasattr(self._model_tz_xw, 'score'):
-                if self._discrete_treatment:
-                    if self._discrete_instrument:
-                        # target will be discrete and will be inversed from FirstStageWrapper
-                        target = T * Z
-                    else:
-                        target = inverse_onehot(T) * Z
-                else:
-                    if self._discrete_instrument:
-                        target = T * inverse_onehot(Z)
-                    else:
-                        target = T * Z
-                tz_xw_score = self._model_tz_xw.score(X=X, W=W, Target=target, sample_weight=sample_weight)
-            else:
-                tz_xw_score = None
-
-            return y_xw_score, t_xw_score, z_xw_score, tz_xw_score, effect_score
+            return y_xw_score, t_xw_score, z_xw_score, effect_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         Y_pred = self._model_y_xw.predict(X, W)
         T_pred = self._model_t_xw.predict(X, W)
-        TZ_pred = self._model_tz_xw.predict(X, W)
         prel_theta = self._prel_model_effect.effect(X)
 
         if X is None:
@@ -231,7 +132,6 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
             if W is None:
                 Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
                 T_pred = np.tile(T_pred.reshape(1, -1), (Y.shape[0], 1))
-                TZ_pred = np.tile(TZ_pred.reshape(1, -1), (Y.shape[0], 1))
 
         # for convenience, reshape Z,T to a vector since they are either binary or single dimensional continuous
         T = T.reshape(T.shape[0],)
@@ -239,7 +139,6 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
         # reshape the predictions
         Y_pred = Y_pred.reshape(Y.shape)
         T_pred = T_pred.reshape(T.shape)
-        TZ_pred = TZ_pred.reshape(T.shape)
 
         Y_res = Y - Y_pred
         T_res = T - T_pred
@@ -249,38 +148,136 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
             WZ = _combine(W, Z, Y.shape[0])
             T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
             Z_res = T_proj - T_pred
-            if self._fit_cov_directly:
-                cov = TZ_pred
-            else:
-                cov = TZ_pred - T_pred**2
-            # in the projection case, this is a variance and should always be non-negative
-            cov = np.maximum(cov, 0)
         else:
             Z_pred = self._model_z_xw.predict(X, W)
             if X is None and W is None:
                 Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
             Z_pred = Z_pred.reshape(Z.shape)
             Z_res = Z - Z_pred
-            if self._fit_cov_directly:
-                cov = TZ_pred
-            else:
-                cov = TZ_pred - T_pred * Z_pred
 
         # check nuisances outcome shape
         # Y_res could be a vector or 1-dimensional 2d-array
         assert T_res.ndim == 1, "Nuisance outcome should be vector!"
         assert Z_res.ndim == 1, "Nuisance outcome should be vector!"
-        assert cov.ndim == 1, "Nuisance outcome should be vector!"
 
-        return prel_theta, Y_res, T_res, Z_res, cov
+        return prel_theta, Y_res, T_res, Z_res
 
     @property
     def needs_fit(self):
         return (self._model_y_xw.needs_fit or self._model_t_xw.needs_fit or
                 (self._projection and self._model_t_xwz.needs_fit) or
-                (not self._projection and self._model_z_xw.needs_fit) or
-                self._model_tz_xw.needs_fit)
-   
+                (not self._projection and self._model_z_xw.needs_fit))
+
+
+class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
+    def __init__(self, *, model_tz_xw,
+                 projection, fit_cov_directly,
+                 discrete_treatment, discrete_instrument):
+        self._model_tz_xw = model_tz_xw
+        self._projection = projection
+        self._fit_cov_directly = fit_cov_directly
+        self._discrete_treatment = discrete_treatment
+        self._discrete_instrument = discrete_instrument
+
+    def _get_target(self, T_res, Z_res, T, Z):
+        T = T.ravel() if not self._discrete_treatment else T
+        Z = Z.ravel() if not self._discrete_instrument else Z
+        if self._projection:
+            if self._fit_cov_directly:
+                # We're projecting, so we're treating E[T|X,Z] as the instrument (ignoring W for simplicity)
+                # Then beta(X) = E[T̃ (E[T|X,Z]-E[E[T|X,Z]|X)|X] and we can apply the tower rule several times to get
+                #              = E[(E[T|X,Z]-E[T|X])^2|X]
+                # and also     = E[(E[T|X,Z]-T)^2|X]
+                # so we can compute it either from (T_proj-T_pred)^2 or from (T_proj-T)^2
+                # The first of these is just Z_res^2
+                target = Z_res**2
+            else:
+                # fit on T*T_proj, covariance will be computed by E[T_res * T_proj] = E[T*T_proj] - E[T]^2
+                # return shape (n,)
+                T_pred = T - T_res.reshape(T.shape)
+                T_proj = T_pred + Z_res.reshape(T.shape)
+                target = (T * T_proj).reshape(T.shape[0],)
+        else:
+            if self._fit_cov_directly:
+                # we will fit on the covariance (T_res*Z_res) directly
+                target_shape = Z_res.shape if Z_res.ndim > 1 else T_res.shape
+                target = T_res.reshape(target_shape) * Z_res.reshape(target_shape)
+            else:
+                # fit on TZ, covariance will be computed by E[T_res * Z_res] = TZ_pred - T_pred * Z_pred
+                if self._discrete_treatment:
+                    if self._discrete_instrument:
+                        # target will be discrete and will be inversed from FirstStageWrapper, shape (n,1)
+                        target = T * Z
+                    else:
+                        # shape (n,)
+                        target = inverse_onehot(T) * Z
+                else:
+                    if self._discrete_instrument:
+                        # shape (n,)
+                        target = T * inverse_onehot(Z)
+                    else:
+                        # shape(n,)
+                        target = T * Z
+        return target
+
+    def train(self, is_selecting,
+              prel_theta, Y_res, T_res, Z_res,
+              Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
+        target = self._get_target(T_res, Z_res, T, Z)
+        self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
+                                sample_weight=sample_weight, groups=groups)
+
+        return self
+
+    def score(self, prel_theta, Y_res, T_res, Z_res, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
+        if hasattr(self._model_tz_xw, 'score'):
+            target = self._get_target(T_res, Z_res, T, Z)
+            tz_xw_score = self._model_tz_xw.score(X=X, W=W, Target=target, sample_weight=sample_weight)
+        else:
+            tz_xw_score = None
+
+        return (tz_xw_score,)
+
+    def predict(self, prel_theta, Y_res, T_res, Z_res, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        TZ_pred = self._model_tz_xw.predict(X, W)
+
+        if X is None and W is None:
+            TZ_pred = np.tile(TZ_pred.reshape(1, -1), (Y.shape[0], 1))
+
+        # for convenience, reshape Z,T to a vector since they are either binary or single dimensional continuous
+        T = T.reshape(T.shape[0],)
+        Z = Z.reshape(Z.shape[0],)
+
+        # reshape the predictions
+        TZ_pred = TZ_pred.reshape(T.shape)
+
+        if self._projection:
+            if self._fit_cov_directly:
+                cov = TZ_pred
+            else:
+                T_pred = T - T_res
+                cov = TZ_pred - T_pred**2
+            # in the projection case, this is a variance and should always be non-negative
+            cov = np.maximum(cov, 0)
+        else:
+            if self._fit_cov_directly:
+                cov = TZ_pred
+            else:
+                T_pred = T - T_res
+                Z_pred = Z - Z_res
+                cov = TZ_pred - T_pred * Z_pred
+
+        # check nuisances outcome shape
+        assert cov.ndim == 1, "Nuisance outcome should be vector!"
+
+        return (cov,)
+
+    @property
+    def needs_fit(self):
+        return self._model_tz_xw.needs_fit
+
 
 class _BaseDRIVModelFinal:
     def __init__(self, model_final, featurizer, fit_cate_intercept, cov_clip, opt_reweighted):
@@ -700,15 +697,18 @@ class _DRIV(_BaseDRIV):
                                                  is_discrete=self.discrete_instrument,
                                                  random_state=self.random_state)
 
-        return _BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
-                                         model_y_xw=model_y_xw,
-                                         model_t_xw=model_t_xw,
-                                         model_tz_xw=model_tz_xw,
-                                         model_z=model_z,
-                                         projection=self.projection,
-                                         fit_cov_directly=self.fit_cov_directly,
-                                         discrete_treatment=self.discrete_treatment,
-                                         discrete_instrument=self.discrete_instrument)
+        return [_BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
+                                          model_y_xw=model_y_xw,
+                                          model_t_xw=model_t_xw,
+                                          model_z=model_z,
+                                          projection=self.projection,
+                                          discrete_treatment=self.discrete_treatment,
+                                          discrete_instrument=self.discrete_instrument),
+                _BaseDRIVNuisanceCovarianceSelector(model_tz_xw=model_tz_xw,
+                                                    projection=self.projection,
+                                                    fit_cov_directly=self.fit_cov_directly,
+                                                    discrete_treatment=self.discrete_treatment,
+                                                    discrete_instrument=self.discrete_instrument)]
 
 
 class DRIV(_DRIV):
@@ -1120,7 +1120,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_y_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_y_xw.best_model._model for mdl in mdls[0]] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xw(self):
@@ -1134,7 +1134,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_t_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xw.best_model._model for mdl in mdls[0]] for mdls in super().models_nuisance_]
 
     @property
     def models_z_xw(self):
@@ -1150,7 +1150,7 @@ class DRIV(_DRIV):
         """
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use models_t_xwz.")
-        return [[mdl._model_z_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_z_xw.best_model._model for mdl in mdls[0]] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xwz(self):
@@ -1166,7 +1166,7 @@ class DRIV(_DRIV):
         """
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use models_z_xw.")
-        return [[mdl._model_t_xwz.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xwz.best_model._model for mdl in mdls[0]] for mdls in super().models_nuisance_]
 
     @property
     def models_tz_xw(self):
@@ -1180,7 +1180,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_tz_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_tz_xw.best_model._model for mdl in mdls[1]] for mdls in super().models_nuisance_]
 
     @property
     def models_prel_model_effect(self):
@@ -1194,7 +1194,7 @@ class DRIV(_DRIV):
             of monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._prel_model_effect for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._prel_model_effect for mdl in mdls[0]] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y_xw(self):
@@ -1229,16 +1229,16 @@ class DRIV(_DRIV):
         return self.nuisance_scores_[2]
 
     @property
-    def nuisance_scores_tz_xw(self):
+    def nuisance_scores_prel_model_effect(self):
         """
-        Get the scores for tz_xw model on the out-of-sample training data
+        Get the scores for prel_model_effect model on the out-of-sample training data
         """
         return self.nuisance_scores_[3]
 
     @property
-    def nuisance_scores_prel_model_effect(self):
+    def nuisance_scores_tz_xw(self):
         """
-        Get the scores for prel_model_effect model on the out-of-sample training data
+        Get the scores for tz_xw model on the out-of-sample training data
         """
         return self.nuisance_scores_[4]
 
