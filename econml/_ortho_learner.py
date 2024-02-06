@@ -28,6 +28,7 @@ import copy
 from collections import namedtuple
 from warnings import warn
 from abc import abstractmethod
+from typing import List, Union
 import inspect
 from collections import defaultdict
 import re
@@ -85,15 +86,9 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     -Tuple containing:
     nuisance_temp (tuple): Predictions or values of interest from the model.
     fitted_model: The fitted model after training.
-    test_idxs (array-like): Indices of the test data.
     score_temp (tuple or None): Scores calculated after fitting if `calculate_scores` is True, otherwise None.
     """
     model = clone(model, safe=False)
-
-    if len(np.intersect1d(train_idxs, test_idxs)) > 0:
-        raise AttributeError(
-            "Invalid crossfitting fold structure. Train and test indices of each fold must be disjoint. {},{}".format(
-                train_idxs, test_idxs))
 
     args_train = tuple(var[train_idxs] if var is not None else None for var in args)
     args_test = tuple(var[test_idxs] if var is not None else None for var in args)
@@ -113,17 +108,18 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
         if not isinstance(score_temp, tuple):
             score_temp = (score_temp,)
 
-    return nuisance_temp, model, test_idxs, (score_temp if calculate_scores else None)
+    return nuisance_temp, model, (score_temp if calculate_scores else None)
 
 
-def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
+def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray, ray_remote_fun_option,
+              *args, **kwargs):
     """
     General crossfit based calculation of nuisance parameters.
 
     Parameters
     ----------
-    model : ModelSelector
-        An object that has train and predict methods.
+    models : ModelSelector or List[ModelSelector]
+        One or more objects that have train and predict methods.
         The train method must take an 'is_selecting' argument first, and then
         accept positional arguments `args` and keyword arguments `kwargs`; the predict method
         just takes those `args` and `kwargs`. The train
@@ -209,65 +205,108 @@ def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args
     model_list = []
 
     kwargs = filter_none_kwargs(**kwargs)
-    if model.needs_fit:
-        model.train(True, *args, **kwargs)
 
-    calculate_scores = hasattr(model, 'score')
-    # remove None arguments
+    n = (args[0] if args else kwargs.items()[0][1]).shape[0]
 
-    if folds is None:  # skip crossfitting
-        model_list.append(clone(model, safe=False))
-        model_list[0].train(False, *args, **kwargs)  # fit the selected model
-        nuisances = model_list[0].predict(*args, **kwargs)
-        scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
-
-        if not isinstance(nuisances, tuple):
-            nuisances = (nuisances,)
-        if not isinstance(scores, tuple):
-            scores = (scores,)
-
-        # scores entries should be lists of scores, so make each entry a singleton list
-        scores = tuple([s] for s in scores)
-
-        first_arr = args[0] if args else kwargs.items()[0][1]
-        return nuisances, model_list, np.arange(first_arr.shape[0]), scores
-
-    folds = list(folds)
-    fold_refs = []
-    if use_ray:
-        # Adding the kwargs to ray object store to be used by remote functions for each fold to avoid IO overhead
-        ray_args = ray.put(kwargs)
+    # fully materialize folds so that they can be reused across models
+    # and precompute fitted indices so that we fail fast if there's an issue with them
+    if folds is not None:
+        folds = list(folds)
+        fitted_inds = []
         for idx, (train_idxs, test_idxs) in enumerate(folds):
-            fold_refs.append(
-                ray.remote(_fit_fold).options(**ray_remote_fun_option).remote(model, train_idxs, test_idxs,
-                                                                              calculate_scores, args, ray_args))
-    fitted_inds = []
-    for idx, (train_idxs, test_idxs) in enumerate(folds):
-        if use_ray:
-            nuisance_temp, model, test_idxs, score_temp = ray.get(fold_refs[idx])
+            if len(np.intersect1d(train_idxs, test_idxs)) > 0:
+                raise AttributeError(f"Invalid crossfitting fold structure. Train and test indices of fold {idx+1} "
+                                     f"are not disjoint: {train_idxs}, {test_idxs}")
+            common_idxs = np.intersect1d(fitted_inds, test_idxs)
+            if len(common_idxs) > 0:
+                raise AttributeError(f"Invalid crossfitting fold structure. The indexes {common_idxs} in fold {idx+1} "
+                                     f"have appeared in previous folds")
+            fitted_inds = np.concatenate((fitted_inds, test_idxs))
+        fitted_inds = np.sort(fitted_inds.astype(int))
+    else:
+        fitted_inds = np.arange(n)
+
+    accumulated_nuisances = ()
+    # NOTE: if any model is missing scores we will just return None even if another model
+    #       has scores. this is because we don't know how many scores are missing
+    #       for the models that are missing them, so we don't know how to pad the array
+    calculate_scores = True
+    accumulated_scores = ()
+
+    # for convenience we allos a single model to be passed in lieu of a singleton list
+    # in that case, we will also unwrap the model output
+    unwrap_model_output = False
+    if not isinstance(models, list):
+        unwrap_model_output = True
+        models = [models]
+
+    for model in models:
+        # when there is more than one model, nuisances from previous models
+        # come first as positional arguments
+        accumulated_args = accumulated_nuisances + args
+        if model.needs_fit:
+            model.train(True, *accumulated_args, **kwargs)
+
+        calculate_scores &= hasattr(model, 'score')
+
+        model_list.append([])  # add a new empty list of clones for this model
+
+        if folds is None:  # skip crossfitting
+            model_list[-1].append(clone(model, safe=False))
+            model_list[-1][0].train(False, *accumulated_args, **kwargs)  # fit the selected model
+            nuisances = model_list[-1][0].predict(*accumulated_args, **kwargs)
+            if not isinstance(nuisances, tuple):
+                nuisances = (nuisances,)
+
+            if calculate_scores:
+                scores = model_list[-1][0].score(*accumulated_args, **kwargs)
+                if not isinstance(scores, tuple):
+                    scores = (scores,)
+                # scores entries should be lists of scores, so make each entry a singleton list
+                scores = tuple([s] for s in scores)
+
         else:
-            nuisance_temp, model, test_idxs, score_temp = _fit_fold(model, train_idxs, test_idxs,
-                                                                    calculate_scores, args, kwargs)
+            fold_refs = []
+            if use_ray:
+                # Adding the kwargs to ray object store to be used by remote functions
+                # for each fold to avoid IO overhead
+                ray_args = ray.put(kwargs)
+                for idx, (train_idxs, test_idxs) in enumerate(folds):
+                    fold_refs.append(
+                        ray.remote(_fit_fold).options(**ray_remote_fun_option).remote(model, train_idxs, test_idxs,
+                                                                                      calculate_scores,
+                                                                                      accumulated_args, ray_args))
+            for idx, (train_idxs, test_idxs) in enumerate(folds):
+                if use_ray:
+                    nuisance_temp, model_out, score_temp = ray.get(fold_refs[idx])
+                else:
+                    nuisance_temp, model_out, score_temp = _fit_fold(model, train_idxs, test_idxs,
+                                                                     calculate_scores, accumulated_args, kwargs)
 
-        if len(np.intersect1d(fitted_inds, test_idxs)) > 0:
-            raise AttributeError(
-                "Invalid crossfitting fold structure. The same index appears in two test folds.")
-        fitted_inds = np.concatenate((fitted_inds, test_idxs))
-        if idx == 0:
-            nuisances = tuple([np.full((args[0].shape[0],) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
+                if idx == 0:
+                    nuisances = tuple([np.full((n,) + nuis.shape[1:], np.nan)
+                                      for nuis in nuisance_temp])
 
-        for it, nuis in enumerate(nuisance_temp):
-            nuisances[it][test_idxs] = nuis
+                for it, nuis in enumerate(nuisance_temp):
+                    nuisances[it][test_idxs] = nuis
 
+                if calculate_scores:
+                    if idx == 0:
+                        scores = tuple([] for _ in score_temp)
+                    for it, score in enumerate(score_temp):
+                        scores[it].append(score)
+
+                model_list[-1].append(model_out)
+
+        accumulated_nuisances += nuisances
         if calculate_scores:
-            if idx == 0:
-                scores = tuple([] for _ in score_temp)
-            for it, score in enumerate(score_temp):
-                scores[it].append(score)
+            accumulated_scores += scores
+        else:
+            accumulated_scores = None
 
-        model_list.append(model)
-
-    return nuisances, model_list, np.sort(fitted_inds.astype(int)), (scores if calculate_scores else None)
+    if unwrap_model_output:
+        model_list = model_list[0]
+    return accumulated_nuisances, model_list, fitted_inds, accumulated_scores
 
 
 CachedValues = namedtuple('CachedValues', ['nuisances',
@@ -563,8 +602,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Returns
         -------
-        model_nuisance: selector
-            The selector for fitting the nuisance function. The returned estimator must implement
+        model_nuisance: list of selector
+            The selector(s) for fitting the nuisance function. The returned estimators must implement
             `train` and `predict` methods that both have signatures::
 
                 model_nuisance.train(is_selecting, Y, T, X=X, W=W, Z=Z,
@@ -1044,26 +1083,45 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self.discrete_outcome:
             Y = self.outcome_transformer.transform(Y).reshape(-1, 1)
         n_iters = len(self._models_nuisance)
-        n_splits = len(self._models_nuisance[0])
+        # self._models_nuisance will be a list of lists or a list of list of lists
+        # so we use self._ortho_learner_model_nuisance to determine the nesting level
+        expand_list = not isinstance(self._ortho_learner_model_nuisance, list)
+        if expand_list:
+            n_selectors = 1
+            n_splits = len(self._models_nuisance[0])
+        else:
+            n_selectors = len(self._models_nuisance[0])
+            n_splits = len(self._models_nuisance[0][0])
 
-        # for each mc iteration
-        for i, models_nuisances in enumerate(self._models_nuisance):
-            # for each model under cross fit setting
-            for j, mdl in enumerate(models_nuisances):
-                nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z, groups=groups))
-                if not isinstance(nuisance_temp, tuple):
-                    nuisance_temp = (nuisance_temp,)
+        kwargs = filter_none_kwargs(X=X, W=W, Z=Z, groups=groups)
 
-                if i == 0 and j == 0:
-                    nuisances = [np.zeros((n_iters * n_splits,) + nuis.shape) for nuis in nuisance_temp]
+        accumulated_nuisances = []
 
-                for it, nuis in enumerate(nuisance_temp):
-                    nuisances[it][j * n_iters + i] = nuis
+        for sel in range(n_selectors):
+            accumulated_args = tuple(accumulated_nuisances) + (Y, T)
+            # for each mc iteration
+            for i, models_nuisances in enumerate(self._models_nuisance):
+                if expand_list:
+                    models_nuisances = [models_nuisances]
 
-        for it in range(len(nuisances)):
-            nuisances[it] = np.mean(nuisances[it], axis=0)
+                # for each model under cross fit setting
+                for j, mdl in enumerate(models_nuisances[sel]):
+                    nuisance_temp = mdl.predict(*accumulated_args, **kwargs)
+                    if not isinstance(nuisance_temp, tuple):
+                        nuisance_temp = (nuisance_temp,)
 
-        return self._ortho_learner_model_final.score(Y, T, nuisances=nuisances,
+                    if i == 0 and j == 0:
+                        nuisances = [np.zeros((n_iters * n_splits,) + nuis.shape) for nuis in nuisance_temp]
+
+                    for it, nuis in enumerate(nuisance_temp):
+                        nuisances[it][j * n_iters + i] = nuis
+
+            for it in range(len(nuisances)):
+                nuisances[it] = np.mean(nuisances[it], axis=0)
+
+            accumulated_nuisances += nuisances
+
+        return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                           sample_weight=sample_weight, groups=groups))
 
