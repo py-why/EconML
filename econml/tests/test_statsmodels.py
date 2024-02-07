@@ -416,7 +416,7 @@ class TestStatsModels(unittest.TestCase):
                 "{}, {}".format(est.coef__interval()[1][t],
                                 np.array([scipy.stats.norm.ppf(.975, loc=1, scale=1)] +
                                          [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1)))
-            assert np.all(np.abs(est.intercept_[t]) <= 1e-12), "{}, {}".format(est.intercept_[t])
+            assert np.all(np.abs(est.intercept_[t]) <= 1e-12), "{}".format(est.intercept_[t])
             assert np.all(np.abs(est.intercept_stderr_[t]) <= 1e-12), "{}".format(est.intercept_stderr_[t])
             assert np.all(np.abs(est.intercept__interval()[0][t]) <=
                           1e-12), "{}".format(est.intercept__interval()[0][t])
@@ -446,7 +446,7 @@ class TestStatsModels(unittest.TestCase):
                 "{}, {}".format(est.coef__interval()[1][t],
                                 np.array([scipy.stats.norm.ppf(.975, loc=1, scale=np.sqrt(2))] +
                                          [scipy.stats.norm.ppf(.975, loc=0, scale=np.sqrt(2))] * (d - 1)))
-            assert np.all(np.abs(est.intercept_[t]) <= 1e-12), "{}, {}".format(est.intercept_[t])
+            assert np.all(np.abs(est.intercept_[t]) <= 1e-12), "{}".format(est.intercept_[t])
             assert np.all(np.abs(est.intercept_stderr_[t] - 1) <= 1e-12), "{}".format(est.intercept_stderr_[t])
             assert np.all(np.abs(est.intercept__interval()[0][t] -
                                  scipy.stats.norm.ppf(.025, loc=0, scale=1)) <= 1e-12), \

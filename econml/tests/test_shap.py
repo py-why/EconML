@@ -4,10 +4,10 @@
 import numpy as np
 import unittest
 import shap
-from econml.dml import *
-from econml.orf import *
-from econml.dr import *
-from econml.metalearners import *
+from econml.dml import LinearDML, CausalForestDML, NonParamDML
+from econml.orf import DMLOrthoForest, DROrthoForest
+from econml.dr import DRLearner, ForestDRLearner
+from econml.metalearners import TLearner, SLearner, XLearner, DomainAdaptationLearner
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
