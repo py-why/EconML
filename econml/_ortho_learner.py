@@ -853,7 +853,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                       for nuisance_mc_variants in zip(*all_nuisances))
                 else:
                     raise ValueError(
-                        "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
+                        f"Parameter `mc_agg` must be one of {{'mean', 'median'}}. Got {self.mc_agg}")
 
             Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
                                                                      for arr in (Y, T, X, W, Z, sample_weight,

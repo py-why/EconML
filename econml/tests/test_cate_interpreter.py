@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import pytest
+import matplotlib
 from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
 from econml.dml import LinearDML
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -16,7 +17,6 @@ try:
 except Exception:
     graphviz_works = False
 
-import matplotlib
 matplotlib.use('Agg')
 
 

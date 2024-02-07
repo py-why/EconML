@@ -3,7 +3,6 @@
 
 from sklearn.datasets import make_regression
 from econml._ortho_learner import _OrthoLearner, _crossfit
-from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LassoCV, Lasso
 from sklearn.model_selection import KFold
