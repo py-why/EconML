@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 """Collection of scikit-learn extensions for model selection techniques."""
 
+from inspect import signature
 import numbers
 import warnings
 import abc
@@ -457,15 +458,20 @@ def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
     return new_model
 
 
-def _to_elasticNet(model: ElasticNetCV, is_lasso=False, cls=None, extra_attrs=[]):
+def _to_elasticNet(model: ElasticNetCV, args, kwargs, is_lasso=False, cls=None, extra_attrs=[]):
+    # We need an R^2 score to compare to other models; ElasticNetCV doesn't provide it,
+    # but we can calculate it ourselves from the MSE plus the variance of the target y
+    y = signature(model.fit).bind(*args, **kwargs).arguments["y"]
     cls = cls or (Lasso if is_lasso else ElasticNet)
     new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start',
                                                                       'dual_gap_'])
     if not is_lasso:
         # l1 ratio doesn't apply to Lasso, only ElasticNet
         _copy_to(model, new_model, ["l1_ratio"], True)
-    max_score = np.max(np.mean(model.mse_path_, axis=-1))  # last dimension in mse_path is folds, so average over that
-    return new_model, max_score
+    # max R^2 corresponds to min MSE
+    min_mse = np.min(np.mean(model.mse_path_, axis=-1))  # last dimension in mse_path is folds, so average over that
+    r2 = 1 - min_mse / np.var(y)  # R^2 = 1 - MSE / Var(y)
+    return new_model, r2
 
 
 def _to_ridge(model, cls=Ridge, extra_attrs=["positive"]):
@@ -494,23 +500,28 @@ class SklearnCVSelector(SingleModelSelector):
 
     @staticmethod
     def _model_mapping():
-        return {LogisticRegressionCV: _to_logisticRegression,
-                ElasticNetCV: _to_elasticNet,
-                LassoCV: lambda model: _to_elasticNet(model, True, None, ["positive"]),
-                RidgeCV: _to_ridge,
-                RidgeClassifierCV: lambda model: _to_ridge(model, RidgeClassifier, ["positive", "class_weight",
-                                                                                    "_label_binarizer"]),
-                MultiTaskElasticNetCV: lambda model: _to_elasticNet(model, False, MultiTaskElasticNet, extra_attrs=[]),
-                MultiTaskLassoCV: lambda model: _to_elasticNet(model, True, MultiTaskLasso, extra_attrs=[]),
-                WeightedLassoCVWrapper: lambda model: _to_elasticNet(model, True, WeightedLassoWrapper,
-                                                                     extra_attrs=[]),
+        return {LogisticRegressionCV: lambda model, _args, _kwargs: _to_logisticRegression(model),
+                ElasticNetCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs),
+                LassoCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs, True, None, ["positive"]),
+                RidgeCV: lambda model, _args, _kwargs: _to_ridge(model),
+                RidgeClassifierCV: lambda model, _args, _kwargs: _to_ridge(model, RidgeClassifier,
+                                                                           ["positive", "class_weight",
+                                                                            "_label_binarizer"]),
+                MultiTaskElasticNetCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
+                                                                                  False, MultiTaskElasticNet,
+                                                                                  extra_attrs=[]),
+                MultiTaskLassoCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
+                                                                             True, MultiTaskLasso, extra_attrs=[]),
+                WeightedLassoCVWrapper: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
+                                                                                   True, WeightedLassoWrapper,
+                                                                                   extra_attrs=[]),
                 }
 
     @staticmethod
-    def _convert_model(model):
+    def _convert_model(model, args, kwargs):
         if isinstance(model, Pipeline):
             name, inner_model = model.steps[-1]
-            best_model, score = SklearnCVSelector._convert_model(inner_model)
+            best_model, score = SklearnCVSelector._convert_model(inner_model, args, kwargs)
             return Pipeline(steps=[*model.steps[:-1], (name, best_model)]), score
 
         if isinstance(model, GridSearchCV) or isinstance(model, RandomizedSearchCV):
@@ -519,7 +530,7 @@ class SklearnCVSelector(SingleModelSelector):
         for known_type in SklearnCVSelector._model_mapping().keys():
             if isinstance(model, known_type):
                 converter = SklearnCVSelector._model_mapping()[known_type]
-                return converter(model)
+                return converter(model, args, kwargs)
 
     def train(self, is_selecting: bool, *args, groups=None, **kwargs):
         if is_selecting:
@@ -528,7 +539,7 @@ class SklearnCVSelector(SingleModelSelector):
                 sub_model = self.searcher.steps[-1][1]
             _fit_with_groups(self.searcher, *args, sub_model=sub_model, groups=groups, **kwargs)
 
-            self._best_model, self._best_score = self._convert_model(self.searcher)
+            self._best_model, self._best_score = self._convert_model(self.searcher, args, kwargs)
 
         else:
             # don't need to use _fit_with_groups here since none of these models support it
