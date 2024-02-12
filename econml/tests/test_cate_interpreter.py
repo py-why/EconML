@@ -4,7 +4,6 @@
 import numpy as np
 import unittest
 import pytest
-import matplotlib
 from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
 from econml.dml import LinearDML
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -14,10 +13,10 @@ try:
     from graphviz import Graph
     g = Graph()
     g.render()
+    import matplotlib
+    matplotlib.use('Agg')
 except Exception:
     graphviz_works = False
-
-matplotlib.use('Agg')
 
 
 @pytest.mark.skipif(not graphviz_works, reason="graphviz must be installed to run CATE interpreter tests")
