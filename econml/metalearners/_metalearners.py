@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                         inverse_onehot, transpose, _deprecate_positional)
+                         one_hot_encoder, inverse_onehot, transpose, _deprecate_positional)
 from .._shap import _shap_explain_model_cate
 
 
@@ -109,7 +109,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.transformer = one_hot_encoder(categories=categories, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -232,7 +232,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.transformer = one_hot_encoder(categories=categories, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1], )
         # Note: unlike other Metalearners, we need the controls' encoded column for training
@@ -375,7 +375,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.transformer = one_hot_encoder(categories=categories, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -537,7 +537,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.transformer = one_hot_encoder(categories=categories, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)

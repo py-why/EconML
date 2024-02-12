@@ -235,7 +235,7 @@ class TestDeepIV(unittest.TestCase):
 
         def one_hot(col, **kwargs):
             z = col.reshape(-1, 1)
-            enc = OneHotEncoder(sparse=False, **kwargs)
+            enc = OneHotEncoder(sparse_output=False, **kwargs)
             return enc.fit_transform(z)
 
         def sensf(x):
@@ -375,7 +375,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         def one_hot(col, **kwargs):
             z = col.reshape(-1, 1)
-            enc = OneHotEncoder(sparse=False, **kwargs)
+            enc = OneHotEncoder(sparse_output=False, **kwargs)
             return enc.fit_transform(z)
 
         def sensf(x):

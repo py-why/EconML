@@ -25,7 +25,7 @@ from ...dml import LinearDML, CausalForestDML
 from ...inference import NormalInferenceResults
 from ...sklearn_extensions.linear_model import WeightedLasso
 from ...sklearn_extensions.model_selection import GridSearchCVList
-from ...utilities import _RegressionWrapper, get_feature_names_or_default, inverse_onehot
+from ...utilities import _RegressionWrapper, get_feature_names_or_default, inverse_onehot, one_hot_encoder
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing
@@ -203,8 +203,7 @@ class _ColumnTransformer(TransformerMixin):
         if cat_cols.shape[1] > 0:
             self.has_cats = True
             # NOTE: set handle_unknown to 'ignore' so that we don't throw at runtime if given a novel value
-            self.one_hot_encoder = OneHotEncoder(sparse=False,
-                                                 handle_unknown='ignore').fit(cat_cols)
+            self.one_hot_encoder = one_hot_encoder(handle_unknown='ignore').fit(cat_cols)
         else:
             self.has_cats = False
         self.d_x = X.shape[1]
@@ -335,12 +334,12 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
         # we achieve this by pipelining the X scaling with the Y and T models (with fixed scaling, not refitting)
 
         hinds = heterogeneity_inds[feat_ind]
-        WX_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
+        WX_transformer = ColumnTransformer([('encode', one_hot_encoder(drop='first'),
                                              [ind for ind in categorical_inds
                                               if ind != feat_ind]),
                                             ('drop', 'drop', feat_ind)],
                                            remainder=StandardScaler())
-        W_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
+        W_transformer = ColumnTransformer([('encode', one_hot_encoder(drop='first'),
                                             [ind for ind in categorical_inds
                                              if ind != feat_ind and ind not in hinds]),
                                            ('drop', 'drop', hinds),
@@ -732,8 +731,7 @@ class CausalAnalysis:
             if train_y_model:
                 # perform model selection for the Y model using all X, not on a per-column basis
                 allX = ColumnTransformer([('encode',
-                                           OneHotEncoder(
-                                               drop='first', sparse=False),
+                                           one_hot_encoder(drop='first'),
                                            self.categorical)],
                                          remainder=StandardScaler()).fit_transform(X)
 
@@ -757,7 +755,7 @@ class CausalAnalysis:
 
             # note that this needs to happen after wrapping to generalize to the multi-class case,
             # since otherwise we'll have too many columns to be able to train a classifier
-            y = OneHotEncoder(drop='first', sparse=False).fit_transform(y)
+            y = one_hot_encoder(drop='first').fit_transform(y)
 
         assert y.ndim == 1 or y.shape[1] == 1, ("Multiclass classification isn't supported" if self.classification
                                                 else "Only a single outcome is supported")

@@ -663,7 +663,7 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
     from econml.dml import LinearDML
     from sklearn.preprocessing import OneHotEncoder
     # removing one id to avoid colinearity, as is standard for fixed effects
-    X_oh = OneHotEncoder(sparse=False).fit_transform(X)[:, 1:]
+    X_oh = OneHotEncoder(sparse_output=False).fit_transform(X)[:, 1:]
 
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor())

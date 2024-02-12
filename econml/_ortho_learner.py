@@ -44,7 +44,7 @@ from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, strata_from_discrete_arrays,
+                        cross_product, filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 from .sklearn_extensions.model_selection import ModelSelector
 
@@ -780,7 +780,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 categories = self.categories
                 if categories != 'auto':
                     categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-                self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+                self.transformer = one_hot_encoder(categories=categories, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             elif self.treatment_featurizer:
@@ -792,7 +792,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = None
 
             if self.discrete_instrument:
-                self.z_transformer = OneHotEncoder(categories='auto', sparse=False, drop='first')
+                self.z_transformer = one_hot_encoder(categories='auto', drop='first')
                 self.z_transformer.fit(reshape(Z, (-1, 1)))
             else:
                 self.z_transformer = None
