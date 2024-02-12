@@ -27,7 +27,7 @@ class TestOrthoLearner(unittest.TestCase):
             def __init__(self, model):
                 self._model = model
 
-            def train(self, is_selecting, X, y, Q, W=None):
+            def train(self, is_selecting, folds, X, y, Q, W=None):
                 self._model.fit(X, y)
                 return self
 
@@ -111,7 +111,7 @@ class TestOrthoLearner(unittest.TestCase):
             def __init__(self, model):
                 self._model = model
 
-            def train(self, is_selecting, X, y, W=None):
+            def train(self, is_selecting, folds, X, y, W=None):
                 self._model.fit(X, y)
                 return self
 
@@ -185,7 +185,7 @@ class TestOrthoLearner(unittest.TestCase):
                 def __init__(self, model):
                     self._model = model
 
-                def train(self, is_selecting, X, y, Q, W=None):
+                def train(self, is_selecting, folds, X, y, Q, W=None):
                     self._model.fit(X, y)
                     return self
 
@@ -229,7 +229,7 @@ class TestOrthoLearner(unittest.TestCase):
                 self._model_t = model_t
                 self._model_y = model_y
 
-            def train(self, is_selecting, Y, T, W=None):
+            def train(self, is_selecting, folds, Y, T, W=None):
                 self._model_t.fit(W, T)
                 self._model_y.fit(W, Y)
                 return self
@@ -345,7 +345,7 @@ class TestOrthoLearner(unittest.TestCase):
                 self._model_t = model_t
                 self._model_y = model_y
 
-            def train(self, is_selecting, Y, T, W=None):
+            def train(self, is_selecting, folds, Y, T, W=None):
                 self._model_t.fit(W, T)
                 self._model_y.fit(W, Y)
                 return self
@@ -397,7 +397,7 @@ class TestOrthoLearner(unittest.TestCase):
                 self._model_t = model_t
                 self._model_y = model_y
 
-            def train(self, is_selecting, Y, T, W=None):
+            def train(self, is_selecting, folds, Y, T, W=None):
                 self._model_t.fit(W, T)
                 self._model_y.fit(W, Y)
                 return self
@@ -458,7 +458,7 @@ class TestOrthoLearner(unittest.TestCase):
                 self._model_t = model_t
                 self._model_y = model_y
 
-            def train(self, is_selecting, Y, T, W=None):
+            def train(self, is_selecting, folds, Y, T, W=None):
                 self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1] + 1)))
                 self._model_y.fit(W, Y)
                 return self

@@ -82,7 +82,7 @@ class _FirstStageSelector(SingleModelSelector):
         self._model = clone(model, safe=False)
         self._discrete_target = discrete_target
 
-    def train(self, is_selecting, X, W, Target, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, X, W, Target, sample_weight=None, groups=None):
         if self._discrete_target:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
@@ -92,7 +92,7 @@ class _FirstStageSelector(SingleModelSelector):
                                      "don't contain all treatments")
             Target = inverse_onehot(Target)
 
-        self._model.train(is_selecting, _combine(X, W, Target.shape[0]), Target,
+        self._model.train(is_selecting, folds, _combine(X, W, Target.shape[0]), Target,
                           **filter_none_kwargs(groups=groups, sample_weight=sample_weight))
         return self
 
