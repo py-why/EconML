@@ -45,7 +45,7 @@ class _DynamicModelNuisanceSelector(ModelSelector):
         self._model_t = model_t
         self.n_periods = n_periods
 
-    def train(self, is_selecting, Y, T, X=None, W=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, sample_weight=None, groups=None):
         """Fit a series of nuisance models for each period or period pairs."""
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
@@ -56,16 +56,46 @@ class _DynamicModelNuisanceSelector(ModelSelector):
             self._model_t_trained = {j: {t: clone(self._model_t, safe=False)
                                          for t in np.arange(j + 1)}
                                      for j in np.arange(self.n_periods)}
+
+        # we have to filter the folds because they contain the indices in the original data not
+        # the indices in the period-filtered data
+
+        def _translate_inds(t, inds):
+            # translate the indices in a fold to the indices in the period-filtered data
+            # if groups was [3,3,4,4,5,5,6,6,1,1,2,2,0,0] (the group ids can be in any order, but the
+            # time periods for each group should be contguous), and we had [10,11,0,1] as the indices in a fold
+            # (so the fold is taking the entries corresponding to groups 2 and 3)
+            # then group_period_filter(0) is [0,2,4,6,8,10,12] and gpf(1) is [1,3,5,7,9,11,13]
+            # so for period 1, the fold should be [10,0] => [5,0] (the indices that return 10 and 0 in the t=0 data)
+            # and for period 2, the fold should be [11,1] => [5,0] again (the indices that return 11,1 in the t=1 data)
+
+            # filter to the indices for the time period
+            inds = inds[np.isin(inds, period_filters[t])]
+
+            # now find their index in the period-filtered data, which is always sorted
+            return np.searchsorted(period_filters[t], inds)
+
+        if folds is not None:
+            translated_folds = []
+            for (train, test) in folds:
+                translated_folds.append((_translate_inds(0, train), _translate_inds(0, test)))
+                # sanity check that the folds are the same no matter the time period
+                for t in range(1, self.n_periods):
+                    assert np.array_equal(_translate_inds(t, train), _translate_inds(0, train))
+                    assert np.array_equal(_translate_inds(t, test), _translate_inds(0, test))
+        else:
+            translated_folds = None
+
         for t in np.arange(self.n_periods):
             self._model_y_trained[t].train(
-                is_selecting,
+                is_selecting, translated_folds,
                 self._index_or_None(X, period_filters[t]),
                 self._index_or_None(
                     W, period_filters[t]),
                 Y[period_filters[self.n_periods - 1]])
             for j in np.arange(t, self.n_periods):
                 self._model_t_trained[j][t].train(
-                    is_selecting,
+                    is_selecting, translated_folds,
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]),
                     T[period_filters[j]])

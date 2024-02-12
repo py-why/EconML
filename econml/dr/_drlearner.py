@@ -72,7 +72,7 @@ class _ModelNuisance(ModelSelector):
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
 
-    def train(self, is_selecting, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
             raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
                              "instead got {1}.".format(len(X), Y.shape))
@@ -84,8 +84,8 @@ class _ModelNuisance(ModelSelector):
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        self._model_propensity.train(is_selecting, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
-        self._model_regression.train(is_selecting, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
+        self._model_propensity.train(is_selecting, folds, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
+        self._model_regression.train(is_selecting, folds, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
         return self
 
     def score(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):

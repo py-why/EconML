@@ -56,15 +56,16 @@ class _OrthoIVNuisanceSelector(ModelSelector):
         else:
             self._model_z_xw = model_z
 
-    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.train(is_selecting, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
-        self._model_t_xw.train(is_selecting, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_t_xw.train(is_selecting, folds, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
         if self._projection:
             # concat W and Z
             WZ = _combine(W, Z, Y.shape[0])
-            self._model_t_xwz.train(is_selecting, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+            self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T,
+                                    sample_weight=sample_weight, groups=groups)
         else:
-            self._model_z_xw.train(is_selecting, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+            self._model_z_xw.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -729,12 +730,14 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
         self._model_t_xw = model_t_xw
         self._model_t_xwz = model_t_xwz
 
-    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.train(is_selecting, X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
-        self._model_t_xw.train(is_selecting, X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_y_xw.train(is_selecting, folds, X, W, Y, **
+                               filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_t_xw.train(is_selecting, folds, X, W, T, **
+                               filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         # concat W and Z
         WZ = _combine(W, Z, Y.shape[0])
-        self._model_t_xwz.train(is_selecting, X, WZ, T,
+        self._model_t_xwz.train(is_selecting, folds, X, WZ, T,
                                 **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 

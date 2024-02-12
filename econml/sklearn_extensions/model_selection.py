@@ -3,7 +3,9 @@
 """Collection of scikit-learn extensions for model selection techniques."""
 
 from inspect import signature
+import inspect
 import numbers
+from typing import List, Optional
 import warnings
 import abc
 
@@ -280,9 +282,10 @@ class ModelSelector(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def train(self, is_selecting: bool, *args, **kwargs):
+    def train(self, is_selecting: bool, folds: Optional[List], *args, **kwargs):
         """
         Either selects a model or fits a model, depending on the value of `is_selecting`.
+        If `is_selecting` is `False`, then `folds` should not be provided because they are only during selection.
         """
         raise NotImplementedError("Abstract method")
 
@@ -386,19 +389,31 @@ def _fit_with_groups(model, X, y, *, sub_model=None, groups, **kwargs):
 
 class FixedModelSelector(SingleModelSelector):
     """
-    Model selection class that always selects the given model
+    Model selection class that always selects the given sklearn-compatible model
     """
 
     def __init__(self, model):
         self.model = clone(model, safe=False)
 
-    def train(self, is_selecting, *args, groups=None, **kwargs):
-        # whether selecting or not, need to train the model on the data
-        _fit_with_groups(self.model, *args, groups=groups, **kwargs)
-        if is_selecting and hasattr(self.model, 'score'):
-            # TODO: we need to alter this to use out-of-sample score here, which
-            #       will require cross-validation, but should respect grouping, stratifying, etc.
-            self._score = self.model.score(*args, **kwargs)
+    def train(self, is_selecting, folds: Optional[List], X, y, groups=None, **kwargs):
+        if is_selecting:
+            # since needs_fit is False, is_selecting will only be true if
+            # the score needs to be compared to another model's
+            # so we don't need to fit the model itself, just get the out-of-sample score
+            assert hasattr(self.model, 'score'), (f"Can't select between a fixed {type(self.model)} model and others "
+                                                  "because it doesn't have a score method")
+            scores = []
+            for train, test in folds:
+                # use _fit_with_groups instead of just fit to handle nested grouping
+                _fit_with_groups(self.model, X[train], y[train],
+                                 groups=None if groups is None else groups[train],
+                                 **{key: val[train] for key, val in kwargs.items()})
+                scores.append(self.model.score(X[test], y[test]))
+            self._score = np.mean(scores)
+        else:
+            # we need to train the model on the data
+            _fit_with_groups(self.model, X, y, groups=groups, **kwargs)
+
         return self
 
     @property
@@ -411,7 +426,7 @@ class FixedModelSelector(SingleModelSelector):
 
     @property
     def needs_fit(self):
-        return False  # We have only a single model
+        return False  # We have only a single model so we can skip the selection process
 
 
 def _copy_to(m1, m2, attrs, insert_underscore=False):
@@ -534,17 +549,28 @@ class SklearnCVSelector(SingleModelSelector):
                 converter = SklearnCVSelector._model_mapping()[known_type]
                 return converter(model, args, kwargs)
 
-    def train(self, is_selecting: bool, *args, groups=None, **kwargs):
+    def train(self, is_selecting: bool, folds: Optional[List], *args, groups=None, **kwargs):
         if is_selecting:
-            sub_model = None
+            sub_model = self.searcher
             if isinstance(self.searcher, Pipeline):
                 sub_model = self.searcher.steps[-1][1]
-            _fit_with_groups(self.searcher, *args, sub_model=sub_model, groups=groups, **kwargs)
+
+            init_params = inspect.signature(sub_model.__init__).parameters
+            if 'cv' in init_params:
+                default_cv = init_params['cv'].default
+            else:
+                # constructor takes cv as a positional or kwarg, just pull it out of a new instance
+                default_cv = type(sub_model)().cv
+
+            if sub_model.cv != default_cv:
+                warnings.warn(f"Model {sub_model} has a non-default cv attribute, which will be ignored")
+            sub_model.cv = folds
+
+            self.searcher.fit(*args, **kwargs)
 
             self._best_model, self._best_score = self._convert_model(self.searcher, args, kwargs)
 
         else:
-            # don't need to use _fit_with_groups here since none of these models support it
             self.best_model.fit(*args, **kwargs)
         return self
 
@@ -578,18 +604,19 @@ class ListSelector(SingleModelSelector):
         self.models = [clone(model, safe=False) for model in models]
         self.unwrap = unwrap
 
-    def train(self, is_selecting, *args, **kwargs):
+    def train(self, is_selecting, folds: Optional[List], *args, **kwargs):
+        assert len(self.models) > 0, "ListSelector must have at least one model"
         if is_selecting:
             scores = []
             for model in self.models:
-                model.train(is_selecting, *args, **kwargs)
+                model.train(is_selecting, folds, *args, **kwargs)
                 scores.append(model.best_score)
             self._all_scores = scores
             self._best_score = np.max(scores)
             self._best_model = self.models[np.argmax(scores)]
 
         else:
-            self._best_model.train(is_selecting, *args, **kwargs)
+            self._best_model.train(is_selecting, folds, *args, **kwargs)
 
     @property
     def best_model(self):
