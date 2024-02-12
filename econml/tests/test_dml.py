@@ -910,7 +910,7 @@ class TestDML(unittest.TestCase):
                   [1, 4, 5, 7, 9, 10, 12, 14, 17])
 
         dml = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(),
-                        fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False),
+                        fit_cate_intercept=False, featurizer=OneHotEncoder(sparse_output=False),
                         cv=[splits, splits[::-1]])
 
         T = np.tile([1, 2, 3], 6)

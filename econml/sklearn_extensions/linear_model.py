@@ -108,7 +108,7 @@ class WeightedModelMixin:
 
             # Normalize inputs
             X, y, X_offset, y_offset, X_scale = _preprocess_data(
-                X, y, fit_intercept=self.fit_intercept, normalize=False,
+                X, y, fit_intercept=self.fit_intercept,
                 copy=self.copy_X, check_input=check_input if check_input is not None else True,
                 sample_weight=sample_weight)
             # Weight inputs
@@ -737,7 +737,7 @@ class DebiasedLasso(WeightedLasso):
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
         X, y, X_offset, y_offset, X_scale = _preprocess_data(
-            X, y, fit_intercept=self.fit_intercept, normalize=False,
+            X, y, fit_intercept=self.fit_intercept,
             copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
 
         # Calculate quantities that will be used later on. Account for centered data

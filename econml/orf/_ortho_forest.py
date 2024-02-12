@@ -39,7 +39,7 @@ from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentE
 from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
+from ..utilities import (one_hot_encoder, reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
                          cross_product, inverse_onehot, check_input_arrays, jacify_featurizer,
                          _RegressionWrapper, deprecated, ndim)
 from sklearn.model_selection import check_cv
@@ -676,7 +676,7 @@ class DMLOrthoForest(BaseOrthoForest):
             categories = self.categories
             if categories != 'auto':
                 categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-            self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+            self.transformer = one_hot_encoder(categories=categories, drop='first')
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
@@ -1030,7 +1030,7 @@ class DROrthoForest(BaseOrthoForest):
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.transformer = one_hot_encoder(categories=categories, drop='first')
         d_t_in = T.shape[1:]
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]

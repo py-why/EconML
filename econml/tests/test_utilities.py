@@ -99,7 +99,7 @@ class TestUtilities(unittest.TestCase):
 
     def test_inverse_onehot(self):
         T = np.random.randint(4, size=100)
-        T_oh = OneHotEncoder(categories='auto', sparse=False).fit_transform(T.reshape(-1, 1))[:, 1:]
+        T_oh = OneHotEncoder(categories='auto', sparse_output=False).fit_transform(T.reshape(-1, 1))[:, 1:]
         T_inv = inverse_onehot(T_oh)
         np.testing.assert_array_equal(T, T_inv)
 
