@@ -125,6 +125,8 @@ class TestShap(unittest.TestCase):
 
     def test_identical_output(self):
         # import here since otherwise test collection would fail if matplotlib is not installed
+        import matplotlib
+        matplotlib.use('Agg')
         from shap.plots import scatter, heatmap, bar, beeswarm, waterfall
 
         # Treatment effect function
