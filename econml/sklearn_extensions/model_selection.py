@@ -434,16 +434,12 @@ def _copy_to(m1, m2, attrs, insert_underscore=False):
         setattr(m2, attr, getattr(m1, attr + "_" if insert_underscore else attr))
 
 
-def _convert_linear_model(model, new_cls, extra_attrs=[]):
+def _convert_linear_model(model, new_cls):
     new_model = new_cls()
     # copy common parameters
-    _copy_to(model, new_model, ["fit_intercept", "max_iter",
-                                "tol",
-                                "random_state"])
+    _copy_to(model, new_model, ["fit_intercept"])
     # copy common fitted variables
-    _copy_to(model, new_model, ["coef_", "intercept_", "n_features_in_", "n_iter_"])
-    # copy attributes unique to this class
-    _copy_to(model, new_model, extra_attrs)
+    _copy_to(model, new_model, ["coef_", "intercept_", "n_features_in_"])
     return new_model
 
 
@@ -452,7 +448,8 @@ def _to_logisticRegression(model: LogisticRegressionCV):
     _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
                          "class_weight",
                          "solver", "multi_class",
-                         "verbose", "n_jobs"])
+                         "verbose", "n_jobs",
+                         "tol", "max_iter", "random_state", "n_iter_"])
     _copy_to(model, lr, ["classes_"])
 
     _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next
@@ -469,8 +466,7 @@ def _to_logisticRegression(model: LogisticRegressionCV):
 
 
 def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
-    new_model = _convert_linear_model(model, new_cls, ["copy_X",
-                                                       "n_iter_"])
+    new_model = _convert_linear_model(model, new_cls)
     _copy_to(model, new_model, ["alpha"], True)
     return new_model
 
@@ -480,8 +476,9 @@ def _to_elasticNet(model: ElasticNetCV, args, kwargs, is_lasso=False, cls=None, 
     # but we can calculate it ourselves from the MSE plus the variance of the target y
     y = signature(model.fit).bind(*args, **kwargs).arguments["y"]
     cls = cls or (Lasso if is_lasso else ElasticNet)
-    new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start',
-                                                                      'dual_gap_'])
+    new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start', 'dual_gap_',
+                                                                      'tol', 'max_iter', 'random_state', 'n_iter_',
+                                                                      'copy_X'])
     if not is_lasso:
         # l1 ratio doesn't apply to Lasso, only ElasticNet
         _copy_to(model, new_model, ["l1_ratio"], True)
