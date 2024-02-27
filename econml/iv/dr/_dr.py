@@ -163,12 +163,6 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
 
         return prel_theta, Y_res, T_res, Z_res
 
-    @property
-    def needs_fit(self):
-        return (self._model_y_xw.needs_fit or self._model_t_xw.needs_fit or
-                (self._projection and self._model_t_xwz.needs_fit) or
-                (not self._projection and self._model_z_xw.needs_fit))
-
 
 class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
     def __init__(self, *, model_tz_xw,
@@ -274,10 +268,6 @@ class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
         assert cov.ndim == 1, "Nuisance outcome should be vector!"
 
         return (cov,)
-
-    @property
-    def needs_fit(self):
-        return self._model_tz_xw.needs_fit
 
 
 class _BaseDRIVModelFinal:
@@ -2463,10 +2453,6 @@ class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
         Z_res = Z - Z_pred
 
         return prel_theta, Y_res, T_res, Z_res, beta
-
-    @property
-    def needs_fit(self):
-        return self._model_y_xw.needs_fit or self._model_t_xwz.needs_fit or self._dummy_z.needs_fit
 
 
 class _DummyClassifier:

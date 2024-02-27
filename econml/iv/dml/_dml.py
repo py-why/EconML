@@ -119,12 +119,6 @@ class _OrthoIVNuisanceSelector(ModelSelector):
             Z_res = Z - Z_pred.reshape(Z.shape)
         return Y_res, T_res, Z_res
 
-    @property
-    def needs_fit(self):
-        return (self._model_y_xw.needs_fit or self._model_t_xw.needs_fit or
-                (self._projection and self._model_t_xwz.needs_fit) or
-                (not self._projection and self._model_z_xw.needs_fit))
-
 
 class _OrthoIVModelFinal:
     def __init__(self, model_final, featurizer, fit_cate_intercept):
@@ -772,10 +766,6 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
         Y_res = Y - Y_pred.reshape(Y.shape)
         T_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
         return Y_res, T_res
-
-    @property
-    def needs_fit(self):
-        return self._model_y_xw.needs_fit or self._model_t_xw.needs_fit or self._model_t_xwz.needs_fit
 
 
 class _BaseDMLIVModelFinal(_ModelFinal):

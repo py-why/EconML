@@ -37,10 +37,6 @@ class TestOrthoLearner(unittest.TestCase):
             def score(self, X, y, Q, W=None):
                 return self._model.score(X, y)
 
-            @property
-            def needs_fit(self):
-                return False
-
         np.random.seed(123)
         X = np.random.normal(size=(5000, 3))
         y = X[:, 0] + np.random.normal(size=(5000,))
@@ -118,10 +114,6 @@ class TestOrthoLearner(unittest.TestCase):
             def predict(self, X, y, W=None):
                 return self._model.predict(X), y - self._model.predict(X), X
 
-            @property
-            def needs_fit(self):
-                return False
-
         np.random.seed(123)
         X = np.random.normal(size=(5000, 3))
         y = X[:, 0] + np.random.normal(size=(5000,))
@@ -195,10 +187,6 @@ class TestOrthoLearner(unittest.TestCase):
                 def score(self, X, y, Q, W=None):
                     return self._model.score(X, y)
 
-                @property
-                def needs_fit(self):
-                    return False
-
             # Generate synthetic data
             X, y = make_regression(n_samples=10, n_features=5, noise=0.1, random_state=42)
             folds = list(KFold(2).split(X, y))
@@ -236,10 +224,6 @@ class TestOrthoLearner(unittest.TestCase):
 
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict(W)
-
-            @property
-            def needs_fit(self):
-                return False
 
         class ModelFinal:
 
@@ -353,10 +337,6 @@ class TestOrthoLearner(unittest.TestCase):
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict(W)
 
-            @property
-            def needs_fit(self):
-                return False
-
         class ModelFinal:
 
             def __init__(self):
@@ -407,10 +387,6 @@ class TestOrthoLearner(unittest.TestCase):
 
             def score(self, Y, T, W=None):
                 return (self._model_t.score(W, Y), self._model_y.score(W, T))
-
-            @property
-            def needs_fit(self):
-                return False
 
         class ModelFinal:
 
@@ -465,10 +441,6 @@ class TestOrthoLearner(unittest.TestCase):
 
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
-
-            @property
-            def needs_fit(self):
-                return False
 
         class ModelFinal:
 

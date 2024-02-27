@@ -35,10 +35,6 @@ class ModelNuisance:
     def predict(self, Y, T, W=None):
         return Y - self._model_y.predict(W), T - self._model_t.predict(W)
 
-    @property
-    def needs_fit(self):
-        return False
-
 
 class ModelFinal:
 
