@@ -72,10 +72,6 @@ class _ModelNuisance(ModelSelector):
         T_res = T - T_pred.reshape(T.shape)
         return Y_res, T_res
 
-    @property
-    def needs_fit(self):
-        return self._model_y.needs_fit or self._model_t.needs_fit
-
 
 class _ModelFinal:
     """
@@ -234,9 +230,6 @@ class _RLearner(_OrthoLearner):
             @property
             def best_score(self):
                 return 0
-            @property
-            def needs_fit(self):
-                return False
         class ModelFinal:
             def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None):
                 self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),

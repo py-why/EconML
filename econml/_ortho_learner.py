@@ -180,9 +180,6 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
                 return self
             def predict(self, X, y, W=None):
                 return self._model.predict(X)
-            @property
-            def needs_fit(self):
-                return False
         np.random.seed(123)
         X = np.random.normal(size=(5000, 3))
         y = X[:, 0] + np.random.normal(size=(5000,))
@@ -245,8 +242,7 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
         # when there is more than one model, nuisances from previous models
         # come first as positional arguments
         accumulated_args = accumulated_nuisances + args
-        if model.needs_fit:
-            model.train(True, fold_vals if folds is None else folds, *accumulated_args, **kwargs)
+        model.train(True, fold_vals if folds is None else folds, *accumulated_args, **kwargs)
 
         calculate_scores &= hasattr(model, 'score')
 
@@ -452,9 +448,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return self
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict(W)
-            @property
-            def needs_fit(self):
-                return False
         class ModelFinal:
             def __init__(self):
                 return
@@ -509,9 +502,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return self
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
-            @property
-            def needs_fit(self):
-                return False
         class ModelFinal:
             def __init__(self):
                 return

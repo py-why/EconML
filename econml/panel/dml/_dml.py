@@ -171,10 +171,6 @@ class _DynamicModelNuisanceSelector(ModelSelector):
     def _index_or_None(self, X, filter_idx):
         return None if X is None else X[filter_idx]
 
-    @property
-    def needs_fit(self):
-        return self._model_t.needs_fit or self._model_y.needs_fit
-
 
 class _DynamicModelFinal:
     """

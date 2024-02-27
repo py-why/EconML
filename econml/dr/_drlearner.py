@@ -126,10 +126,6 @@ class _ModelNuisance(ModelSelector):
         propensities_weight = np.sum(propensities * T_complete, axis=1)
         return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
 
-    @property
-    def needs_fit(self):
-        return self._model_propensity.needs_fit or self._model_regression.needs_fit
-
 
 def _make_first_stage_selector(model, is_discrete, random_state):
     if model == "auto":

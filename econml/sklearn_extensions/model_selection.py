@@ -305,15 +305,6 @@ class ModelSelector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Abstract method")
 
-    @property
-    @abc.abstractmethod
-    def needs_fit(self):
-        """
-        Whether the model selector needs to be fit before it can be used for prediction or scoring;
-        in many cases this is equivalent to whether the selector is choosing between multiple models
-        """
-        raise NotImplementedError("Abstract method")
-
 
 class SingleModelSelector(ModelSelector):
     """
@@ -392,24 +383,25 @@ class FixedModelSelector(SingleModelSelector):
     Model selection class that always selects the given sklearn-compatible model
     """
 
-    def __init__(self, model):
+    def __init__(self, model, score_during_selection):
         self.model = clone(model, safe=False)
+        self.score_during_selection = score_during_selection
 
     def train(self, is_selecting, folds: Optional[List], X, y, groups=None, **kwargs):
         if is_selecting:
-            # since needs_fit is False, is_selecting will only be true if
-            # the score needs to be compared to another model's
-            # so we don't need to fit the model itself, just get the out-of-sample score
-            assert hasattr(self.model, 'score'), (f"Can't select between a fixed {type(self.model)} model and others "
-                                                  "because it doesn't have a score method")
-            scores = []
-            for train, test in folds:
-                # use _fit_with_groups instead of just fit to handle nested grouping
-                _fit_with_groups(self.model, X[train], y[train],
-                                 groups=None if groups is None else groups[train],
-                                 **{key: val[train] for key, val in kwargs.items()})
-                scores.append(self.model.score(X[test], y[test]))
-            self._score = np.mean(scores)
+            if self.score_during_selection:
+                # the score needs to be compared to another model's
+                # so we don't need to fit the model itself on all of the data, just get the out-of-sample score
+                assert hasattr(self.model, 'score'), (f"Can't select between a fixed {type(self.model)} model "
+                                                      "and others because it doesn't have a score method")
+                scores = []
+                for train, test in folds:
+                    # use _fit_with_groups instead of just fit to handle nested grouping
+                    _fit_with_groups(self.model, X[train], y[train],
+                                     groups=None if groups is None else groups[train],
+                                     **{key: val[train] for key, val in kwargs.items()})
+                    scores.append(self.model.score(X[test], y[test]))
+                self._score = np.mean(scores)
         else:
             # we need to train the model on the data
             _fit_with_groups(self.model, X, y, groups=groups, **kwargs)
@@ -422,11 +414,10 @@ class FixedModelSelector(SingleModelSelector):
 
     @property
     def best_score(self):
-        return self._score
-
-    @property
-    def needs_fit(self):
-        return False  # We have only a single model so we can skip the selection process
+        if hasattr(self, '_score'):
+            return self._score
+        else:
+            raise ValueError("No score was computed during selection")
 
 
 def _copy_to(m1, m2, attrs, insert_underscore=False):
@@ -579,11 +570,6 @@ class SklearnCVSelector(SingleModelSelector):
     def best_score(self):
         return self._best_score
 
-    @property
-    def needs_fit(self):
-        return True  # strictly speaking, could be false if the hyperparameters are fixed
-        # but it would be complicated to check that
-
 
 class ListSelector(SingleModelSelector):
     """
@@ -627,14 +613,8 @@ class ListSelector(SingleModelSelector):
     def best_score(self):
         return self._best_score
 
-    @property
-    def needs_fit(self):
-        # technically, if there is just one model and it doesn't need to be fit we don't need to fit it,
-        # but that complicates the training logic so we don't bother with that case
-        return True
 
-
-def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV):
+def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV, needs_scoring=False):
     named_models = {
         'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
                    else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
@@ -657,19 +637,21 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
         return input
     elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
         models = [get_selector(model, is_discrete,
-                               random_state=random_state, cv=cv, wrapper=wrapper)
+                               random_state=random_state, cv=cv, wrapper=wrapper,
+                               needs_scoring=True)  # we need to score to compare outputs to each other
                   for model in input]
         return ListSelector(models)
     elif isinstance(input, str):  # we've got a string; look it up
         if input in named_models:
             return get_selector(named_models[input], is_discrete,
-                                random_state=random_state, cv=cv, wrapper=wrapper)
+                                random_state=random_state, cv=cv, wrapper=wrapper,
+                                needs_scoring=needs_scoring)
         else:
             raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
     elif SklearnCVSelector.can_wrap(input):
         return SklearnCVSelector(input)
     else:  # assume this is an sklearn-compatible model
-        return FixedModelSelector(input)
+        return FixedModelSelector(input, needs_scoring)
 
 
 class GridSearchCVList(BaseEstimator):

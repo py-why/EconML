@@ -104,10 +104,6 @@ class _FirstStageSelector(SingleModelSelector):
     def best_score(self):
         return self._model.best_score
 
-    @property
-    def needs_fit(self):
-        return self._model.needs_fit
-
 
 def _make_first_stage_selector(model, is_discrete, random_state):
     if model == 'auto':
