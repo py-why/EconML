@@ -825,9 +825,9 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
 
-    from pkg_resources import parse_version
+    from packaging.version import parse
     # verbose was removed from sklearn's non-public _fit_and_predict method in 1.4
-    if parse_version(sklearn.__version__) < parse_version("1.4"):
+    if parse(sklearn.__version__) < parse("1.4"):
         predictions = parallel(delayed(_fit_and_predict)(
             clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
             for train, test in splits)

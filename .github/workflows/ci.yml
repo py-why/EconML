@@ -203,7 +203,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
@@ -211,6 +211,9 @@ jobs:
             kind: serial
           # Ray tests run out of memory on Windows
           - os: windows-latest
+            kind: ray
+          # Ray doesn't currently support Python 3.12
+          - python-version: '3.12'
             kind: ray
         # Assign the correct package and testing options for each kind of test
         include:
