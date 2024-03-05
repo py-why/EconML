@@ -38,8 +38,8 @@ jobs:
     name: Evaluate changes
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      name: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.ref }}
         fetch-depth: 2
@@ -57,7 +57,8 @@ jobs:
       #  which will be the first parent: HEAD^ 
       # (For non-PR changes, we will always perform all CI tasks)
       # Note that GitHub Actions provides path filters, but they operate at the workflow level, not the job level
-    - run: |
+    - name: Determine type of code change
+      run: |
         if ($env:GITHUB_EVENT_NAME -eq 'pull_request') {
           $editedFiles = git diff HEAD^ --name-only
           $editedFiles # echo edited files to enable easier debugging
@@ -82,7 +83,6 @@ jobs:
         echo "buildNbs=$(($env:GITHUB_EVENT_NAME -ne 'pull_request') -or ($nbChanges -or $codeChanges))" >> $env:GITHUB_OUTPUT
         echo "testCode=$(($env:GITHUB_EVENT_NAME -ne 'pull_request') -or $codeChanges)" >> $env:GITHUB_OUTPUT
       shell: pwsh
-      name: Determine type of code change
       id: eval
     outputs: 
       buildDocs: ${{ steps.eval.outputs.buildDocs }}
@@ -95,17 +95,18 @@ jobs:
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      name: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v5
-      name: Setup Python
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
-    - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-      name: Ensure latest pip and setuptools
-    - run: 'pip install pycodestyle && pycodestyle econml'
+    - name: Ensure latest pip and setuptools
+      run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+    - name: Run pycodestyle to check style
+      run: 'pip install pycodestyle && pycodestyle econml'
 
   notebooks:
     name: Run notebooks
@@ -130,65 +131,65 @@ jobs:
     env:
       id_string: ${{ matrix.kind }}-${{ matrix.version }}
     steps:
-    - uses: actions/checkout@v4
-      name: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v5
-      name: Setup Python
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.version }}
-    - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-      name: Ensure latest pip and setuptools
-    - run: sudo apt-get -yq install graphviz
-      name: Install graphviz
+    - name: Ensure latest pip and setuptools
+      run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+    - name: Install graphviz
+      run: sudo apt-get -yq install graphviz
       if: ${{ matrix.install_graphviz }}
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
-      name: Install econml
+    - name: Install econml
+      run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
     # Install notebook requirements (if not already done as part of lkg)
-    - run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      name: Install notebook requirements
+    - name: Install notebook requirements
+      run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
       if: ${{ !env.use_lkg }}
-    - run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
-      name: Save installed packages
-    - uses: actions/upload-artifact@v3
-      name: Upload installed packages
+    - name: Save installed packages
+      run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
+    - name: Upload installed packages
+      uses: actions/upload-artifact@v3
       with:
         name: requirements
         path: notebooks-${{ env.id_string }}-requirements.txt
-    - run: pip install pytest pytest-runner coverage
-      name: Install pytest
+    - name: Install pytest
+      run: pip install pytest pytest-runner coverage
 
-    - run: python setup.py pytest
-      name: Run notebook tests
+    - name: Run notebook tests
+      run: python setup.py pytest
       id: run_tests
       env:
         PYTEST_ADDOPTS: '-m "notebook"'
         NOTEBOOK_DIR_PATTERN: ${{ matrix.pattern }}
         COVERAGE_PROCESS_START: 'setup.cfg'
-    - run: mv .coverage .coverage.${{ env.id_string }}
+    - name: Make coverage filename unique
+      run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
-      name: Make coverage filename unique
-    - uses: actions/upload-artifact@v3
-      name: Upload coverage report
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage
         path: .coverage.${{ env.id_string }}    
-    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+    - name: Make test XML filename unique
+      run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
-      name: Make test XML filename unique
-    - uses: actions/upload-artifact@v3
-      name: Upload test XML files
+    - name: Upload test XML files
+      uses: actions/upload-artifact@v3
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests
         path: ${{ env.id_string }}-test-results.xml
-    - uses: actions/upload-artifact@v3
-      name: Upload notebook outputs
+    - name: Upload notebook outputs
+      uses: actions/upload-artifact@v3
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: notebooks
@@ -235,50 +236,50 @@ jobs:
     env:
       id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
-    - uses: actions/checkout@v4
-      name: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v5
-      name: Setup Python
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-      name: Ensure latest pip and setuptools
+    - name: Ensure latest pip and setuptools
+      run: python -m pip install --upgrade pip && pip install --upgrade setuptools
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
-      name: Install econml
-    - run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
-      name: Save installed packages
-    - uses: actions/upload-artifact@v3
-      name: Upload installed packages
+    - name: Install econml
+      run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
+    - name: Save installed packages
+      run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
+    - name: Upload installed packages
+      uses: actions/upload-artifact@v3
       with:
         name: requirements
         path: tests-${{ env.id_string }}-requirements.txt
-    - run: pip install pytest pytest-runner coverage
-      name: Install pytest
-    - run: python setup.py pytest
-      name: Run tests
+    - name: Install pytest
+      run: pip install pytest pytest-runner coverage
+    - name: Run tests
+      run: python setup.py pytest
       id: run_tests
       env:
         PYTEST_ADDOPTS: ${{ matrix.opts }}
         COVERAGE_PROCESS_START: 'setup.cfg'
-    - run: mv .coverage .coverage.${{ env.id_string }}
+    - name: Make coverage filename unique
+      run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
-      name: Make coverage filename unique
-    - uses: actions/upload-artifact@v3
-      name: Upload coverage report
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage
         path: .coverage.${{ env.id_string }}
-    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+    - name: Make test XML filename unique
+      run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
-      name: Make test XML filename unique
-    - uses: actions/upload-artifact@v3
-      name: Upload test XML files
+    - name: Upload test XML files
+      uses: actions/upload-artifact@v3
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests
@@ -290,29 +291,29 @@ jobs:
     if: success() || failure()
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      name: Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ env.ref }}
-    - uses: actions/download-artifact@v3
-      name: Get coverage reports
+    - name: Get coverage reports
+      uses: actions/download-artifact@v3
       with:
         name: coverage
         path: coverage
-    - uses: actions/setup-python@v5
-      name: Setup Python
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
         python-version: '3.8'
-    - run: pip install coverage
-      name: Install coverage
-    - run: coverage combine coverage/
-      name: Combine coverage reports
-    - run: coverage report -m --format=markdown > $GITHUB_STEP_SUMMARY
-      name: Generate coverage report
-    - run: coverage html
-      name: Generate coverage html --fail-under=86
-    - uses: actions/upload-artifact@v3
-      name: Upload coverage report
+    - name: Install coverage
+      run: pip install coverage
+    - name: Combine coverage reports
+      run: coverage combine coverage/
+    - name: Generate coverage report
+      run: coverage report -m --format=markdown > $GITHUB_STEP_SUMMARY
+    - name: Generate coverage html --fail-under=86
+      run: coverage html
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
       with:
         name: coverage
         path: htmlcov
@@ -349,9 +350,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-    - run: exit 1
-      name: At least one check failed or was cancelled
+    - name: At least one check failed or was cancelled
+      run: exit 1
       if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-    - run: exit 0
-      name: All checks passed
+    - name: All checks passed
+      run: exit 0
       if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
