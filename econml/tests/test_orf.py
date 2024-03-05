@@ -316,8 +316,8 @@ class TestOrthoForest(unittest.TestCase):
             "Estimators of type {} do not accept weights. "
             "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
         )
-        self.assertRaisesRegexp(TypeError, weights_error_msg.format("NoWeightModel"),
-                                est.effect, X=TestOrthoForest.X)
+        self.assertRaisesRegex(TypeError, weights_error_msg.format("NoWeightModel"),
+                               est.effect, X=TestOrthoForest.X)
 
     def _test_te(self, learner_instance, expected_te, tol, treatment_type='continuous'):
         # Compute the treatment effect on test points

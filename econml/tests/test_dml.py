@@ -787,7 +787,7 @@ class TestDML(unittest.TestCase):
             np.testing.assert_array_less(mean_truth - .03, inf_sum.ci_upper)
             tables = est.summary().tables
             for t in range(4):
-                np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(np.float),
+                np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(float),
                                            mean_truth, rtol=0, atol=.06)
 
             if it == 0:

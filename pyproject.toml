@@ -28,7 +28,8 @@ dependencies = [
     "statsmodels >= 0.10",
     "pandas > 1.0",
     "shap >= 0.38.1, < 0.44.0",
-    "lightgbm"
+    "lightgbm",
+    "packaging"
 ]
 
 [project.urls]
