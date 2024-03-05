@@ -139,17 +139,18 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.version }}
-    - name: Ensure latest pip and setuptools
-      run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+    - name: Install uv
+      # check if we're running on windows
+      run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
     - name: Install graphviz
       run: sudo apt-get -yq install graphviz
       if: ${{ matrix.install_graphviz }}
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
+      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
     # Install notebook requirements (if not already done as part of lkg)
     - name: Install notebook requirements
-      run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
       if: ${{ !env.use_lkg }}
     - name: Save installed packages
       run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
@@ -159,7 +160,7 @@ jobs:
         name: requirements
         path: notebooks-${{ env.id_string }}-requirements.txt
     - name: Install pytest
-      run: pip install pytest pytest-runner coverage
+      run: uv pip install --system pytest pytest-runner coverage
 
     - name: Run notebook tests
       run: python setup.py pytest
@@ -244,11 +245,12 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Ensure latest pip and setuptools
-      run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+    - name: Install uv
+      # check if we're running on windows
+      run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
+      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
     - name: Save installed packages
       run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
@@ -257,7 +259,7 @@ jobs:
         name: requirements
         path: tests-${{ env.id_string }}-requirements.txt
     - name: Install pytest
-      run: pip install pytest pytest-runner coverage
+      run: uv pip install --system pytest pytest-runner coverage
     - name: Run tests
       run: python setup.py pytest
       id: run_tests
