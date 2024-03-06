@@ -31,31 +31,12 @@ def test_notebook(file):
 
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
 
-    # make sure that coverage outputs reflect notebook contents
-    nb.cells.insert(0, nbformat.v4.new_code_cell(f"""
-    import os, coverage
-    cwd = os.getcwd()
-    os.chdir({_maindir!r}) # change to the root directory, so that setup.cfg is found
-    coverage.process_startup()
-    os.chdir(cwd) # change back to the original directory"""))
-
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
     ep = nbconvert.preprocessors.ExecutePreprocessor(
-        timeout=1800, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
+        timeout=1800, allow_errors=True)
 
-    ep.preprocess(nb, {'metadata': {'path': _nbdir}})
-
-    # remove added coverage cell, then decrement execution_count for other cells to account for it
-    nb.cells.pop(0)
-    for cell in nb.cells:
-        if "execution_count" in cell:
-            if cell["execution_count"] is not None:  # could be None if the cell errored
-                cell["execution_count"] -= 1
-        if "outputs" in cell:
-            for output in cell["outputs"]:
-                if "execution_count" in output:
-                    output["execution_count"] -= 1
+    ep.preprocess(nb, {'metadata': {'path': '.'}})
 
     output_file = os.path.join(_nbdir, 'output', file)
     # create directory if necessary
