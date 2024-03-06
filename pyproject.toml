@@ -49,9 +49,9 @@ tf = [
     "keras < 2.4; python_version < '3.9'",
     "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "protobuf < 4",
+    "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "numpy < 1.24"
+    "numpy < 1.24; python_version < '3.9'"
 ]
 plt = [
     "graphviz",
@@ -74,9 +74,9 @@ all = [
     "keras < 2.4; python_version < '3.9'",
     "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "protobuf < 4",
+    "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "numpy < 1.24",
+    "numpy < 1.24; python_version < '3.9'",
     "graphviz",
     "matplotlib",    
     "dowhy < 0.12; python_version > '3.8'",
