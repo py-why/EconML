@@ -58,7 +58,10 @@ plt = [
     "matplotlib"
 ]
 dowhy = [
-    "dowhy < 0.11"
+    # when updating this, also update the version check in dowhy.py
+    "dowhy < 0.12; python_version > '3.8'",
+    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
+    "dowhy < 0.11; python_version <= '3.8'"
 ]
 ray = [
     "ray > 2.2.0"
@@ -75,8 +78,10 @@ all = [
     # Version capped due to tensorflow incompatibility
     "numpy < 1.24",
     "graphviz",
-    "matplotlib",
-    "dowhy < 0.11",
+    "matplotlib",    
+    "dowhy < 0.12; python_version > '3.8'",
+    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
+    "dowhy < 0.11; python_version <= '3.8'",
     "ray > 2.2.0"
 ]
 
