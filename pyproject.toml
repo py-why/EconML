@@ -96,7 +96,8 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=setup.cfg --cov=econml"
+testpaths = ["econml/tests"]
+addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=pyproject.toml --cov"
 markers = [    
     "slow",
     "notebook",
@@ -106,4 +107,20 @@ markers = [
     "cate_api",
     "treatment_featurization",
     "ray"
+]
+
+[tool.coverage.run]
+branch = true
+# need to explicitly add support for multiprocessing for OrthoForest
+concurrency = [
+    "thread",
+    "multiprocessing"
+]
+source = ["econml"]
+omit = ["econml/tests/*"]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "raise NotImplementedError\\(\"(Abstract method|Defer to inference)\"\\)"
 ]

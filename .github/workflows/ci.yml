@@ -160,15 +160,14 @@ jobs:
         name: requirements
         path: notebooks-${{ env.id_string }}-requirements.txt
     - name: Install pytest
-      run: uv pip install --system pytest pytest-runner coverage
-
+      run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
     - name: Run notebook tests
-      run: python setup.py pytest
+      run: python -m pytest
       id: run_tests
       env:
         PYTEST_ADDOPTS: '-m "notebook"'
         NOTEBOOK_DIR_PATTERN: ${{ matrix.pattern }}
-        COVERAGE_PROCESS_START: 'setup.cfg'
+        COVERAGE_PROCESS_START: 'pyproject.toml'
     - name: Make coverage filename unique
       run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
@@ -262,13 +261,13 @@ jobs:
         name: requirements
         path: tests-${{ env.id_string }}-requirements.txt
     - name: Install pytest
-      run: uv pip install --system pytest pytest-runner coverage
+      run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
     - name: Run tests
-      run: python setup.py pytest
+      run: python -m pytest
       id: run_tests
       env:
         PYTEST_ADDOPTS: ${{ matrix.opts }}
-        COVERAGE_PROCESS_START: 'setup.cfg'
+        COVERAGE_PROCESS_START: 'pyproject.toml'
     - name: Make coverage filename unique
       run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
@@ -310,7 +309,7 @@ jobs:
       with:
         python-version: '3.8'
     - name: Install coverage
-      run: pip install coverage
+      run: pip install coverage[toml]
     - name: Combine coverage reports
       run: coverage combine coverage/
     - name: Generate coverage report
