@@ -74,9 +74,9 @@ jobs:
           CIBW_BUILD: cp3*
           CIBW_SKIP: "*musl* *win32 *i686"
       - name: Upload wheels as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.os }}
           path: dist/
   build_sdist:
     name: Build sdist
@@ -97,13 +97,26 @@ jobs:
       - name: Build sdist
         run: python setup.py sdist
       - name: Upload sdist as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/
+
+  merge:
+    name: Merge artifacts
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Merge artifacts"
+        uses: actions/upload-artifact/merge@v4
         with:
           name: dist
-          path: dist/
+          pattern: dist-*
+          delete-merged: true
+
   publish:
     name: Publish to PyPI or TestPyPI
-    needs: [build_wheels, build_sdist]
+    needs: [merge]
     runs-on: ubuntu-latest
     steps:
       - name: Setup Python
@@ -115,7 +128,7 @@ jobs:
       - name: Install twine
         run: pip install twine
       - name: Download wheels and sdist
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/

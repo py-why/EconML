@@ -155,9 +155,9 @@ jobs:
     - name: Save installed packages
       run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: requirements
+        name: requirements-${{ env.id_string }}
         path: notebooks-${{ env.id_string }}-requirements.txt
     - name: Install pytest
       run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
@@ -173,26 +173,26 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
-        name: coverage
+        name: coverage-${{ env.id_string }}
         path: .coverage.${{ env.id_string }}    
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
-        name: tests
+        name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
     - name: Upload notebook outputs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
-        name: notebooks
+        name: notebooks-${{ env.id_string }}
         path: notebooks/output/
   
   tests:
@@ -256,9 +256,9 @@ jobs:
     - name: Save installed packages
       run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: requirements
+        name: requirements-${{ env.id_string }}
         path: tests-${{ env.id_string }}-requirements.txt
     - name: Install pytest
       run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
@@ -273,20 +273,20 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
-        name: coverage
+        name: coverage-${{ env.id_string }}
         path: .coverage.${{ env.id_string }}
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
-        name: tests
+        name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
   coverage-report:
@@ -300,10 +300,11 @@ jobs:
       with:
         ref: ${{ env.ref }}
     - name: Get coverage reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
-        name: coverage
+        pattern: coverage-*
         path: coverage
+        merge-multiple: true
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
@@ -317,10 +318,26 @@ jobs:
     - name: Generate coverage html --fail-under=86
       run: coverage html
     - name: Upload coverage report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: coverage
+        name: coverage-report
         path: htmlcov
+      
+  merge-artifacts:
+    name: "Merge artifacts"
+    needs: [coverage-report, tests, notebooks]
+    if: success() || failure()
+    strategy:
+      matrix:
+        artifact: [requirements, tests, coverage, notebooks]
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Merge artifacts"
+      uses: actions/upload-artifact/merge@v4
+      with:
+        name: ${{ matrix.artifact }}
+        pattern: "${{ matrix.artifact }}-*"
+        delete-merged: true
       
   build:
     name: Build package
