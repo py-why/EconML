@@ -1,185 +1,190 @@
-Babel==2.13.1
-Cython==0.29.36; '3.9'<=python_version
-Jinja2==3.1.2
+Babel==2.14.0
+Cython==3.0.10; '3.9'<=python_version
+Jinja2==3.1.3
 Keras-Applications==1.0.8; python_version<='3.8'
 Keras-Preprocessing==1.1.2; python_version<='3.8'
 Keras==2.3.1; python_version<='3.8'
-Markdown==3.5.1; python_version<='3.8'
-MarkupSafe==2.1.3
-Pillow==10.1.0
+Markdown==3.6; python_version<='3.8'
+MarkupSafe==2.1.5
 PyYAML==6.0.1
-Pygments==2.16.1
+Pygments==2.17.2
 QtPy==2.4.1
-Send2Trash==1.8.2
-Werkzeug==3.0.1; python_version<='3.8'
-absl-py==2.0.0; python_version<='3.8'
+Send2Trash==1.8.3
+Werkzeug==3.0.2; python_version<='3.8'
+absl-py==2.1.0; python_version<='3.8'
 aiosignal==1.3.1; python_version<='3.8'
-anyio==4.0.0
+anyio==4.3.0
 argon2-cffi-bindings==21.2.0
 argon2-cffi==23.1.0
 arrow==1.3.0
 asttokens==2.4.1
 astunparse==1.6.3; python_version<='3.8'
 async-lru==2.0.4
-attrs==23.1.0
+attrs==23.2.0
 backcall==0.2.0; python_version<='3.8'
-beautifulsoup4==4.12.2
+beautifulsoup4==4.12.3
 bleach==6.1.0
 cachetools==4.2.4; python_version<='3.8'
-causal-learn==0.1.3.7; '3.9'<=python_version
-certifi==2023.7.22
+causal-learn==0.1.3.8; '3.9'<=python_version
+certifi==2024.2.2
 cffi==1.16.0
 charset-normalizer==3.3.2
-clarabel==0.6.0; '3.9'<=python_version
+clarabel==0.7.1; '3.9'<=python_version
 click==8.1.7; python_version<='3.8'
 cloudpickle==3.0.0
-comm==0.1.4
+comm==0.2.2
 contourpy==1.1.1; python_version<='3.8'
-contourpy==1.2.0; '3.9'<=python_version
-cvxpy==1.4.1; '3.9'<=python_version
+contourpy==1.2.1; '3.9'<=python_version
+cvxpy==1.4.3; '3.9'<=python_version
 cycler==0.12.1
-debugpy==1.8.0
+debugpy==1.8.1
 decorator==5.1.1
 defusedxml==0.7.1
-dowhy==0.10.1; '3.9'<=python_version
-ecos==2.0.12; '3.9'<=python_version
-exceptiongroup==1.1.3
+dowhy==0.11.1; '3.9'<=python_version
+ecos==2.0.13; '3.9'<=python_version
+exceptiongroup==1.2.1
 executing==2.0.1
-fastjsonschema==2.18.1
-filelock==3.13.1; python_version<='3.8'
-fonttools==4.44.0
+fastjsonschema==2.19.1
+filelock==3.13.4; python_version<='3.8'
+fonttools==4.51.0
 fqdn==1.5.1
-frozenlist==1.4.0; python_version<='3.8'
+frozenlist==1.4.1; python_version<='3.8'
 gast==0.3.3; python_version<='3.8'
 google-auth-oauthlib==0.4.6; python_version<='3.8'
 google-auth==1.35.0; python_version<='3.8'
 google-pasta==0.2.0; python_version<='3.8'
-graphviz==0.20.1
-grpcio==1.59.2; python_version<='3.8'
+graphviz==0.20.3
+grpcio==1.62.2; python_version<='3.8'
+h11==0.14.0
 h5py==2.10.0; python_version<='3.8'
-idna==3.4
-importlib-metadata==6.8.0
-importlib-resources==6.1.0
-ipykernel==6.26.0
-ipython-genutils==0.2.0
+httpcore==1.0.5
+httpx==0.27.0
+idna==3.7
+importlib_metadata==7.1.0
+importlib_resources==6.4.0
+ipykernel==6.29.4
 ipython==8.12.3; python_version<='3.8'
-ipython==8.17.2; '3.9'<=python_version
-ipywidgets==8.1.1
+ipython==8.18.1; '3.9'<=python_version
+ipywidgets==8.1.2
 isoduration==20.11.0
 jedi==0.19.1
-joblib==1.3.2
-json5==0.9.14
+joblib==1.4.0
+json5==0.9.25
 jsonpointer==2.4
-jsonschema-specifications==2023.7.1
-jsonschema==4.19.2
+jsonschema-specifications==2023.12.1
+jsonschema==4.21.1
 jupyter-console==6.6.3
-jupyter-events==0.8.0
-jupyter-lsp==2.2.0
+jupyter-events==0.10.0
+jupyter-lsp==2.2.5
 jupyter==1.0.0
-jupyter_client==8.5.0
-jupyter_core==5.5.0
-jupyter_server==2.9.1
-jupyter_server_terminals==0.4.4
-jupyterlab-pygments==0.2.2
-jupyterlab-widgets==3.0.9
-jupyterlab==4.0.8
-jupyterlab_server==2.25.0
+jupyter_client==8.6.1
+jupyter_core==5.7.2
+jupyter_server==2.14.0
+jupyter_server_terminals==0.5.3
+jupyterlab==4.1.6
+jupyterlab_pygments==0.3.0
+jupyterlab_server==2.27.1
+jupyterlab_widgets==3.0.10
 kiwisolver==1.4.5
-lightgbm==4.1.0
-llvmlite==0.41.1
-matplotlib-inline==0.1.6
-matplotlib==3.7.3; python_version<='3.8'
-matplotlib==3.8.1; '3.9'<=python_version
+lightgbm==4.3.0
+llvmlite==0.41.1; python_version<='3.8'
+llvmlite==0.42.0; '3.9'<=python_version
+matplotlib-inline==0.1.7
+matplotlib==3.7.5; python_version<='3.8'
+matplotlib==3.8.4; '3.9'<=python_version
 mistune==3.0.2
 mpmath==1.3.0; '3.9'<=python_version
-msgpack==1.0.7; python_version<='3.8'
-nbclient==0.8.0
-nbconvert==7.10.0
-nbformat==5.9.2
-nest-asyncio==1.5.8
+msgpack==1.0.8; python_version<='3.8'
+nbclient==0.10.0
+nbconvert==7.16.3
+nbformat==5.10.4
+nest-asyncio==1.6.0
 networkx==3.2.1; '3.9'<=python_version
-notebook==7.0.6
-notebook_shim==0.2.3
-numba==0.58.1
+notebook==7.1.3
+notebook_shim==0.2.4
+numba==0.58.1; python_version<='3.8'
+numba==0.59.1; '3.9'<=python_version
 numpy==1.23.5; python_version<='3.8'
-numpy==1.26.1; '3.9'<=python_version
+numpy==1.26.4; '3.9'<=python_version
 oauthlib==3.2.2; python_version<='3.8'
 opt-einsum==3.3.0; python_version<='3.8'
-osqp==0.6.3; '3.9'<=python_version
-overrides==7.4.0
-packaging==23.2
+osqp==0.6.4; '3.9'<=python_version
+overrides==7.7.0
+packaging==24.0
 pandas==2.0.3; python_version<='3.8'
-pandas==2.1.2; '3.9'<=python_version
-pandocfilters==1.5.0
-parso==0.8.3
-patsy==0.5.3
-pexpect==4.8.0
+pandas==2.2.2; '3.9'<=python_version
+pandocfilters==1.5.1
+parso==0.8.4
+patsy==0.5.6
+pexpect==4.9.0
 pickleshare==0.7.5; python_version<='3.8'
+pillow==10.3.0
 pkgutil_resolve_name==1.3.10; python_version<='3.8'
-platformdirs==3.11.0
-prometheus-client==0.18.0
-prompt-toolkit==3.0.39
+platformdirs==4.2.1
+prometheus_client==0.20.0
+prompt-toolkit==3.0.43
 protobuf==3.20.3; python_version<='3.8'
-psutil==5.9.6
+psutil==5.9.8
 ptyprocess==0.7.0
 pure-eval==0.2.2
-pyasn1-modules==0.3.0; python_version<='3.8'
-pyasn1==0.5.0; python_version<='3.8'
-pybind11==2.11.1; '3.9'<=python_version
-pycparser==2.21
-pydot==1.4.2; '3.9'<=python_version
-pyparsing==3.1.1
-python-dateutil==2.8.2
+pyasn1==0.6.0; python_version<='3.8'
+pyasn1_modules==0.4.0; python_version<='3.8'
+pybind11==2.12.0; '3.9'<=python_version
+pycparser==2.22
+pydot==2.0.0; '3.9'<=python_version
+pyparsing==3.1.2
+python-dateutil==2.9.0.post0
 python-json-logger==2.0.7
-pytz==2023.3.post1
-pyzmq==25.1.1
-qdldl==0.1.7.post0; '3.9'<=python_version
-qtconsole==5.4.4
-ray==2.8.0; python_version<='3.8'
-referencing==0.30.2
-requests-oauthlib==1.3.1; python_version<='3.8'
+pytz==2024.1
+pyzmq==26.0.2
+qdldl==0.1.7.post2; '3.9'<=python_version
+qtconsole==5.5.1
+ray==2.10.0; python_version<='3.8'
+referencing==0.35.0
+requests-oauthlib==2.0.0; python_version<='3.8'
 requests==2.31.0
 rfc3339-validator==0.1.4
 rfc3986-validator==0.1.1
-rpds-py==0.10.6
+rpds-py==0.18.0
 rsa==4.9; python_version<='3.8'
 scikit-learn==1.2.2; python_version<='3.8'
-scikit-learn==1.3.2; '3.9'<=python_version
-scipy==1.11.3; '3.9'<=python_version
+scikit-learn==1.4.2; '3.9'<=python_version
+scipy==1.13.0; '3.9'<=python_version
 scipy==1.4.1; python_version<='3.8'
-scs==3.2.3; '3.9'<=python_version
-seaborn==0.13.0
+scs==3.2.4.post1; '3.9'<=python_version
+seaborn==0.13.2
 shap==0.43.0
 six==1.16.0
 slicer==0.0.7
-sniffio==1.3.0
+sniffio==1.3.1
 soupsieve==2.5
-sparse==0.14.0
+sparse==0.15.1
 stack-data==0.6.3
-statsmodels==0.14.0
+statsmodels==0.14.1; python_version<='3.8'
+statsmodels==0.14.2; '3.9'<=python_version
 sympy==1.12; '3.9'<=python_version
 tensorboard-plugin-wit==1.8.1; python_version<='3.8'
 tensorboard==2.2.2; python_version<='3.8'
 tensorflow-estimator==2.2.0; python_version<='3.8'
 tensorflow==2.2.0; python_version<='3.8'
-termcolor==2.3.0; python_version<='3.8'
-terminado==0.17.1
-threadpoolctl==3.2.0
-tinycss2==1.2.1
+termcolor==2.4.0; python_version<='3.8'
+terminado==0.18.1
+threadpoolctl==3.4.0
+tinycss2==1.3.0
 tomli==2.0.1
-tornado==6.3.3
-tqdm==4.66.1
-traitlets==5.13.0
-types-python-dateutil==2.8.19.14
-typing_extensions==4.8.0
-tzdata==2023.3
+tornado==6.4
+tqdm==4.66.2
+traitlets==5.14.3
+types-python-dateutil==2.9.0.20240316
+typing_extensions==4.11.0
+tzdata==2024.1
 uri-template==1.3.0
-urllib3==2.0.7
-wcwidth==0.2.9
+urllib3==2.2.1
+wcwidth==0.2.13
 webcolors==1.13
 webencodings==0.5.1
-websocket-client==1.6.4
-widgetsnbextension==4.0.9
-wrapt==1.15.0; python_version<='3.8'
-xgboost==2.0.1
-zipp==3.17.0
+websocket-client==1.8.0
+widgetsnbextension==4.0.10
+wrapt==1.16.0; python_version<='3.8'
+xgboost==2.0.3
+zipp==3.18.1
