@@ -81,7 +81,7 @@ jobs:
       - name: Build documentation
         run: pip install "sphinx~=4.4.0" "sphinx_rtd_theme~=1.0.0" && python setup.py build_sphinx -W
       - name: Upload docs as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docs
           path: build/sphinx/html/
@@ -108,7 +108,7 @@ jobs:
           zip -r docs.zip *
           popd
       - name: Login to Azure
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
