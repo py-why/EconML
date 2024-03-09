@@ -91,9 +91,17 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["econml", "econml.*"]
+exclude = ["econml.tests"]
+
+[tool.setuptools.package-data]
+# include all CSV files as data
+"*" = ["*.csv", "*.jbl"]
+
 [tool.pytest.ini_options]
 testpaths = ["econml/tests"]
-addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=pyproject.toml --cov"
+addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=pyproject.toml --cov --import-mode=importlib"
 markers = [    
     "slow",
     "notebook",
