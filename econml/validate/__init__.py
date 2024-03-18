@@ -5,7 +5,9 @@
 A suite of validation methods for CATE models.
 """
 
-from .drtester import DRtester
+from .drtester import DRTester
+from .results import BLPEvaluationResults, CalibrationEvaluationResults, UpliftEvaluationResults, EvaluationResults
 
 
-__all__ = ['DRtester']
+__all__ = ['DRTester',
+           'BLPEvaluationResults', 'CalibrationEvaluationResults', 'UpliftEvaluationResults', 'EvaluationResults']

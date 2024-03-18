@@ -8,11 +8,13 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
+from econml.utilities import deprecated
+
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
 
 
-class DRtester:
+class DRTester:
 
     """
     Validation tests for CATE models. Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
@@ -630,3 +632,9 @@ class DRtester:
         )
 
         return self.res
+
+
+@deprecated("DRtester has been renamed 'DRTester' and the old name has been deprecated and will be removed "
+            "in a future release. Please use 'DRTester' instead.")
+class DRtester(DRTester):
+    pass

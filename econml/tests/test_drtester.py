@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from econml.validate.drtester import DRtester
+from econml.validate.drtester import DRTester
 from econml.dml import DML
 
 
@@ -70,7 +70,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -123,7 +123,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -171,7 +171,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -212,7 +212,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -268,7 +268,7 @@ class TestDRTester(unittest.TestCase):
             str(exc.exception) == "Unsupported metric - must be one of ['toc', 'qini']"
         )
 
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
