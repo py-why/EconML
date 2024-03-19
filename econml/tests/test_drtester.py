@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from econml.validate.drtester import DRtester
+from econml.validate.drtester import DRTester
 from econml.dml import DML
 
 
@@ -70,7 +70,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -123,7 +123,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -148,8 +148,8 @@ class TestDRTester(unittest.TestCase):
                 self.assertRaises(ValueError, res.plot_toc, k)
             else:  # real treatment, k = 1
                 self.assertTrue(res.plot_cal(k) is not None)
-                self.assertTrue(res.plot_qini(k) is not None)
-                self.assertTrue(res.plot_toc(k) is not None)
+                self.assertTrue(res.plot_qini(k, 'ucb2') is not None)
+                self.assertTrue(res.plot_toc(k, 'ucb1') is not None)
 
         self.assertLess(res_df.blp_pval.values[0], 0.05)  # heterogeneity
         self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
@@ -171,7 +171,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -193,8 +193,8 @@ class TestDRTester(unittest.TestCase):
         for kwargs in [{}, {'Xval': Xval}]:
             with self.assertRaises(Exception) as exc:
                 my_dr_tester.evaluate_cal(kwargs)
-            self.assertTrue(
-                str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+            self.assertEqual(
+                str(exc.exception), "Must fit nuisance models on training sample data to use calibration test"
             )
 
     def test_exceptions(self):
@@ -212,7 +212,7 @@ class TestDRTester(unittest.TestCase):
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -223,11 +223,11 @@ class TestDRTester(unittest.TestCase):
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_cal':
-                self.assertTrue(
-                    str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+                self.assertEqual(
+                    str(exc.exception), "Must fit nuisance models on training sample data to use calibration test"
                 )
             else:
-                self.assertTrue(str(exc.exception) == "Must fit nuisances before evaluating")
+                self.assertEqual(str(exc.exception), "Must fit nuisances before evaluating")
 
         my_dr_tester = my_dr_tester.fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
@@ -242,12 +242,12 @@ class TestDRTester(unittest.TestCase):
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_blp':
-                self.assertTrue(
-                    str(exc.exception) == "CATE predictions not yet calculated - must provide Xval"
+                self.assertEqual(
+                    str(exc.exception), "CATE predictions not yet calculated - must provide Xval"
                 )
             else:
-                self.assertTrue(str(exc.exception) ==
-                                "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+                self.assertEqual(str(exc.exception),
+                                 "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         for func in [
             my_dr_tester.evaluate_cal,
@@ -256,19 +256,19 @@ class TestDRTester(unittest.TestCase):
         ]:
             with self.assertRaises(Exception) as exc:
                 func(Xval=Xval)
-            self.assertTrue(
-                str(exc.exception) == "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+            self.assertEqual(
+                str(exc.exception), "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         cal_res = my_dr_tester.evaluate_cal(Xval, Xtrain)
         self.assertGreater(cal_res.cal_r_squared[0], 0)  # good R2
 
         with self.assertRaises(Exception) as exc:
             my_dr_tester.evaluate_uplift(metric='blah')
-        self.assertTrue(
-            str(exc.exception) == "Unsupported metric - must be one of ['toc', 'qini']"
+        self.assertEqual(
+            str(exc.exception), "Unsupported metric 'blah' - must be one of ['toc', 'qini']"
         )
 
-        my_dr_tester = DRtester(
+        my_dr_tester = DRTester(
             model_regression=reg_y,
             model_propensity=reg_t,
             cate=cate
@@ -277,6 +277,12 @@ class TestDRTester(unittest.TestCase):
         )
         qini_res = my_dr_tester.evaluate_uplift(Xval, Xtrain)
         self.assertLess(qini_res.pvals[0], 0.05)
+
+        with self.assertRaises(Exception) as exc:
+            qini_res.plot_uplift(tmt=1, err_type='blah')
+        self.assertEqual(
+            str(exc.exception), "Invalid error type 'blah'; must be one of [None, 'ucb2', 'ucb1']"
+        )
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
         self.assertLess(autoc_res.pvals[0], 0.05)

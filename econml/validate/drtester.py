@@ -8,12 +8,13 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
+from econml.utilities import deprecated
+
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
 
 
-class DRtester:
-
+class DRTester:
     """
     Validation tests for CATE models. Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
     the calibration test in Dwivedi et al. (2020), and the QINI coefficient as in Radcliffe (2007).
@@ -46,16 +47,26 @@ class DRtester:
     The calibration r-squared metric is similar to the standard R-square score in that it can take any value
     less than or equal to 1, with scores closer to 1 indicating a better calibrated CATE model.
 
-    **QINI**
+    **Uplift Modeling**
 
     Units are ordered by predicted CATE values and a running measure of the average treatment effect in each cohort is
-    kept as we progress through ranks. The QINI coefficient is then the area under the resulting curve, with a value
-    of 0 interpreted as corresponding to a model with randomly assigned CATE coefficients. All calculations are
-    performed on validation dataset results, using the training set as input.
+    kept as we progress through ranks. The resulting TOC curve can then be plotted and its integral calculated and used
+    as a measure of true heterogeneity captured by the CATE model; this integral is referred to as the AUTOC (area
+    under TOC). The QINI curve is a variant of this curve that also incorporates treatment probability; its integral is
+    referred to as the QINI coefficient.
 
-    More formally, the QINI curve is given by the following function:
+    More formally, the TOC and QINI curves are given by the following functions:
 
     .. math::
+
+        \\tau_{TOC}(q) = \\mathrm{Cov}(
+            Y^{DR}(g,p),
+            \\frac{
+                \\mathbb{1}\\{\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q)\\}
+            }{
+                \\mathrm{Pr}(\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q))
+            }
+        )
 
         \\tau_{QINI}(q) = \\mathrm{Cov}(Y^{DR}(g,p), \\mathbb{1}\\{\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q)\\})
 
@@ -63,29 +74,34 @@ class DRtester:
     the predicted CATE function.
     :math:`Y^{DR}(g,p)` refers to the doubly robust outcome difference (relative to control) for the given observation.
 
-    The QINI coefficient is then given by:
+    The AUTOC and QINI coefficient are then given by:
 
     .. math::
+
+        AUTOC = \\int_0^1 \\tau_{TOC}(q) dq
 
         QINI = \\int_0^1 \\tau_{QINI}(q) dq
 
     Parameters
     ----------
     model_regression: estimator
-        Nuisance model estimator used to fit the outcome to features. Must be able to implement `fit' and `predict'
+        Nuisance model estimator used to fit the outcome to features. Must be able to implement `fit` and `predict`
         methods
 
     model_propensity: estimator
-        Nuisance model estimator used to fit the treatment assignment to features. Must be able to implement `fit'
-        method and either `predict' (in the case of binary treatment) or `predict_proba' methods (in the case of
+        Nuisance model estimator used to fit the treatment assignment to features. Must be able to implement `fit`
+        method and either `predict` (in the case of binary treatment) or `predict_proba` methods (in the case of
         multiple categorical treatments).
 
-    n_splits: integer, default 5
-        Number of splits used to generate cross-validated predictions
+    cate: estimator
+        Fitted conditional average treatment effect (CATE) estimator to be validated.
+
+    cv: int or list, default 5
+        Splitter used for cross-validation. Can be either an integer (corresponding to the number of desired folds)
+        or a list of indices corresponding to membership in each fold.
 
     References
     ----------
-
 
     [Chernozhukov2022] V. Chernozhukov et al.
     Generic Machine Learning Inference on Heterogeneous Treatment Effects in Randomized Experiments
@@ -96,7 +112,6 @@ class DRtester:
     Stable Discovery of Interpretable Subgroups via Calibration in Causal Studies
     arXiv preprint 	arXiv:2008.10109, 2020.
     `<https://arxiv.org/abs/2008.10109>`_
-
 
     [Radcliffe2007] N. Radcliffe
     Using control groups to target on predicted lift: Building and assessing uplift model.
@@ -175,7 +190,7 @@ class DRtester:
         Generates nuisance predictions and calculates doubly robust (DR) outcomes either by (1) cross-fitting in the
         validation sample, or (2) fitting in the training sample and applying to the validation sample. If Xtrain,
         Dtrain, and ytrain are all not None, then option (2) will be implemented, otherwise, option (1) will be
-        implemented. In order to use the `evaluate_cal' method then Xtrain, Dtrain, and ytrain must all be specified.
+        implemented. In order to use the `evaluate_cal` method then Xtrain, Dtrain, and ytrain must all be specified.
 
         Parameters
         ----------
@@ -186,12 +201,12 @@ class DRtester:
             the control status be equal to 0, and all other treatments integers starting at 1.
         yval: vector of length n_val
             Outcomes for the validation sample
-        Xtrain: (n_train x k) matrix or vector of length n, default ``None``
+        Xtrain: (n_train x k) matrix or vector of length n, optional
             Features used in nuisance models for training sample
-        Dtrain: vector of length n_train, default ``None''
+        Dtrain: vector of length n_train, optional
             Treatment assignment of training sample. Control status must be minimum value. It is recommended to have
             the control status be equal to 0, and all other treatments integers starting at 1.
-        ytrain: vector of length n_train, defaul ``None``
+        ytrain: vector of length n_train, optional
             Outcomes for the training sample
 
         Returns
@@ -332,7 +347,7 @@ class DRtester:
         ----------
         Xval: (n_val x n_treatment) matrix
             Validation set features to be used to predict (and potentially fit) DR outcomes in CATE model
-        Xtrain (n_train x n_treatment) matrix, defaul ``None``
+        Xtrain (n_train x n_treatment) matrix, optional
             Training set features used to fit CATE model
 
         Returns
@@ -359,11 +374,11 @@ class DRtester:
 
         Parameters
         ----------
-        Xval: (n_val x n_treatment) matrix, default ``None``
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x n_treatment) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x n_treatment) matrix, default ``None``
-            Training sample features for CATE model. If not specified, then `fit cate' method must already have been
+        Xtrain: (n_train x n_treatment) matrix, optional
+            Training sample features for CATE model. If not specified, then `fit cate` method must already have been
             implemented (with Xtrain specified)
         n_groups: integer, default 4
             Number of quantile-based groups used to calculate calibration score.
@@ -433,17 +448,17 @@ class DRtester:
         Xtrain: np.array = None
     ) -> BLPEvaluationResults:
         """
-        Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance' method must already
+        Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance` method must already
         be implemented.
 
         Parameters
         ----------
-        Xval: (n_val x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, optional
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance` method (and
             vice-versa)
 
         Returns
@@ -489,29 +504,32 @@ class DRtester:
         Xval: np.array = None,
         Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50),
-        metric: str = 'qini'
+        metric: str = 'qini',
+        n_bootstrap: int = 1000
     ) -> UpliftEvaluationResults:
         """
-        Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
+        Calculates uplift curves and coefficients for the given model, where units are ordered by predicted
         CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
-        through ranks. The QINI coefficient is then the area under the resulting curve, with a value of 0 interpreted
+        through ranks. The uplift coefficient is then the area under the resulting curve, with a value of 0 interpreted
         as corresponding to a model with randomly assigned CATE coefficients. All calculations are performed on
         validation dataset results, using the training set as input.
 
         Parameters
         ----------
-        Xval: (n_val x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, optional
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance` method (and
             vice-versa)
-        percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
+        percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)``
             Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of
             5%.
         metric: string, default 'qini'
             Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
+        n_bootstrap: integer, default 1000
+            Number of bootstrap samples to run when calculating uniform confidence bands.
 
         Returns
         -------
@@ -532,7 +550,8 @@ class DRtester:
                 self.cate_preds_val_,
                 self.dr_val_,
                 percentiles,
-                metric
+                metric,
+                n_bootstrap
             )
             coeffs = [coeff]
             errs = [err]
@@ -546,7 +565,8 @@ class DRtester:
                     self.cate_preds_val_[:, k],
                     self.dr_val_[:, k],
                     percentiles,
-                    metric
+                    metric,
+                    n_bootstrap
                 )
                 coeffs.append(coeff)
                 errs.append(err)
@@ -568,20 +588,25 @@ class DRtester:
         self,
         Xval: np.array = None,
         Xtrain: np.array = None,
-        n_groups: int = 4
+        n_groups: int = 4,
+        n_bootstrap: int = 1000
     ) -> EvaluationResults:
         """
-        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal'), uplift curve
-        ('evaluate_uplift') methods
+        Implements the best linear prediction (`evaluate_blp`), calibration (`evaluate_cal`), uplift curve
+        (`evaluate_uplift`) methods
 
         Parameters
         ----------
-        Xval: (n_cal x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_cal x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
-            Training sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xtrain: (n_train x k) matrix, optional
+            Training sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
+        n_groups: integer, default 4
+            Number of quantile-based groups used to calculate calibration score.
+        n_bootstrap: integer, default 1000
+            Number of bootstrap samples to run when calculating uniform confidence bands for uplift curves.
 
         Returns
         -------
@@ -595,8 +620,8 @@ class DRtester:
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_uplift(metric='qini')
-        toc_res = self.evaluate_uplift(metric='toc')
+        qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap)
+        toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap)
 
         self.res = EvaluationResults(
             blp_res=blp_res,
@@ -606,3 +631,9 @@ class DRtester:
         )
 
         return self.res
+
+
+@deprecated("DRtester has been renamed 'DRTester' and the old name has been deprecated and will be removed "
+            "in a future release. Please use 'DRTester' instead.")
+class DRtester(DRTester):
+    pass

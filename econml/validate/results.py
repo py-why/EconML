@@ -20,6 +20,7 @@ class CalibrationEvaluationResults:
     treatments: list or numpy array of floats
         Sequence of treatment labels
     """
+
     def __init__(
         self,
         cal_r_squared: np.array,
@@ -99,6 +100,7 @@ class BLPEvaluationResults:
     treatments: list or numpy array of floats
        Sequence of treatment labels
     """
+
     def __init__(
         self,
         params: List[float],
@@ -154,6 +156,7 @@ class UpliftEvaluationResults:
         Dictionary mapping treatment levels to dataframes containing
         necessary data for plotting uplift curves
     """
+
     def __init__(
         self,
         params: List[float],
@@ -188,7 +191,7 @@ class UpliftEvaluationResults:
         }).round(3)
         return res
 
-    def plot_uplift(self, tmt: Any):
+    def plot_uplift(self, tmt: Any, err_type: str = None):
         """
         Plots uplift curves.
 
@@ -196,6 +199,10 @@ class UpliftEvaluationResults:
         ----------
         tmt: any (sortable)
             Name of treatment to plot.
+
+        err_type: str
+            Type of error to plot. Accepted values are normal (None), two-sided uniform confidence band ('ucb2'),
+            or 1-sided uniform confidence band ('ucb1').
 
         Returns
         -------
@@ -205,18 +212,38 @@ class UpliftEvaluationResults:
             raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
 
         df = self.curves[tmt].copy()
-        df['95_err'] = 1.96 * df['err']
+
+        if err_type is None:
+            df['95_err'] = 1.96 * df['err']
+        elif err_type == 'ucb2':
+            df['95_err'] = df['uniform_critical_value'] * df['err']
+        elif err_type == 'ucb1':
+            df['95_err'] = df['uniform_one_side_critical_value'] * df['err']
+        else:
+            raise ValueError(f"Invalid error type {err_type!r}; must be one of [None, 'ucb2', 'ucb1']")
+
         res = self.summary()
         coeff = round(res.loc[res['treatment'] == tmt]['est'].values[0], 3)
         err = round(res.loc[res['treatment'] == tmt]['se'].values[0], 3)
-        fig = df.plot(
-            kind='scatter',
-            x='Percentage treated',
-            y='value',
-            yerr='95_err',
-            ylabel='Gain over Random',
-            title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
-        )
+
+        if err_type == 'ucb1':
+            fig = df.plot(
+                kind='scatter',
+                x='Percentage treated',
+                y='value',
+                yerr=[[df['95_err'], np.zeros(len(df))]],
+                ylabel='Gain over Random',
+                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
+            )
+        else:
+            fig = df.plot(
+                kind='scatter',
+                x='Percentage treated',
+                y='value',
+                yerr='95_err',
+                ylabel='Gain over Random',
+                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
+            )
 
         return fig
 
@@ -239,6 +266,7 @@ class EvaluationResults:
     toc_res: UpliftEvaluationResults object
        Results object for TOC test
     """
+
     def __init__(
         self,
         cal_res: CalibrationEvaluationResults,
@@ -290,7 +318,7 @@ class EvaluationResults:
         """
         return self.cal.plot_cal(tmt)
 
-    def plot_qini(self, tmt: int):
+    def plot_qini(self, tmt: int, err_type: str = None):
         """
         Plots QINI curves.
 
@@ -299,13 +327,17 @@ class EvaluationResults:
         tmt: integer
             Treatment level to plot
 
+        err_type: str
+            Type of error to plot. Accepted values are normal (None), two-sided uniform confidence band ('ucb2'),
+            or 1-sided uniform confidence band ('ucb1').
+
         Returns
         -------
         matplotlib plot with percentage treated on x-axis and QINI value (and 95% CI) on y-axis
         """
-        return self.qini.plot_uplift(tmt)
+        return self.qini.plot_uplift(tmt, err_type)
 
-    def plot_toc(self, tmt: int):
+    def plot_toc(self, tmt: int, err_type: str = None):
         """
         Plots TOC curves.
 
@@ -314,8 +346,12 @@ class EvaluationResults:
         tmt: integer
             Treatment level to plot
 
+        err_type: str
+            Type of error to plot. Accepted values are normal (None), two-sided uniform confidence band ('ucb2'),
+            or 1-sided uniform confidence band ('ucb1').
+
         Returns
         -------
         matplotlib plot with percentage treated on x-axis and TOC value (and 95% CI) on y-axis
         """
-        return self.toc.plot_uplift(tmt)
+        return self.toc.plot_uplift(tmt, err_type)

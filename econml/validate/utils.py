@@ -53,11 +53,14 @@ def calc_uplift(
     cate_preds_val: np.array,
     dr_val: np.array,
     percentiles: np.array,
-    metric: str
+    metric: str,
+    n_bootstrap: int = 1000
 ) -> Tuple[float, float, pd.DataFrame]:
     """
-    Helper function for QINI curve generation and QINI coefficient calculation.
-    See documentation for "evaluate_qini" method for more details.
+    Helper function for uplift curve generation and coefficient calculation.
+    Calculates uplift curve points, integral, and errors on both points and integral.
+    Also calculates appropriate critical value multipliers for confidence intervals (via multiplier bootstrap).
+    See documentation for "drtester.evaluate_uplift" method for more details.
 
     Parameters
     ----------
@@ -72,6 +75,8 @@ def calc_uplift(
         Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
     metric: string
         String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
+    n_bootstrap: integer, default 1000
+        Number of bootstrap samples to run when calculating uniform confidence bands.
 
     Returns
     -------
@@ -94,9 +99,18 @@ def calc_uplift(
             toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
         else:
-            raise ValueError("Unsupported metric - must be one of ['toc', 'qini']")
+            raise ValueError(f"Unsupported metric {metric!r} - must be one of ['toc', 'qini']")
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
+
+    w = np.random.normal(0, 1, size=(n, n_bootstrap))
+    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
+
+    max_mboot = np.max(np.abs(mboot), axis=0)
+    uniform_critical_value = np.percentile(max_mboot, 95)
+
+    min_mboot = np.min(mboot, axis=0)
+    uniform_one_side_critical_value = np.abs(np.percentile(min_mboot, 5))
 
     coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
     coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
@@ -105,7 +119,9 @@ def calc_uplift(
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,
         'value': toc,
-        'err': toc_std
+        'err': toc_std,
+        'uniform_critical_value': uniform_critical_value,
+        'uniform_one_side_critical_value': uniform_one_side_critical_value
     })
 
     return coeff, coeff_stderr, curve_df

@@ -147,6 +147,20 @@ CATE Interpreters
     econml.cate_interpreter.SingleTreeCateInterpreter
     econml.cate_interpreter.SingleTreePolicyInterpreter
 
+.. _validation_api:
+
+CATE Validation
+---------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.validate.DRTester
+    econml.validate.BLPEvaluationResults
+    econml.validate.CalibrationEvaluationResults
+    econml.validate.UpliftEvaluationResults
+    econml.validate.EvaluationResults
+
 .. _scorers_api:
 
 CATE Scorers
