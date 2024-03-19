@@ -155,11 +155,11 @@ CATE Validation
 .. autosummary::
     :toctree: _autosummary
 
-    econml.validation.DRTester
-    econml.validation.BLPEvaluationResults
-    econml.validation.CalibrationEvaluationResults
-    econml.validation.UpliftEvaluationResults
-    econml.validation.EvaluationResults
+    econml.validate.DRTester
+    econml.validate.BLPEvaluationResults
+    econml.validate.CalibrationEvaluationResults
+    econml.validate.UpliftEvaluationResults
+    econml.validate.EvaluationResults
 
 .. _scorers_api:
 
