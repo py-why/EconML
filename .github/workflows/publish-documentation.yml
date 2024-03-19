@@ -79,7 +79,7 @@ jobs:
         name: Install graphviz
       - run: pip install "sphinx~=4.4.0" "sphinx_rtd_theme~=1.0.0" && python setup.py build_sphinx -W
         name: Build documentation
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Upload docs as artifact
         with:
           name: docs
@@ -93,7 +93,7 @@ jobs:
           popd
         name: Zip docs for publishing
         if : ${{ inputs.publish }}
-      - uses: azure/login@v1
+      - uses: azure/login@v2
         name: Login to Azure
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}

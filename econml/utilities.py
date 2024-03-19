@@ -1516,8 +1516,8 @@ def one_hot_encoder(sparse=False, **kwargs):
     Wrapper for sklearn's OneHotEncoder that handles the name change from `sparse` to `sparse_output`
     between sklearn versions 1.1 and 1.2.
     """
-    from pkg_resources import parse_version
-    if parse_version(sklearn.__version__) < parse_version("1.2"):
+    from packaging.version import parse
+    if parse(sklearn.__version__) < parse("1.2"):
         return OneHotEncoder(sparse=sparse, **kwargs)
     else:
         return OneHotEncoder(sparse_output=sparse, **kwargs)

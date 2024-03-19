@@ -73,10 +73,10 @@ jobs:
         env:
           CIBW_BUILD: cp3*
           CIBW_SKIP: "*musl* *win32 *i686"
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Upload wheels as artifact
         with:
-          name: dist
+          name: dist-${{ matrix.os }}
           path: dist/
   build_sdist:
     name: Build sdist
@@ -96,14 +96,27 @@ jobs:
         name: Install econml[all]
       - run: python setup.py sdist
         name: Build sdist
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         name: Upload sdist as artifact
         with:
-          name: dist
+          name: dist-sdist
           path: dist/
+
+  merge:
+    name: Merge artifacts
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Merge artifacts"
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: dist
+          pattern: dist-*
+          delete-merged: true
+
   publish:
     name: Publish to PyPI or TestPyPI
-    needs: [build_wheels, build_sdist]
+    needs: [merge]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v5
@@ -114,7 +127,7 @@ jobs:
         name: Ensure latest pip and setuptools
       - run: pip install twine
         name: Install twine
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         name: Download wheels and sdist
         with:
           name: dist
