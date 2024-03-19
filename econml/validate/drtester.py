@@ -15,7 +15,6 @@ from .utils import calculate_dr_outcomes, calc_uplift
 
 
 class DRTester:
-
     """
     Validation tests for CATE models. Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
     the calibration test in Dwivedi et al. (2020), and the QINI coefficient as in Radcliffe (2007).
@@ -86,12 +85,12 @@ class DRTester:
     Parameters
     ----------
     model_regression: estimator
-        Nuisance model estimator used to fit the outcome to features. Must be able to implement `fit' and `predict'
+        Nuisance model estimator used to fit the outcome to features. Must be able to implement `fit` and `predict`
         methods
 
     model_propensity: estimator
-        Nuisance model estimator used to fit the treatment assignment to features. Must be able to implement `fit'
-        method and either `predict' (in the case of binary treatment) or `predict_proba' methods (in the case of
+        Nuisance model estimator used to fit the treatment assignment to features. Must be able to implement `fit`
+        method and either `predict` (in the case of binary treatment) or `predict_proba` methods (in the case of
         multiple categorical treatments).
 
     cate: estimator
@@ -191,7 +190,7 @@ class DRTester:
         Generates nuisance predictions and calculates doubly robust (DR) outcomes either by (1) cross-fitting in the
         validation sample, or (2) fitting in the training sample and applying to the validation sample. If Xtrain,
         Dtrain, and ytrain are all not None, then option (2) will be implemented, otherwise, option (1) will be
-        implemented. In order to use the `evaluate_cal' method then Xtrain, Dtrain, and ytrain must all be specified.
+        implemented. In order to use the `evaluate_cal` method then Xtrain, Dtrain, and ytrain must all be specified.
 
         Parameters
         ----------
@@ -202,12 +201,12 @@ class DRTester:
             the control status be equal to 0, and all other treatments integers starting at 1.
         yval: vector of length n_val
             Outcomes for the validation sample
-        Xtrain: (n_train x k) matrix or vector of length n, default ``None``
+        Xtrain: (n_train x k) matrix or vector of length n, optional
             Features used in nuisance models for training sample
-        Dtrain: vector of length n_train, default ``None''
+        Dtrain: vector of length n_train, optional
             Treatment assignment of training sample. Control status must be minimum value. It is recommended to have
             the control status be equal to 0, and all other treatments integers starting at 1.
-        ytrain: vector of length n_train, defaul ``None``
+        ytrain: vector of length n_train, optional
             Outcomes for the training sample
 
         Returns
@@ -348,7 +347,7 @@ class DRTester:
         ----------
         Xval: (n_val x n_treatment) matrix
             Validation set features to be used to predict (and potentially fit) DR outcomes in CATE model
-        Xtrain (n_train x n_treatment) matrix, defaul ``None``
+        Xtrain (n_train x n_treatment) matrix, optional
             Training set features used to fit CATE model
 
         Returns
@@ -375,11 +374,11 @@ class DRTester:
 
         Parameters
         ----------
-        Xval: (n_val x n_treatment) matrix, default ``None``
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x n_treatment) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x n_treatment) matrix, default ``None``
-            Training sample features for CATE model. If not specified, then `fit cate' method must already have been
+        Xtrain: (n_train x n_treatment) matrix, optional
+            Training sample features for CATE model. If not specified, then `fit cate` method must already have been
             implemented (with Xtrain specified)
         n_groups: integer, default 4
             Number of quantile-based groups used to calculate calibration score.
@@ -449,17 +448,17 @@ class DRTester:
         Xtrain: np.array = None
     ) -> BLPEvaluationResults:
         """
-        Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance' method must already
+        Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance` method must already
         be implemented.
 
         Parameters
         ----------
-        Xval: (n_val x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, optional
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance` method (and
             vice-versa)
 
         Returns
@@ -517,14 +516,14 @@ class DRTester:
 
         Parameters
         ----------
-        Xval: (n_val x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_val x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, optional
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance` method (and
             vice-versa)
-        percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
+        percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)``
             Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of
             5%.
         metric: string, default 'qini'
@@ -593,16 +592,16 @@ class DRTester:
         n_bootstrap: int = 1000
     ) -> EvaluationResults:
         """
-        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal'), uplift curve
-        ('evaluate_uplift') methods
+        Implements the best linear prediction (`evaluate_blp`), calibration (`evaluate_cal`), uplift curve
+        (`evaluate_uplift`) methods
 
         Parameters
         ----------
-        Xval: (n_cal x k) matrix, default ``None''
-            Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xval: (n_cal x k) matrix, optional
+            Validation sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
-        Xtrain: (n_train x k) matrix, default ``None''
-            Training sample features for CATE model. If not specified, then `fit_cate' method must already have been
+        Xtrain: (n_train x k) matrix, optional
+            Training sample features for CATE model. If not specified, then `fit_cate` method must already have been
             implemented
         n_groups: integer, default 4
             Number of quantile-based groups used to calculate calibration score.
