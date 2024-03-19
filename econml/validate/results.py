@@ -20,6 +20,7 @@ class CalibrationEvaluationResults:
     treatments: list or numpy array of floats
         Sequence of treatment labels
     """
+
     def __init__(
         self,
         cal_r_squared: np.array,
@@ -99,6 +100,7 @@ class BLPEvaluationResults:
     treatments: list or numpy array of floats
        Sequence of treatment labels
     """
+
     def __init__(
         self,
         params: List[float],
@@ -154,6 +156,7 @@ class UpliftEvaluationResults:
         Dictionary mapping treatment levels to dataframes containing
         necessary data for plotting uplift curves
     """
+
     def __init__(
         self,
         params: List[float],
@@ -217,7 +220,7 @@ class UpliftEvaluationResults:
         elif err_type == 'ucb1':
             df['95_err'] = df['uniform_one_side_critical_value'] * df['err']
         else:
-            raise ValueError(f"Invalid error type {err_type}; must be one of [None, 'ucb2', 'ucb1']")
+            raise ValueError(f"Invalid error type {err_type!r}; must be one of [None, 'ucb2', 'ucb1']")
 
         res = self.summary()
         coeff = round(res.loc[res['treatment'] == tmt]['est'].values[0], 3)
@@ -263,6 +266,7 @@ class EvaluationResults:
     toc_res: UpliftEvaluationResults object
        Results object for TOC test
     """
+
     def __init__(
         self,
         cal_res: CalibrationEvaluationResults,

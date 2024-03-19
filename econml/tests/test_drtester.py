@@ -193,8 +193,8 @@ class TestDRTester(unittest.TestCase):
         for kwargs in [{}, {'Xval': Xval}]:
             with self.assertRaises(Exception) as exc:
                 my_dr_tester.evaluate_cal(kwargs)
-            self.assertTrue(
-                str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+            self.assertEqual(
+                str(exc.exception), "Must fit nuisance models on training sample data to use calibration test"
             )
 
     def test_exceptions(self):
@@ -223,11 +223,11 @@ class TestDRTester(unittest.TestCase):
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_cal':
-                self.assertTrue(
-                    str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+                self.assertEqual(
+                    str(exc.exception), "Must fit nuisance models on training sample data to use calibration test"
                 )
             else:
-                self.assertTrue(str(exc.exception) == "Must fit nuisances before evaluating")
+                self.assertEqual(str(exc.exception), "Must fit nuisances before evaluating")
 
         my_dr_tester = my_dr_tester.fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
@@ -242,12 +242,12 @@ class TestDRTester(unittest.TestCase):
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_blp':
-                self.assertTrue(
-                    str(exc.exception) == "CATE predictions not yet calculated - must provide Xval"
+                self.assertEqual(
+                    str(exc.exception), "CATE predictions not yet calculated - must provide Xval"
                 )
             else:
-                self.assertTrue(str(exc.exception) ==
-                                "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+                self.assertEqual(str(exc.exception),
+                                 "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         for func in [
             my_dr_tester.evaluate_cal,
@@ -256,16 +256,16 @@ class TestDRTester(unittest.TestCase):
         ]:
             with self.assertRaises(Exception) as exc:
                 func(Xval=Xval)
-            self.assertTrue(
-                str(exc.exception) == "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+            self.assertEqual(
+                str(exc.exception), "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         cal_res = my_dr_tester.evaluate_cal(Xval, Xtrain)
         self.assertGreater(cal_res.cal_r_squared[0], 0)  # good R2
 
         with self.assertRaises(Exception) as exc:
             my_dr_tester.evaluate_uplift(metric='blah')
-        self.assertTrue(
-            str(exc.exception) == "Unsupported metric - must be one of ['toc', 'qini']"
+        self.assertEqual(
+            str(exc.exception), "Unsupported metric 'blah' - must be one of ['toc', 'qini']"
         )
 
         my_dr_tester = DRTester(
@@ -280,8 +280,8 @@ class TestDRTester(unittest.TestCase):
 
         with self.assertRaises(Exception) as exc:
             qini_res.plot_uplift(tmt=1, err_type='blah')
-        self.assertTrue(
-            str(exc.exception) == "Invalid error type; must be one of [None, 'ucb2', 'ucb1']"
+        self.assertEqual(
+            str(exc.exception), "Invalid error type 'blah'; must be one of [None, 'ucb2', 'ucb1']"
         )
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
