@@ -62,6 +62,7 @@ jobs:
   create_docs:
     name: Create and publish documentation
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         name: Checkout repository
@@ -87,20 +88,33 @@ jobs:
       - run: python setup.py build_sphinx -b doctest
         name: Run doctests
         if : ${{ inputs.run_doctests }}
+        
+  publish-docs:
+    name: Publish documentation
+    runs-on: ubuntu-latest
+    needs: create_docs
+    permissions:
+      id-token: write # needed to publish to Azure
+    if: ${{ inputs.publish }}
+    steps:
+      - uses: actions/download-artifact@v3
+        name: Download docs artifact
+        with:
+          name: docs
+          path: html
       - run: |-
-          pushd build/sphinx/html
+          pushd html
           zip -r docs.zip *
           popd
         name: Zip docs for publishing
-        if : ${{ inputs.publish }}
       - uses: azure/login@v1
         name: Login to Azure
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-        if : ${{ inputs.publish }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: azure/webapps-deploy@v2
         name: Deploy documentation to Azure web app
         with:
           app-name: ${{ inputs.environment == 'prod' && 'econml' || 'econml-dev' }}
-          package: build/sphinx/html/docs.zip
-        if: ${{ inputs.publish }}          
+          package: html/docs.zip
