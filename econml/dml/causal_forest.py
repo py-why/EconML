@@ -567,7 +567,7 @@ class CausalForestDML(_BaseDML):
     ate_ : ndarray of shape (n_outcomes, n_treatments)
         The average constant marginal treatment effect of each treatment for each outcome,
         averaged over the training data and with a doubly robust correction. Available only
-        when `discrete_treatment=True` and `oob=True`.
+        when `discrete_treatment=True` and `drate=True`.
     ate_stderr_ : ndarray of shape (n_outcomes, n_treatments)
         The standard error of the `ate_` attribute.
     feature_importances_ : ndarray of shape (n_features,)
@@ -997,7 +997,7 @@ class CausalForestDML(_BaseDML):
             Inference results information for the `att_` attribute, which is the average
             constant marginal treatment effect of each treatment for each outcome, averaged
             over the training data treated with treatment T and with a doubly robust correction.
-            Available only when `discrete_treatment=True` and `oob=True`.
+            Available only when `discrete_treatment=True` and `drate=True`.
         """
         return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
                                       d_y=self._d_y[0] if self._d_y else 1,
