@@ -91,11 +91,12 @@ jobs:
         
   publish-docs:
     name: Publish documentation
-    runs-on: ubuntu-latest
     needs: create_docs
     permissions:
       id-token: write # needed to publish to Azure
+    environment: ${{ inputs.environment }}
     if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
     steps:
       - name: Download docs artifact
         uses: actions/download-artifact@v3

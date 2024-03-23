@@ -346,7 +346,7 @@ jobs:
     uses: ./.github/workflows/publish-package.yml
     with:
       publish: false
-      repository: testpypi
+      environment: test
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
       # can't use env context here so need to duplicate expression, but these are true boolean values so don't need extra string logic
