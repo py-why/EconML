@@ -8,12 +8,12 @@ on:
         required: false
         default: true
         type: boolean
-      repository:
+      environment:
         description: 'Whether to publish to production PyPI or test PyPI'
         required: false
-        default: pypi
+        default: prod
         type: choice
-        options: [pypi, testpypi]
+        options: [prod, test]
       ref:
         description: 'The git ref to build the package for'
         required: false
@@ -34,10 +34,10 @@ on:
         default: true
         type: boolean
       # choice type only supported for workflow_dispatch, not workflow_call
-      repository:
+      environment:
         description: 'Whether to publish to production PyPI or test PyPI'
         required: false
-        default: pypi
+        default: prod
         type: string
       ref:
         description: 'The git ref to build the package for'
@@ -119,6 +119,7 @@ jobs:
     needs: [merge]
     permissions:
       id-token: write
+    environment: ${{ inputs.environment }}
     if: ${{ inputs.publish }}
     runs-on: ubuntu-latest
     steps:
@@ -130,4 +131,4 @@ jobs:
       - name: Upload wheels and sdist to package index
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: ${{ inputs.repository == 'testpypi' && 'https://test.pypi.org/legacy/' || '' }}
+          repository-url: ${{ inputs.environment == 'test' && 'https://test.pypi.org/legacy/' || '' }}
