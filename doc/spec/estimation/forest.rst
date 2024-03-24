@@ -257,7 +257,7 @@ Then the criterion implicit in the reduction is the weighted mean squared error,
 where :math:`Var_n`, denotes the empirical variance. Essentially, this criterion tries to maximize heterogeneity
 (as captured by maximizing the sum of squares of the two estimates), while penalizing splits that create nodes
 with small variation in the treatment. On the contrary the criterion proposed in [Athey2019]_ ignores the within
-child variation of the treatment and solely maximizes the hetergoeneity, i.e.
+child variation of the treatment and solely maximizes the heterogeneity, i.e.
 
 .. math::
 

@@ -72,7 +72,7 @@ Most of the methods provided make a parametric form assumption on the heterogene
 linear on some pre-defined; potentially high-dimensional; featurization). These methods include: 
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`.
-For fullly non-parametric heterogeneous treatment effect models, check out the :class:`.NonParamDML`
+For fully non-parametric heterogeneous treatment effect models, check out the :class:`.NonParamDML`
 and the :class:`.CausalForestDML`. 
 For more options of non-parametric CATE estimators, 
 check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
@@ -165,7 +165,7 @@ structure of the implemented CATE estimators is as follows.
 Below we give a brief description of each of these classes:
 
     * **DML.** The class :class:`.DML` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
-      :class:`~sklearn.linear_model.ElasticNet`, :class:`~sklearn.linear_model.Lasso`, :class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
+      :class:`~sklearn.linear_model.ElasticNet`, :class:`~sklearn.linear_model.Lasso`, :class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have multiple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
       of the vectors :math:`T` and :math:`\phi(X)`, i.e. :math:`\tilde{T}\otimes \phi(X) = \mathtt{vec}(\tilde{T}\cdot \phi(X)^T)`. This regression will estimate the coefficients :math:`\theta_{ijk}` 
       for each outcome :math:`i`, treatment :math:`j` and feature :math:`k`. The final model is minimizing a regularized empirical square loss of the form:
       
@@ -239,7 +239,7 @@ Below we give a brief description of each of these classes:
           [Nie2017]_. It approximates any function in the RKHS by creating random Fourier features. Then runs a ElasticNet
           regularized final model. Thus it approximately implements the results of [Nie2017], via the random fourier feature
           approximate representation of functions in the RKHS. Moreover, given that we use Random Fourier Features this class
-          asssumes an RBF kernel.
+          assumes an RBF kernel.
     
     * **NonParamDML.** The class :class:`.NonParamDML` makes no assumption on the effect model for each outcome :math:`i`.
       However, it applies only when the treatment is either binary or single-dimensional continuous. It uses the observation that for a single
@@ -350,7 +350,7 @@ Usage FAQs
         it does so in a manner that is robust to the estimation mistakes that these ML algorithms
         might be making.
     
-    Moreover, one may typically want to estimate treatment effect hetergoeneity,
+    Moreover, one may typically want to estimate treatment effect heterogeneity,
     which the above OLS approach wouldn't provide. One potential way of providing such heterogeneity
     is to include product features of the form :math:`X\cdot T` in the OLS model. However, then
     one faces again the same problems as above:
@@ -564,7 +564,7 @@ Usage FAQs
 - **How can I assess the performance of the CATE model?**
 
     Each of the DML classes have an attribute `score_` after they are fitted. So one can access that
-    attribute and compare the performance accross different modeling parameters (lower score is better):
+    attribute and compare the performance across different modeling parameters (lower score is better):
 
     .. testcode::
 
