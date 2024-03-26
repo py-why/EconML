@@ -57,7 +57,7 @@ How do I give feedback?
 ------------------------------------
 
 This project welcomes contributions and suggestions.  We use the `DCO bot <https://github.com/apps/dco>`_ to enforce a 
-`Developer Certificate of Origin <https://developercertificate.org/>` which requires users to sign-off on their commits.
+`Developer Certificate of Origin <https://developercertificate.org/>`_ which requires users to sign-off on their commits.
 This is a simple way to certify that you wrote or otherwise have the right to submit the code you are contributing to 
 the project.  Git provides a :code:`-s` command line option to include this automatically when you commit via :code:`git commit`.
 

@@ -1546,7 +1546,7 @@ class CausalAnalysis:
                                 include_model_uncertainty=False,
                                 alpha=0.05):
         """
-        Plot an effect hetergoeneity tree using matplotlib.
+        Plot an effect heterogeneity tree using matplotlib.
 
         Parameters
         ----------

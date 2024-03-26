@@ -73,10 +73,10 @@ models using the Shapley values methodology (see e.g. [Lundberg2017]_).
 Similar to how black-box predictive machine learning models can be explained with SHAP, we can also explain black-box effect
 heterogeneity models. This approach provides an explanation as to why a heterogeneous causal effect model produced larger or
 smaller effect values for particular segments of the population. Which were the features that lead to such differentiation?
-This question is easy to address when the model is succinctly described, such as the case of linear heterogneity models, 
+This question is easy to address when the model is succinctly described, such as the case of linear heterogeneity models, 
 where one can simply investigate the coefficients of the model. However, it becomes hard when one starts using more expressive
-models, such as Random Forests and Causal Forests to model effect hetergoeneity. SHAP values can be of immense help to
-understand the leading factors of effect hetergoeneity that the model picked up from the training data.
+models, such as Random Forests and Causal Forests to model effect heterogeneity. SHAP values can be of immense help to
+understand the leading factors of effect heterogeneity that the model picked up from the training data.
 
 Our package offers seamless integration with the SHAP library. Every CATE estimator has a method `shap_values`, which returns the
 SHAP value explanation of the estimators output for every treatment and outcome pair. These values can then be visualized with
@@ -92,8 +92,8 @@ For instance:
     est = LinearDML()
     est.fit(y, t, X=X, W=W)
     shap_values = est.shap_values(X)
-    # local view: explain hetergoeneity for a given observation
+    # local view: explain heterogeneity for a given observation
     ind=0
     shap.plots.force(shap_values["Y0"]["T0"][ind], matplotlib=True)
-    # global view: explain hetergoeneity for a sample of dataset
+    # global view: explain heterogeneity for a sample of dataset
     shap.summary_plot(shap_values['Y0']['T0'])

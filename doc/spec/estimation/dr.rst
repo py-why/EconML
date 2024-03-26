@@ -472,7 +472,7 @@ Usage FAQs
 - **How can I assess the performance of the CATE model?**
 
     Each of the DRLearner classes have an attribute `score_` after they are fitted. So one can access that
-    attribute and compare the performance accross different modeling parameters (lower score is better):
+    attribute and compare the performance across different modeling parameters (lower score is better):
 
     .. testcode::
 

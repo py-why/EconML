@@ -4,7 +4,7 @@ Detailed estimator comparison
 
 
 +---------------------------------------------+--------------+--------------+------------------+-------------+-----------------+------------+--------------+--------------------+
-| Estimator                                   | | Treatment  | | Requires   | | Delivers Conf. | | Linear    | | Linear        | | Mulitple | | Multiple   | | High-Dimensional |
+| Estimator                                   | | Treatment  | | Requires   | | Delivers Conf. | | Linear    | | Linear        | | Multiple | | Multiple   | | High-Dimensional |
 |                                             | | Type       | | Instrument | | Intervals      | | Treatment | | Heterogeneity | | Outcomes | | Treatments | | Features         |
 +=============================================+==============+==============+==================+=============+=================+============+==============+====================+
 | :class:`.SieveTSLS`                         | Any          | Yes          |                  | Yes         | Assumed         | Yes        | Yes          |                    |
