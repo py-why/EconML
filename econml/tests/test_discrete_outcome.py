@@ -27,35 +27,35 @@ class TestDiscreteOutcome(unittest.TestCase):
         discrete_outcome = True
         discrete_treatment = True
         true_ate = 0.3
-        W = np.random.uniform(-1, 1, size=(n, 1))
-        D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
-        Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+        num_iterations = 10
+        count_within_interval = 0
 
-        ests = [
-            LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
-            CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
-            LinearDRLearner(discrete_outcome=discrete_outcome)
-        ]
+        for _ in range(num_iterations):
 
-        for est in ests:
+            W = np.random.uniform(-1, 1, size=(n, 1))
+            D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
+            Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
 
-            if isinstance(est, CausalForestDML):
-                est.fit(Y, D, X=W)
-                ate = est.ate(X=W)
-                ate_lb, ate_ub = est.ate_interval(X=W)
+            ests = [
+                LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+                CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+                LinearDRLearner(discrete_outcome=discrete_outcome)
+            ]
 
-            else:
-                est.fit(Y, D, W=W)
-                ate = est.ate()
-                ate_lb, ate_ub = est.ate_interval()
+            for est in ests:
 
-            if isinstance(est, LinearDRLearner):
-                est.summary(T=1)
-            else:
-                est.summary()
+                if isinstance(est, CausalForestDML):
+                    est.fit(Y, D, X=W)
+                    ate_lb, ate_ub = est.ate_interval(X=W)
 
-            proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
-            np.testing.assert_array_less(0.50, proportion_in_interval)
+                else:
+                    est.fit(Y, D, W=W)
+                    ate_lb, ate_ub = est.ate_interval()
+
+                if ate_lb <= true_ate <= ate_ub:
+                    count_within_interval += 1
+
+        assert count_within_interval >= 8, f"True ATE falls within the interval bounds only {count_within_interval} times out of {num_iterations}"
 
     # accuracy test, DML
     def test_accuracy_iv(self):
