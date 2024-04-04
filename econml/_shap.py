@@ -12,6 +12,7 @@ Scott Lundberg, Su-In Lee (2017)
 
 """
 
+import inspect
 import shap
 from collections import defaultdict
 import numpy as np
@@ -161,7 +162,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
                                      output_names=output_names_,
                                      input_names=input_names_,
                                      background_samples=background_samples)
-        if explainer.__class__.__name__ == "Tree":
+        if "check_additivity" in inspect.signature(explainer).parameters:
             shap_out = explainer(F, check_additivity=False)
         else:
             shap_out = explainer(F)
@@ -340,7 +341,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
                                      input_names=input_names_,
                                      background_samples=background_samples)
 
-        if explainer.__class__.__name__ == "Tree":
+        if "check_additivity" in inspect.signature(explainer).parameters:
             shap_out = explainer(F, check_additivity=False)
         else:
             shap_out = explainer(F)
