@@ -28,21 +28,22 @@ class TestDiscreteOutcome(unittest.TestCase):
         discrete_treatment = True
         true_ate = 0.3
         num_iterations = 10
-        count_within_interval = 0
 
-        for _ in range(num_iterations):
+        ests = [
+            LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+            CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+            LinearDRLearner(discrete_outcome=discrete_outcome)
+        ]
 
-            W = np.random.uniform(-1, 1, size=(n, 1))
-            D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
-            Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+        for est in ests:
 
-            ests = [
-                LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
-                CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
-                LinearDRLearner(discrete_outcome=discrete_outcome)
-            ]
+            count_within_interval = 0
 
-            for est in ests:
+            for _ in range(num_iterations):
+
+                W = np.random.uniform(-1, 1, size=(n, 1))
+                D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
+                Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
 
                 if isinstance(est, CausalForestDML):
                     est.fit(Y, D, X=W)
@@ -51,22 +52,26 @@ class TestDiscreteOutcome(unittest.TestCase):
                 else:
                     est.fit(Y, D, W=W)
                     ate_lb, ate_ub = est.ate_interval()
+                if isinstance(est, LinearDRLearner):
+                    est.summary(T=1)
+                else:
+                    est.summary()
 
                 if ate_lb <= true_ate <= ate_ub:
                     count_within_interval += 1
 
-        assert count_within_interval >= 8, f"True ATE falls within the interval bounds only {count_within_interval} times out of {num_iterations}"
+            assert count_within_interval >= 7, (
+                f"{est.__class__.__name__}: True ATE falls within the interval bounds "
+                f"only {count_within_interval} times out of {num_iterations}"
+            )
 
     # accuracy test, DML
     def test_accuracy_iv(self):
-        n = 10000
+        n = 1000
         discrete_outcome = True
         discrete_treatment = True
         true_ate = 0.3
-        W = np.random.uniform(-1, 1, size=(n, 1))
-        Z = np.random.uniform(-1, 1, size=(n, 1))
-        D = np.random.binomial(1, .5 + .1 * W[:, 0] + .1 * Z[:, 0], size=(n,))
-        Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+        num_iterations = 10
 
         ests = [
             OrthoIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
@@ -75,14 +80,26 @@ class TestDiscreteOutcome(unittest.TestCase):
 
         for est in ests:
 
-            est.fit(Y, D, W=W, Z=Z)
-            ate = est.ate()
-            ate_lb, ate_ub = est.ate_interval()
+            count_within_interval = 0
 
-            est.summary()
+            for _ in range(num_iterations):
 
-            proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
-            np.testing.assert_array_less(0.50, proportion_in_interval)
+                W = np.random.uniform(-1, 1, size=(n, 1))
+                Z = np.random.uniform(-1, 1, size=(n, 1))
+                D = np.random.binomial(1, .5 + .1 * W[:, 0] + .1 * Z[:, 0], size=(n,))
+                Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+
+                est.fit(Y, D, W=W, Z=Z)
+                ate_lb, ate_ub = est.ate_interval()
+                est.summary()
+
+                if ate_lb <= true_ate <= ate_ub:
+                    count_within_interval += 1
+
+            assert count_within_interval >= 7, (
+                f"{est.__class__.__name__}: True ATE falls within the interval bounds "
+                f"only {count_within_interval} times out of {num_iterations}"
+            )
 
     def test_string_outcome(self):
         n = 100
@@ -220,6 +237,6 @@ class TestDiscreteOutcome(unittest.TestCase):
                 if isinstance(est, LinearDRLearner):
                     est.model_regression = LinearRegression()
                 else:
-                    est.model_y = LinearRegression()
+                    est.model_y = LinearRegression() 
                 with pytest.warns(UserWarning):
                     est.fit(Y=Y, T=T, X=X)
