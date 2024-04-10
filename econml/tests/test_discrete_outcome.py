@@ -52,6 +52,7 @@ class TestDiscreteOutcome(unittest.TestCase):
                 else:
                     est.fit(Y, D, W=W)
                     ate_lb, ate_ub = est.ate_interval()
+
                 if isinstance(est, LinearDRLearner):
                     est.summary(T=1)
                 else:
@@ -237,6 +238,6 @@ class TestDiscreteOutcome(unittest.TestCase):
                 if isinstance(est, LinearDRLearner):
                     est.model_regression = LinearRegression()
                 else:
-                    est.model_y = LinearRegression() 
+                    est.model_y = LinearRegression()
                 with pytest.warns(UserWarning):
                     est.fit(Y=Y, T=T, X=X)
