@@ -1393,7 +1393,8 @@ class PopulationSummaryResults:
         alpha = self.alpha if alpha is None else alpha
         mean_point = self.mean_point
         stderr_mean = self.stderr_mean
-        return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean), _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
+        return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean), 
+                _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
 
     @property
     def std_point(self):
