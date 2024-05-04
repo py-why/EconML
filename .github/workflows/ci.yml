@@ -201,12 +201,12 @@ jobs:
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-12]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
-          - os: macos-latest
+          - os: macos-12
             kind: serial
           # Ray tests run out of memory on Windows
           - os: windows-latest
