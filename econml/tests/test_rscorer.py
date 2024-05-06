@@ -21,9 +21,9 @@ def _fit_model(name, model, Y, T, X):
 class TestRScorer(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.normal(0, 1, size=(2000, 2))
-        T = np.random.binomial(1, .5, size=(2000,))
-        y = X[:, 0] * T + np.random.normal(size=(2000,))
+        X = np.random.normal(0, 1, size=(100000, 2))
+        T = np.random.binomial(1, .5, size=(100000,))
+        y = X[:, 0] * T + np.random.normal(size=(100000,))
         return y, T, X, X[:, 0]
 
     def test_comparison(self):
