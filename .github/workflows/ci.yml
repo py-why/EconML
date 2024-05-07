@@ -338,7 +338,11 @@ jobs:
         name: ${{ matrix.artifact }}
         pattern: "${{ matrix.artifact }}-*"
         delete-merged: true
-      
+      # if we are re-running a job in a subsequent attempt, some of the other artifacts may not exist in this attempt (e.g. notebooks, if only non-notebook tests failed)
+      # Unlike with plain upload-artifact, there's no way to ignore the situation where no files are found when using the v4 merge action
+      # (see https://github.com/actions/upload-artifact/issues/520), so just continue on error isntead
+      continue-on-error: true
+        
   build:
     name: Build package
     needs: [eval]
