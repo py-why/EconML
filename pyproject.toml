@@ -28,7 +28,8 @@ dependencies = [
     "statsmodels >= 0.10",
     "pandas > 1.0",
     "shap >= 0.38.1, < 0.44.0",
-    "lightgbm"
+    "lightgbm",
+    "packaging"
 ]
 
 [project.urls]
@@ -48,16 +49,19 @@ tf = [
     "keras < 2.4; python_version < '3.9'",
     "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "protobuf < 4",
+    "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "numpy < 1.24"
+    "numpy < 1.24; python_version < '3.9'"
 ]
 plt = [
     "graphviz",
     "matplotlib"
 ]
 dowhy = [
-    "dowhy < 0.11"
+    # when updating this, also update the version check in dowhy.py
+    "dowhy < 0.12; python_version > '3.8'",
+    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
+    "dowhy < 0.11; python_version <= '3.8'"
 ]
 ray = [
     "ray > 2.2.0"
@@ -70,12 +74,14 @@ all = [
     "keras < 2.4; python_version < '3.9'",
     "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "protobuf < 4",
+    "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
-    "numpy < 1.24",
+    "numpy < 1.24; python_version < '3.9'",
     "graphviz",
-    "matplotlib",
-    "dowhy < 0.11",
+    "matplotlib",    
+    "dowhy < 0.12; python_version > '3.8'",
+    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
+    "dowhy < 0.11; python_version <= '3.8'",
     "ray > 2.2.0"
 ]
 
@@ -89,8 +95,17 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = ["econml", "econml.*"]
+exclude = ["econml.tests"]
+
+[tool.setuptools.package-data]
+# include all CSV files as data
+"*" = ["*.csv", "*.jbl"]
+
 [tool.pytest.ini_options]
-addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=setup.cfg --cov=econml"
+testpaths = ["econml/tests"]
+addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=pyproject.toml --cov --import-mode=importlib"
 markers = [    
     "slow",
     "notebook",
@@ -100,4 +115,20 @@ markers = [
     "cate_api",
     "treatment_featurization",
     "ray"
+]
+
+[tool.coverage.run]
+branch = true
+# need to explicitly add support for multiprocessing for OrthoForest
+concurrency = [
+    "thread",
+    "multiprocessing"
+]
+source = ["econml"]
+omit = ["econml/tests/*"]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "raise NotImplementedError\\(\"(Abstract method|Defer to inference)\"\\)"
 ]

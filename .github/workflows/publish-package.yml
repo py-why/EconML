@@ -8,12 +8,12 @@ on:
         required: false
         default: true
         type: boolean
-      repository:
+      environment:
         description: 'Whether to publish to production PyPI or test PyPI'
         required: false
-        default: pypi
+        default: prod
         type: choice
-        options: [pypi, testpypi]
+        options: [prod, test]
       ref:
         description: 'The git ref to build the package for'
         required: false
@@ -34,10 +34,10 @@ on:
         default: true
         type: boolean
       # choice type only supported for workflow_dispatch, not workflow_call
-      repository:
+      environment:
         description: 'Whether to publish to production PyPI or test PyPI'
         required: false
-        default: pypi
+        default: prod
         type: string
       ref:
         description: 'The git ref to build the package for'
@@ -58,71 +58,77 @@ jobs:
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-        name: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-python@v5
-        name: Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
-      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-        name: Ensure latest pip and setuptools
-      - run: pip install cibuildwheel && python -m cibuildwheel --output-dir dist
-        name: Build wheels
+      - name: Ensure latest pip and setuptools
+        run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+      - name: Build wheels
+        run: pip install cibuildwheel && python -m cibuildwheel --output-dir dist
         env:
           CIBW_BUILD: cp3*
           CIBW_SKIP: "*musl* *win32 *i686"
-      - uses: actions/upload-artifact@v3
-        name: Upload wheels as artifact
+      - name: Upload wheels as artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-${{ matrix.os }}
           path: dist/
   build_sdist:
     name: Build sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        name: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-python@v5
-        name: Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8 # because of our supported TensorFlow versions, must build on 3.6-3.8
-      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-        name: Ensure latest pip and setuptools
-      - run: pip install -e .[all] ${{ inputs.use_lkg && '-r lkg.txt' || '' }}
-        name: Install econml[all]
-      - run: python setup.py sdist
-        name: Build sdist
-      - uses: actions/upload-artifact@v3
-        name: Upload sdist as artifact
+      - name: Ensure latest pip and setuptools
+        run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+      - name: Install econml[all]
+        run: pip install -e .[all] ${{ inputs.use_lkg && '-r lkg.txt' || '' }}
+      - name: Build sdist
+        run: python setup.py sdist
+      - name: Upload sdist as artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-sdist
           path: dist/
-  publish:
-    name: Publish to PyPI or TestPyPI
+
+  merge:
+    name: Merge artifacts
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5
-        name: Setup Python
+      - name: "Merge artifacts"
+        uses: actions/upload-artifact/merge@v4
         with:
-          python-version: 3.9
-      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-        name: Ensure latest pip and setuptools
-      - run: pip install twine
-        name: Install twine
-      - uses: actions/download-artifact@v3
-        name: Download wheels and sdist
+          name: dist
+          pattern: dist-*
+          delete-merged: true
+
+  publish:
+    name: Publish to PyPI or TestPyPI
+    needs: [merge]
+    permissions:
+      id-token: write
+    environment: ${{ inputs.environment }}
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download wheels and sdist
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
-      - run: twine upload dist/*
-        name: Upload wheels and sdist to package index
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_REPOSITORY: ${{ inputs.repository }}
-          TWINE_PASSWORD: ${{ inputs.repository == 'pypi' && secrets.PYPI_UPLOAD_TOKEN  || secrets.TEST_PYPI_UPLOAD_TOKEN }}
-    if: ${{ inputs.publish }}
+      - name: Upload wheels and sdist to package index
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.environment == 'test' && 'https://test.pypi.org/legacy/' || '' }}
