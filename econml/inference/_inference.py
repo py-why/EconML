@@ -1066,14 +1066,9 @@ class NormalInferenceResults(InferenceResults):
         """
         if self.stderr is None:
             raise AttributeError("Only point estimates are available!")
-        if np.isscalar(self.point_estimate):
+        else:
             return _safe_norm_ppf(alpha / 2, loc=self.point_estimate, scale=self.stderr), \
                 _safe_norm_ppf(1 - alpha / 2, loc=self.point_estimate, scale=self.stderr)
-        else:
-            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.point_estimate, self.stderr)]), \
-                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                          for p, err in zip(self.point_estimate, self.stderr)])
 
     def pvalue(self, value=0):
         """
@@ -1398,14 +1393,8 @@ class PopulationSummaryResults:
         alpha = self.alpha if alpha is None else alpha
         mean_point = self.mean_point
         stderr_mean = self.stderr_mean
-        if np.isscalar(mean_point):
-            return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean),
-                    _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
-        else:
-            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(mean_point, stderr_mean)]), \
-                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                          for p, err in zip(mean_point, stderr_mean)])
+        return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean),
+                _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
 
     @property
     def std_point(self):
