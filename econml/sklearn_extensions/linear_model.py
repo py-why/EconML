@@ -1627,10 +1627,8 @@ class _StatsModelsWrapper(BaseEstimator):
         coef__interval : {tuple ((p, d) array, (p,d) array), tuple ((d,) array, (d,) array)}
             The lower and upper bounds of the confidence interval of the coefficients
         """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.coef_, self.coef_stderr_)]), \
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.coef_, self.coef_stderr_)])
+        return (_safe_norm_ppf(alpha / 2, loc=self.coef_, scale=self.coef_stderr_),
+                _safe_norm_ppf(1 - alpha / 2, loc=self.coef_, scale=self.coef_stderr_))
 
     def intercept__interval(self, alpha=0.05):
         """
@@ -1651,14 +1649,8 @@ class _StatsModelsWrapper(BaseEstimator):
             return (0 if self._n_out == 0 else np.zeros(self._n_out)), \
                 (0 if self._n_out == 0 else np.zeros(self._n_out))
 
-        if self._n_out == 0:
-            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_), \
-                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
-        else:
-            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.intercept_, self.intercept_stderr_)]), \
-                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                          for p, err in zip(self.intercept_, self.intercept_stderr_)])
+        return (_safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),
+                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_))
 
     def predict_interval(self, X, alpha=0.05):
         """
@@ -1677,10 +1669,12 @@ class _StatsModelsWrapper(BaseEstimator):
         prediction_intervals : {tuple ((n,) array, (n,) array), tuple ((n,p) array, (n,p) array)}
             The lower and upper bounds of the confidence intervals of the predicted mean outcomes
         """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]), \
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
+
+        pred = self.predict(X)
+        pred_stderr = self.prediction_stderr(X)
+
+        return (_safe_norm_ppf(alpha / 2, loc=pred, scale=pred_stderr),
+                _safe_norm_ppf(1 - alpha / 2, loc=pred, scale=pred_stderr))
 
 
 class StatsModelsLinearRegression(_StatsModelsWrapper):
