@@ -631,10 +631,7 @@ cdef class BestSplitter(Splitter):
                     best.impurity_right_val = best.impurity_right
                 
                 best.improvement = self.criterion.impurity_improvement(impurity, 
-                best.impurity_left, best.impurity_right)
-
-                if self.honest:
-                    
+                best.impurity_left, best.impurity_right)                    
 
         # Respect invariant for constant features: the original order of
         # element in features[:n_known_constants] must be preserved for sibling
