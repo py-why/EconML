@@ -3,8 +3,6 @@
 [![PyPI wheel](https://img.shields.io/pypi/wheel/econml.svg)](https://pypi.org/project/econml/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/econml.svg)](https://pypi.org/project/econml/)
 
-
-
 <h1>
 <a href="https://econml.azurewebsites.net/">
 <img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
@@ -690,6 +688,8 @@ We use GitHub Actions to build and publish the package and documentation.  To cr
 4. Under https://github.com/py-why/EconML/releases, create a new release with a corresponding tag, and update the release notes.
 
 # Blogs and Publications
+
+* May 2021: [Be Careful When Interpreting Predictive Models in Search of Causal Insights](https://towardsdatascience.com/be-careful-when-interpreting-predictive-models-in-search-of-causal-insights-e68626e664b6)
 
 * June 2019: [Treatment Effects with Instruments paper](https://arxiv.org/pdf/1905.10176.pdf)
 
