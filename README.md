@@ -49,6 +49,8 @@ For information on use cases and background material on causal inference and het
 
 # News
 
+If you'd like to contribute to this project, see the [Help Wanted](#help-wanted) section below.
+
 **February 12, 2024:** Release v0.15.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.0)
 
 <details><summary>Previous releases</summary>
@@ -663,11 +665,15 @@ You can get started by cloning this repository. We use
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
 `pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `pip install -e .` to get started (but depending on what you're doing you might want to install with extras instead, like `pip install -e .[plt]` if you want to use matplotlib integration, or you can use  `pip install -e .[all]` to include all extras).
 
+## Help wanted
+
+If you're looking to contribute to the project, we have a number of issues tagged with the [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) label that are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs.
+
 ## Running the tests
 
-This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
+This project uses [pytest](https://docs.pytest.org/) for testing.  To run all tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
 
-We have added pytest marks to some tests to make it easier to run a subset, and you can set the PYTEST_ADDOPTS environment variable to take advantage of this.  For instance, you can set it to `-m "not (notebook or automl)"` to skip notebook and automl tests that have some additional dependencies. 
+However, running all tests can be very time-consuming, so you may prefer to run just a relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
 
 ## Generating the documentation
 
