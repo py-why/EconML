@@ -321,8 +321,8 @@ class TestPolicyForest(unittest.TestCase):
                                 model_propensity=DummyClassifier(strategy='uniform'),
                                 featurizer=PolynomialFeatures(degree=1, include_bias=False),
                                 cv=GroupKFold(n_splits=2),
-                                n_estimators=20, n_jobs=1, random_state=123).fit(y, T, X=X,
-                                                                                 groups=groups)
+                                n_estimators=100, n_jobs=1, random_state=123).fit(y, T, X=X,
+                                                                                  groups=groups)
         mask = np.abs(Xraw[:, 0]) > .1
         np.testing.assert_allclose(pred[mask], forest.predict(Xraw[mask]))
         np.testing.assert_allclose(pred_val[mask, 1] - pred_val[mask, 0],
