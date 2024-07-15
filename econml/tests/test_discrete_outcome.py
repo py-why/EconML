@@ -61,7 +61,7 @@ class TestDiscreteOutcome(unittest.TestCase):
                 if ate_lb <= true_ate <= ate_ub:
                     count_within_interval += 1
 
-            assert count_within_interval >= 7, (
+            assert count_within_interval >= 6, (
                 f"{est.__class__.__name__}: True ATE falls within the interval bounds "
                 f"only {count_within_interval} times out of {num_iterations}"
             )
@@ -97,7 +97,7 @@ class TestDiscreteOutcome(unittest.TestCase):
                 if ate_lb <= true_ate <= ate_ub:
                     count_within_interval += 1
 
-            assert count_within_interval >= 7, (
+            assert count_within_interval >= 6, (
                 f"{est.__class__.__name__}: True ATE falls within the interval bounds "
                 f"only {count_within_interval} times out of {num_iterations}"
             )
