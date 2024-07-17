@@ -36,25 +36,37 @@ import re
 import numpy as np
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import FunctionTransformer, LabelEncoder, OneHotEncoder
 from sklearn.utils import check_random_state
 
-from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                              TreatmentExpansionMixin)
+from ._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
-                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .utilities import (
+    _deprecate_positional,
+    check_input_arrays,
+    cross_product,
+    filter_none_kwargs,
+    one_hot_encoder,
+    strata_from_discrete_arrays,
+    inverse_onehot,
+    jacify_featurizer,
+    ndim,
+    reshape,
+    shape,
+    transpose,
+)
 from .sklearn_extensions.model_selection import ModelSelector
 
 try:
     import ray
 except ImportError as exn:
     from .utilities import MissingModule
+
     ray = MissingModule(
         "Ray is not a dependency of the base econml package; install econml[ray] or econml[all] to require it, "
-        "or install ray separately, to use functionality that depends on ray", exn)
+        "or install ray separately, to use functionality that depends on ray",
+        exn,
+    )
 
 
 def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
@@ -111,8 +123,9 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     return nuisance_temp, model, (score_temp if calculate_scores else None)
 
 
-def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray, ray_remote_fun_option,
-              *args, **kwargs):
+def _crossfit(
+    models: Union[ModelSelector, List[ModelSelector]], folds, use_ray, ray_remote_fun_option, *args, **kwargs
+):
     """
     General crossfit based calculation of nuisance parameters.
 
@@ -212,12 +225,16 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
         fitted_inds = []
         for idx, (train_idxs, test_idxs) in enumerate(folds):
             if len(np.intersect1d(train_idxs, test_idxs)) > 0:
-                raise AttributeError(f"Invalid crossfitting fold structure. Train and test indices of fold {idx+1} "
-                                     f"are not disjoint: {train_idxs}, {test_idxs}")
+                raise AttributeError(
+                    f"Invalid crossfitting fold structure. Train and test indices of fold {idx+1} "
+                    f"are not disjoint: {train_idxs}, {test_idxs}"
+                )
             common_idxs = np.intersect1d(fitted_inds, test_idxs)
             if len(common_idxs) > 0:
-                raise AttributeError(f"Invalid crossfitting fold structure. The indexes {common_idxs} in fold {idx+1} "
-                                     f"have appeared in previous folds")
+                raise AttributeError(
+                    f"Invalid crossfitting fold structure. The indexes {common_idxs} in fold {idx+1} "
+                    f"have appeared in previous folds"
+                )
             fitted_inds = np.concatenate((fitted_inds, test_idxs))
         fitted_inds = np.sort(fitted_inds.astype(int))
     else:
@@ -270,19 +287,20 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
                 ray_args = ray.put(kwargs)
                 for idx, (train_idxs, test_idxs) in enumerate(folds):
                     fold_refs.append(
-                        ray.remote(_fit_fold).options(**ray_remote_fun_option).remote(model, train_idxs, test_idxs,
-                                                                                      calculate_scores,
-                                                                                      accumulated_args, ray_args))
+                        ray.remote(_fit_fold)
+                        .options(**ray_remote_fun_option)
+                        .remote(model, train_idxs, test_idxs, calculate_scores, accumulated_args, ray_args)
+                    )
             for idx, (train_idxs, test_idxs) in enumerate(folds):
                 if use_ray:
                     nuisance_temp, model_out, score_temp = ray.get(fold_refs[idx])
                 else:
-                    nuisance_temp, model_out, score_temp = _fit_fold(model, train_idxs, test_idxs,
-                                                                     calculate_scores, accumulated_args, kwargs)
+                    nuisance_temp, model_out, score_temp = _fit_fold(
+                        model, train_idxs, test_idxs, calculate_scores, accumulated_args, kwargs
+                    )
 
                 if idx == 0:
-                    nuisances = tuple([np.full((n,) + nuis.shape[1:], np.nan)
-                                      for nuis in nuisance_temp])
+                    nuisances = tuple([np.full((n,) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
 
                 for it, nuis in enumerate(nuisance_temp):
                     nuisances[it][test_idxs] = nuis
@@ -306,9 +324,9 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
     return accumulated_nuisances, model_list, fitted_inds, accumulated_scores
 
 
-CachedValues = namedtuple('CachedValues', ['nuisances',
-                                           'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
-                                           'sample_var', 'groups'])
+CachedValues = namedtuple(
+    'CachedValues', ['nuisances', 'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight', 'sample_var', 'groups']
+)
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -557,19 +575,22 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The out-of-sample scores from training each nuisance model
     """
 
-    def __init__(self, *,
-                 discrete_outcome,
-                 discrete_treatment,
-                 treatment_featurizer,
-                 discrete_instrument,
-                 categories,
-                 cv,
-                 random_state,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
+    def __init__(
+        self,
+        *,
+        discrete_outcome,
+        discrete_treatment,
+        treatment_featurizer,
+        discrete_instrument,
+        categories,
+        cv,
+        random_state,
+        mc_iters=None,
+        mc_agg='mean',
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.cv = cv
         self.discrete_outcome = discrete_outcome
         self.discrete_treatment = discrete_treatment
@@ -597,10 +618,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             The selector(s) for fitting the nuisance function. The returned estimators must implement
             `train` and `predict` methods that both have signatures::
 
-                model_nuisance.train(is_selecting, folds, Y, T, X=X, W=W, Z=Z,
-                                sample_weight=sample_weight)
-                model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
-                                    sample_weight=sample_weight)
+                model_nuisance.train(is_selecting, folds, Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+                model_nuisance.predict(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
 
             In fact we allow for the model method signatures to skip any of the keyword arguments
             as long as the class is always called with the omitted keyword argument set to ``None``.
@@ -615,15 +634,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_final(self):
-        """ Must return a fresh instance of a final model
+        """Must return a fresh instance of a final model
 
         Returns
         -------
         model_final: estimator for fitting the response residuals to the features and treatment residuals
             Must implement `fit` and `predict` methods that must have signatures::
 
-                model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
-                                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var)
+                model_final.fit(
+                    Y,
+                    T,
+                    X=X,
+                    W=W,
+                    Z=Z,
+                    nuisances=nuisances,
+                    sample_weight=sample_weight,
+                    freq_weight=freq_weight,
+                    sample_var=sample_var,
+                )
                 model_final.predict(X=X)
 
             Predict, should just take the features X and return the constant marginal effect. In fact we allow
@@ -664,9 +692,21 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
 
-    def _strata(self, Y, T, X=None, W=None, Z=None,
-                sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-                cache_values=False, only_final=False, check_input=True):
+    def _strata(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        only_final=False,
+        check_input=True,
+    ):
         arrs = []
         if self.discrete_outcome:
             arrs.append(Y)
@@ -678,7 +718,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return strata_from_discrete_arrays(arrs)
 
     def _prefit(self, Y, T, *args, only_final=False, **kwargs):
-
         # generate an instance of the final model
         self._ortho_learner_model_final = self._gen_ortho_learner_model_final()
         if not only_final:
@@ -688,8 +727,23 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         super()._prefit(Y, T, *args, **kwargs)
 
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None, only_final=False, check_input=True):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        X=None,
+        W=None,
+        Z=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference=None,
+        only_final=False,
+        check_input=True,
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -738,31 +792,37 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         self._random_state = check_random_state(self.random_state)
         assert (freq_weight is None) == (
-            sample_var is None), "Sample variances and frequency weights must be provided together!"
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
-            "is not supported when treatment is discrete"
+            sample_var is None
+        ), "Sample variances and frequency weights must be provided together!"
+        assert not (self.discrete_treatment and self.treatment_featurizer), (
+            "Treatment featurization " "is not supported when treatment is discrete"
+        )
         if check_input:
             Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, Z, sample_weight, freq_weight, sample_var, groups)
-            X, = check_input_arrays(
-                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
-            W, = check_input_arrays(
-                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+                Y, T, Z, sample_weight, freq_weight, sample_var, groups
+            )
+            (X,) = check_input_arrays(
+                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True
+            )
+            (W,) = check_input_arrays(
+                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True
+            )
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
-
             if self.discrete_outcome:
                 self.outcome_transformer = LabelEncoder()
                 self.outcome_transformer.fit(Y)
                 if Y.shape[1:] and Y.shape[1] > 1:
                     raise ValueError(
-                        f"Only one outcome variable is supported when discrete_outcome=True. Got Y of shape {Y.shape}")
+                        f"Only one outcome variable is supported when discrete_outcome=True. Got Y of shape {Y.shape}"
+                    )
                 if len(self.outcome_transformer.classes_) > 2:
                     raise AttributeError(
                         f"({len(self.outcome_transformer.classes_)} outcome classes detected. "
                         "Currently, only 2 outcome classes are allowed when discrete_outcome=True. "
-                        f"Classes provided include {self.outcome_transformer.classes_[:5]}")
+                        f"Classes provided include {self.outcome_transformer.classes_[:5]}"
+                    )
             else:
                 self.outcome_transformer = None
 
@@ -812,15 +872,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     return self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
 
                 # Create Ray remote jobs for parallel processing
-                self.nuisances_ref = [ray.remote(_fit_nuisances).options(**self.ray_remote_func_options).remote(
-                    Y, T, X, W, Z, sample_weight_nuisances, groups) for _ in range(self.mc_iters or 1)]
+                self.nuisances_ref = [
+                    ray.remote(_fit_nuisances)
+                    .options(**self.ray_remote_func_options)
+                    .remote(Y, T, X, W, Z, sample_weight_nuisances, groups)
+                    for _ in range(self.mc_iters or 1)
+                ]
 
             for idx in range(self.mc_iters or 1):
                 if self.use_ray:
                     nuisances, fitted_models, new_inds, scores = ray.get(self.nuisances_ref[idx])
                 else:
                     nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
-                        Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
+                        Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups
+                    )
                 all_nuisances.append(nuisances)
                 self._models_nuisance.append(fitted_models)
                 if scores is None:
@@ -837,25 +902,37 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             if self.mc_iters is not None:
                 if self.mc_agg == 'mean':
-                    nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in zip(*all_nuisances))
+                    nuisances = tuple(
+                        np.mean(nuisance_mc_variants, axis=0) for nuisance_mc_variants in zip(*all_nuisances)
+                    )
                 elif self.mc_agg == 'median':
-                    nuisances = tuple(np.median(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in zip(*all_nuisances))
+                    nuisances = tuple(
+                        np.median(nuisance_mc_variants, axis=0) for nuisance_mc_variants in zip(*all_nuisances)
+                    )
                 else:
-                    raise ValueError(
-                        f"Parameter `mc_agg` must be one of {{'mean', 'median'}}. Got {self.mc_agg}")
+                    raise ValueError(f"Parameter `mc_agg` must be one of {{'mean', 'median'}}. Got {self.mc_agg}")
 
-            Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
-                                                                     for arr in (Y, T, X, W, Z, sample_weight,
-                                                                                 freq_weight, sample_var))
+            Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (
+                self._subinds_check_none(arr, fitted_inds)
+                for arr in (Y, T, X, W, Z, sample_weight, freq_weight, sample_var)
+            )
             nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
-            self._cached_values = CachedValues(nuisances=nuisances,
-                                               Y=Y, T=T, X=X, W=W, Z=Z,
-                                               sample_weight=sample_weight,
-                                               freq_weight=freq_weight,
-                                               sample_var=sample_var,
-                                               groups=groups) if cache_values else None
+            self._cached_values = (
+                CachedValues(
+                    nuisances=nuisances,
+                    Y=Y,
+                    T=T,
+                    X=X,
+                    W=W,
+                    Z=Z,
+                    sample_weight=sample_weight,
+                    freq_weight=freq_weight,
+                    sample_var=sample_var,
+                    groups=groups,
+                )
+                if cache_values
+                else None
+            )
         else:
             nuisances = self._cached_values.nuisances
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
@@ -869,19 +946,23 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         final_T = T
         if self.transformer:
-            if (self.discrete_treatment):
+            if self.discrete_treatment:
                 final_T = self.transformer.transform(final_T.reshape(-1, 1))
             else:  # treatment featurizer case
                 final_T = output_T
 
-        self._fit_final(Y=Y,
-                        T=final_T,
-                        X=X, W=W, Z=Z,
-                        nuisances=nuisances,
-                        sample_weight=sample_weight,
-                        freq_weight=freq_weight,
-                        sample_var=sample_var,
-                        groups=groups)
+        self._fit_final(
+            Y=Y,
+            T=final_T,
+            X=X,
+            W=W,
+            Z=Z,
+            nuisances=nuisances,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+        )
 
         return self
 
@@ -914,16 +995,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             raise ValueError("The chosen inference method does not allow only for model final re-fitting.")
         cached = self._cached_values
         kwargs = filter_none_kwargs(
-            Y=cached.Y, T=cached.T, X=cached.X, W=cached.W, Z=cached.Z,
-            sample_weight=cached.sample_weight, freq_weight=cached.freq_weight, sample_var=cached.sample_var,
+            Y=cached.Y,
+            T=cached.T,
+            X=cached.X,
+            W=cached.W,
+            Z=cached.Z,
+            sample_weight=cached.sample_weight,
+            freq_weight=cached.freq_weight,
+            sample_var=cached.sample_var,
             groups=cached.groups,
         )
-        _OrthoLearner.fit(self, **kwargs,
-                          cache_values=True, inference=inference, only_final=True, check_input=False)
+        _OrthoLearner.fit(self, **kwargs, cache_values=True, inference=inference, only_final=True, check_input=False)
         return self
 
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-
         # use a binary array to get stratified split in case of discrete treatment
         stratify = self.discrete_treatment or self.discrete_instrument or self.discrete_outcome
         strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups)
@@ -963,35 +1048,66 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 # we won't have generated a KFold or StratifiedKFold ourselves when groups are passed,
                 # but the user might have supplied one, which won't work
                 if isinstance(splitter, (KFold, StratifiedKFold)):
-                    raise TypeError("Groups were passed to fit while using a KFold or StratifiedKFold splitter. "
-                                    "Instead you must initialize this object with a splitter that can handle groups.")
+                    raise TypeError(
+                        "Groups were passed to fit while using a KFold or StratifiedKFold splitter. "
+                        "Instead you must initialize this object with a splitter that can handle groups."
+                    )
                 folds = splitter.split(to_split, strata, groups=groups)
             else:
                 folds = splitter.split(to_split, strata)
 
-        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
-                                                                  self.use_ray, self.ray_remote_func_options, Y, T,
-                                                                  X=X, W=W, Z=Z, sample_weight=sample_weight,
-                                                                  groups=groups)
+        nuisances, fitted_models, fitted_inds, scores = _crossfit(
+            self._ortho_learner_model_nuisance,
+            folds,
+            self.use_ray,
+            self.ray_remote_func_options,
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            groups=groups,
+        )
         return nuisances, fitted_models, fitted_inds, scores
 
-    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
-                   freq_weight=None, sample_var=None, groups=None):
-        self._ortho_learner_model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                       nuisances=nuisances,
-                                                                       sample_weight=sample_weight,
-                                                                       freq_weight=freq_weight,
-                                                                       sample_var=sample_var,
-                                                                       groups=groups))
+    def _fit_final(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        nuisances=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+    ):
+        self._ortho_learner_model_final.fit(
+            Y,
+            T,
+            **filter_none_kwargs(
+                X=X,
+                W=W,
+                Z=Z,
+                nuisances=nuisances,
+                sample_weight=sample_weight,
+                freq_weight=freq_weight,
+                sample_var=sample_var,
+                groups=groups,
+            ),
+        )
         self.score_ = None
         if hasattr(self._ortho_learner_model_final, 'score'):
-            self.score_ = self._ortho_learner_model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                                           nuisances=nuisances,
-                                                                                           sample_weight=sample_weight,
-                                                                                           groups=groups))
+            self.score_ = self._ortho_learner_model_final.score(
+                Y,
+                T,
+                **filter_none_kwargs(X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, groups=groups),
+            )
 
     def const_marginal_effect(self, X=None):
-        X, = check_input_arrays(X)
+        (X,) = check_input_arrays(X)
         self._check_fitted_dims(X)
         if X is None:
             return self._ortho_learner_model_final.predict()
@@ -1001,14 +1117,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        X, = check_input_arrays(X)
+        (X,) = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def const_marginal_effect_inference(self, X=None):
-        X, = check_input_arrays(X)
+        (X,) = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
 
@@ -1064,8 +1180,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
         Y, T, Z = check_input_arrays(Y, T, Z)
-        X, = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
-        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        (X,) = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        (W,) = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         self._check_fitted_dims(X)
         self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)
@@ -1112,9 +1228,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             accumulated_nuisances += nuisances
 
-        return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
-                                                     **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                          sample_weight=sample_weight, groups=groups))
+        return self._ortho_learner_model_final.score(
+            Y,
+            T,
+            nuisances=accumulated_nuisances,
+            **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups),
+        )
 
     @property
     def ortho_learner_model_final_(self):

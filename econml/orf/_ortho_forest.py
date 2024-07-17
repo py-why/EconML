@@ -28,8 +28,7 @@ from joblib import Parallel, delayed
 from sklearn import clone
 from scipy.stats import norm
 from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, \
-    LogisticRegressionCV, ElasticNet
+from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, LogisticRegressionCV, ElasticNet
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
@@ -39,16 +38,30 @@ from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentE
 from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (one_hot_encoder, reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, check_input_arrays, jacify_featurizer,
-                         _RegressionWrapper, deprecated, ndim)
+from ..utilities import (
+    one_hot_encoder,
+    reshape,
+    reshape_Y_T,
+    MAX_RAND_SEED,
+    check_inputs,
+    _deprecate_positional,
+    cross_product,
+    inverse_onehot,
+    check_input_arrays,
+    jacify_featurizer,
+    _RegressionWrapper,
+    deprecated,
+    ndim,
+)
 from sklearn.model_selection import check_cv
+
 # TODO: consider working around relying on sklearn implementation details
 from ..sklearn_extensions.model_selection import _cross_val_predict
 
 
-def _build_tree_in_parallel(tree, Y, T, X, W,
-                            nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator):
+def _build_tree_in_parallel(
+    tree, Y, T, X, W, nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator
+):
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W, nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator)
     return tree
@@ -102,7 +115,7 @@ def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_
 
 
 def _group_predict(X, n_groups, predict_func):
-    """ Helper function that predicts using the predict function
+    """Helper function that predicts using the predict function
     for every input argument that looks like [X; i] for i in range(n_groups). Used in
     DR moments, where we want to predict for each [X; t], for any value of the treatment t.
     Returns an (X.shape[0], n_groups) matrix of predictions for each row of X and each t in range(n_groups).
@@ -152,10 +165,23 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
 
-def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights_list,
-                      second_stage_nuisance_estimator, second_stage_parameter_estimator,
-                      moment_and_mean_gradient_estimator, slice_len, n_slices, n_trees,
-                      stderr=False):
+def _pointwise_effect(
+    X_single,
+    Y,
+    T,
+    X,
+    W,
+    w_nonzero,
+    split_inds,
+    slice_weights_list,
+    second_stage_nuisance_estimator,
+    second_stage_parameter_estimator,
+    moment_and_mean_gradient_estimator,
+    slice_len,
+    n_slices,
+    n_trees,
+    stderr=False,
+):
     """Calculate the effect for a one data point with features X_single.
 
     Parameters
@@ -180,17 +206,16 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
     # 3. Calculate the covariance matrix (V.T x V) / n_slices
     # -------------------------------------------------------------------------------
     if stderr:
-        moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates,
-                                                                parameter_estimate)
+        moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates, parameter_estimate)
         # Calclulate covariance matrix through BLB
         slice_weighted_moment_one = []
         slice_weighted_moment_two = []
         for slice_weights_one, slice_weights_two in slice_weights_list:
             slice_weighted_moment_one.append(
-                np.average(moments[:len(split_inds[0])], axis=0, weights=slice_weights_one)
+                np.average(moments[: len(split_inds[0])], axis=0, weights=slice_weights_one)
             )
             slice_weighted_moment_two.append(
-                np.average(moments[len(split_inds[0]):], axis=0, weights=slice_weights_two)
+                np.average(moments[len(split_inds[0]) :], axis=0, weights=slice_weights_two)
             )
         U = np.vstack(slice_weighted_moment_one + slice_weighted_moment_two)
         inverse_grad = np.linalg.inv(mean_grad)
@@ -202,25 +227,28 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
 class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
     """Base class for the :class:`DMLOrthoForest` and :class:`DROrthoForest`."""
 
-    def __init__(self,
-                 nuisance_estimator,
-                 second_stage_nuisance_estimator,
-                 parameter_estimator,
-                 second_stage_parameter_estimator,
-                 moment_and_mean_gradient_estimator,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 n_trees=500,
-                 min_leaf_size=10, max_depth=10,
-                 subsample_ratio=0.25,
-                 bootstrap=False,
-                 n_jobs=-1,
-                 backend='loky',
-                 verbose=3,
-                 batch_size='auto',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        nuisance_estimator,
+        second_stage_nuisance_estimator,
+        parameter_estimator,
+        second_stage_parameter_estimator,
+        moment_and_mean_gradient_estimator,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        n_trees=500,
+        min_leaf_size=10,
+        max_depth=10,
+        subsample_ratio=0.25,
+        bootstrap=False,
+        n_jobs=-1,
+        backend='loky',
+        verbose=3,
+        batch_size='auto',
+        random_state=None,
+        allow_missing=False,
+    ):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
@@ -241,7 +269,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.forest_one_subsample_ind = None
         self.forest_two_subsample_ind = None
         # Auxiliary attributes
-        self.n_slices = int(np.ceil((self.n_trees)**(1 / 2)))
+        self.n_slices = int(np.ceil((self.n_trees) ** (1 / 2)))
         self.slice_len = int(np.ceil(self.n_trees / self.n_slices))
         # Fit check
         self.model_is_fitted = False
@@ -283,8 +311,14 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self: an instance of self.
         """
-        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_Y=False,
-                                  force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, W = check_inputs(
+            Y,
+            T,
+            X,
+            W,
+            multi_output_Y=False,
+            force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True,
+        )
         shuffled_inidces = self.random_state.permutation(X.shape[0])
         n = X.shape[0] // 2
         self.Y_one = Y[shuffled_inidces[:n]]
@@ -299,14 +333,12 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             self.W_one = None
             self.W_two = None
-        self.forest_one_subsample_ind, self.forest_one_trees = self._fit_forest(Y=self.Y_one,
-                                                                                T=self.T_one,
-                                                                                X=self.X_one,
-                                                                                W=self.W_one)
-        self.forest_two_subsample_ind, self.forest_two_trees = self._fit_forest(Y=self.Y_two,
-                                                                                T=self.T_two,
-                                                                                X=self.X_two,
-                                                                                W=self.W_two)
+        self.forest_one_subsample_ind, self.forest_one_trees = self._fit_forest(
+            Y=self.Y_one, T=self.T_one, X=self.X_one, W=self.W_one
+        )
+        self.forest_two_subsample_ind, self.forest_two_trees = self._fit_forest(
+            Y=self.Y_two, T=self.T_two, X=self.X_two, W=self.W_two
+        )
         self.model_is_fitted = True
         return self
 
@@ -331,19 +363,26 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        results = Parallel(n_jobs=self.n_jobs, backend=self.backend,
-                           batch_size=self.batch_size, verbose=self.verbose)(
-            delayed(_pointwise_effect)(X_single, *self._pw_effect_inputs(X_single, stderr=stderr),
-                                       self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
-                                       self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices,
-                                       self.n_trees,
-                                       stderr=stderr) for X_single in X)
+        results = Parallel(n_jobs=self.n_jobs, backend=self.backend, batch_size=self.batch_size, verbose=self.verbose)(
+            delayed(_pointwise_effect)(
+                X_single,
+                *self._pw_effect_inputs(X_single, stderr=stderr),
+                self.second_stage_nuisance_estimator,
+                self.second_stage_parameter_estimator,
+                self.moment_and_mean_gradient_estimator,
+                self.slice_len,
+                self.n_slices,
+                self.n_trees,
+                stderr=stderr,
+            )
+            for X_single in X
+        )
         return results
 
     def _pw_effect_inputs(self, X_single, stderr=False):
         w1, w2 = self._get_weights(X_single)
-        mask_w1 = (w1 != 0)
-        mask_w2 = (w2 != 0)
+        mask_w1 = w1 != 0
+        mask_w2 = w2 != 0
         w1_nonzero = w1[mask_w1]
         w2_nonzero = w2[mask_w2]
         # Must normalize weights
@@ -358,13 +397,15 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
                 slice_weights_list.append((slice_weights_one[mask_w1], slice_weights_two[mask_w2]))
         W_none = self.W_one is None
-        return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])), \
-            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])), \
-            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])), \
-            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
-                           ) if not W_none else None, \
-            w_nonzero, \
-            split_inds, slice_weights_list
+        return (
+            np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
+            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
+            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
+            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if not W_none else None,
+            w_nonzero,
+            split_inds,
+            slice_weights_list,
+        )
 
     def _get_inference_options(self):
         # Override the CATE inference options
@@ -378,17 +419,31 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Generate subsample indices
         subsample_ind = self._get_blb_indices(X)
         # Build trees in parallel
-        trees = [CausalTree(self.min_leaf_size, self.max_depth, 1000, .4,
-                            check_random_state(self.random_state.randint(MAX_RAND_SEED)))
-                 for _ in range(len(subsample_ind))]
-        return subsample_ind, Parallel(n_jobs=self.n_jobs, backend=self.backend,
-                                       batch_size=self.batch_size, verbose=self.verbose, max_nbytes=None)(
-            delayed(_build_tree_in_parallel)(tree,
-                                             Y[s], T[s], X[s], W[s] if W is not None else None,
-                                             self.nuisance_estimator,
-                                             self.parameter_estimator,
-                                             self.moment_and_mean_gradient_estimator)
-            for s, tree in zip(subsample_ind, trees))
+        trees = [
+            CausalTree(
+                self.min_leaf_size,
+                self.max_depth,
+                1000,
+                0.4,
+                check_random_state(self.random_state.randint(MAX_RAND_SEED)),
+            )
+            for _ in range(len(subsample_ind))
+        ]
+        return subsample_ind, Parallel(
+            n_jobs=self.n_jobs, backend=self.backend, batch_size=self.batch_size, verbose=self.verbose, max_nbytes=None
+        )(
+            delayed(_build_tree_in_parallel)(
+                tree,
+                Y[s],
+                T[s],
+                X[s],
+                W[s] if W is not None else None,
+                self.nuisance_estimator,
+                self.parameter_estimator,
+                self.moment_and_mean_gradient_estimator,
+            )
+            for s, tree in zip(subsample_ind, trees)
+        )
 
     def _get_weights(self, X_single, tree_slice=None):
         """Calculate weights for a single input feature vector over a subset of trees.
@@ -432,18 +487,20 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.bootstrap:
             if self.subsample_ratio > 1.0:
                 # Safety check
-                warnings.warn("The argument 'subsample_ratio' must be between 0.0 and 1.0, " +
-                              "however a value of {} was provided. The 'subsample_ratio' will be changed to 1.0.")
+                warnings.warn(
+                    "The argument 'subsample_ratio' must be between 0.0 and 1.0, "
+                    + "however a value of {} was provided. The 'subsample_ratio' will be changed to 1.0."
+                )
                 self.subsample_ratio = 1.0
             subsample_size = int(self.subsample_ratio * subsample_size)
         subsample_ind = []
         # Draw points to create little bags
         for it in range(self.n_slices):
-            half_sample_inds = self.random_state.choice(
-                X.shape[0], X.shape[0] // 2, replace=False)
+            half_sample_inds = self.random_state.choice(X.shape[0], X.shape[0] // 2, replace=False)
             for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)):
-                subsample_ind.append(half_sample_inds[self.random_state.choice(
-                    X.shape[0] // 2, subsample_size, replace=self.bootstrap)])
+                subsample_ind.append(
+                    half_sample_inds[self.random_state.choice(X.shape[0] // 2, subsample_size, replace=self.bootstrap)]
+                )
         return np.asarray(subsample_ind)
 
 
@@ -545,27 +602,31 @@ class DMLOrthoForest(BaseOrthoForest):
 
     """
 
-    def __init__(self, *,
-                 n_trees=500,
-                 min_leaf_size=10, max_depth=10,
-                 subsample_ratio=0.7,
-                 bootstrap=False,
-                 lambda_reg=0.01,
-                 model_T='auto',
-                 model_Y=WeightedLassoCVWrapper(cv=3),
-                 model_T_final=None,
-                 model_Y_final=None,
-                 global_residualization=False,
-                 global_res_cv=2,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 n_jobs=-1,
-                 backend='loky',
-                 verbose=3,
-                 batch_size='auto',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        n_trees=500,
+        min_leaf_size=10,
+        max_depth=10,
+        subsample_ratio=0.7,
+        bootstrap=False,
+        lambda_reg=0.01,
+        model_T='auto',
+        model_Y=WeightedLassoCVWrapper(cv=3),
+        model_T_final=None,
+        model_Y_final=None,
+        global_residualization=False,
+        global_res_cv=2,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        n_jobs=-1,
+        backend='loky',
+        verbose=3,
+        batch_size='auto',
+        random_state=None,
+        allow_missing=False,
+    ):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
         if model_T == 'auto':
@@ -599,15 +660,24 @@ class DMLOrthoForest(BaseOrthoForest):
         self.treatment_featurizer = treatment_featurizer
         # Define nuisance estimators
         nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
-            self._model_T, self._model_Y, self.random_state, second_stage=False,
-            global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
+            self._model_T,
+            self._model_Y,
+            self.random_state,
+            second_stage=False,
+            global_residualization=self.global_residualization,
+            discrete_treatment=discrete_treatment,
+        )
         second_stage_nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
-            self._model_T_final, self._model_Y_final, self.random_state, second_stage=True,
-            global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
+            self._model_T_final,
+            self._model_Y_final,
+            self.random_state,
+            second_stage=True,
+            global_residualization=self.global_residualization,
+            discrete_treatment=discrete_treatment,
+        )
         # Define parameter estimators
         parameter_estimator = _DMLOrthoForest_parameter_estimator_func
-        second_stage_parameter_estimator = _DMLOrthoForest_second_stage_parameter_estimator_gen(
-            self.lambda_reg)
+        second_stage_parameter_estimator = _DMLOrthoForest_second_stage_parameter_estimator_gen(self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
 
@@ -630,7 +700,8 @@ class DMLOrthoForest(BaseOrthoForest):
             treatment_featurizer=treatment_featurizer,
             categories=categories,
             random_state=self.random_state,
-            allow_missing=allow_missing)
+            allow_missing=allow_missing,
+        )
 
     def _combine(self, X, W):
         if X is None:
@@ -668,9 +739,11 @@ class DMLOrthoForest(BaseOrthoForest):
         """
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(
-            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
-            "is not supported when treatment is discrete"
+            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True
+        )
+        assert not (self.discrete_treatment and self.treatment_featurizer), (
+            "Treatment featurization " "is not supported when treatment is discrete"
+        )
 
         if self.discrete_treatment:
             categories = self.categories
@@ -706,14 +779,22 @@ class DMLOrthoForest(BaseOrthoForest):
         # Override to flatten output if T is flat
         effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
+
     const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
 
 class _DMLOrthoForest_nuisance_estimator_generator:
     """Generate nuissance estimator given model inputs from the class."""
 
-    def __init__(self, model_T, model_Y, random_state=None, second_stage=True,
-                 global_residualization=False, discrete_treatment=False):
+    def __init__(
+        self,
+        model_T,
+        model_Y,
+        random_state=None,
+        second_stage=True,
+        global_residualization=False,
+        discrete_treatment=False,
+    ):
         self.model_T = model_T
         self.model_Y = model_Y
         self.random_state = random_state
@@ -761,22 +842,20 @@ class _DMLOrthoForest_nuisance_estimator_generator:
                 T_hat = clone(self.model_T, safe=False).fit(X_tilde, T).predict(X_tilde)
                 Y_hat = clone(self.model_Y, safe=False).fit(X_tilde, Y).predict(X_tilde)
         except ValueError as exc:
-            raise ValueError("The original error: {0}".format(str(exc)) +
-                             " This might be caused by too few sample in the tree leafs." +
-                             " Try increasing the min_leaf_size.")
+            raise ValueError(
+                "The original error: {0}".format(str(exc))
+                + " This might be caused by too few sample in the tree leafs."
+                + " Try increasing the min_leaf_size."
+            )
         return Y_hat, T_hat
 
 
-def _DMLOrthoForest_parameter_estimator_func(Y, T, X,
-                                             nuisance_estimates,
-                                             sample_weight=None):
+def _DMLOrthoForest_parameter_estimator_func(Y, T, X, nuisance_estimates, sample_weight=None):
     """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
     # Compute residuals
     Y_res, T_res = _DMLOrthoForest_get_conforming_residuals(Y, T, nuisance_estimates)
     # Compute coefficient by OLS on residuals
-    param_estimate = LinearRegression(fit_intercept=False).fit(
-        T_res, Y_res, sample_weight=sample_weight
-    ).coef_
+    param_estimate = LinearRegression(fit_intercept=False).fit(T_res, Y_res, sample_weight=sample_weight).coef_
     # Parameter returned by LinearRegression is (d_T, )
     return param_estimate
 
@@ -791,10 +870,7 @@ class _DMLOrthoForest_second_stage_parameter_estimator_gen:
     def __init__(self, lambda_reg):
         self.lambda_reg = lambda_reg
 
-    def __call__(self, Y, T, X,
-                 nuisance_estimates,
-                 sample_weight,
-                 X_single):
+    def __call__(self, Y, T, X, nuisance_estimates, sample_weight, X_single):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
 
         The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
@@ -811,21 +887,19 @@ class _DMLOrthoForest_second_stage_parameter_estimator_gen:
             weighted_XT_res = XT_res / XT_res.shape[0]
         # ell_2 regularization
         diagonal = np.ones(XT_res.shape[1])
-        diagonal[:T_res.shape[1]] = 0
+        diagonal[: T_res.shape[1]] = 0
         reg = self.lambda_reg * np.diag(diagonal)
         # Ridge regression estimate
-        linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
-                                               np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
-                                               rcond=None)[0].flatten()
+        linear_coef_estimate = np.linalg.lstsq(
+            np.matmul(weighted_XT_res.T, XT_res) + reg, np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)), rcond=None
+        )[0].flatten()
         X_aug = np.append([1], X_single)
         linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
         # Parameter returned is of shape (d_T, )
         return np.dot(linear_coef_estimate, X_aug)
 
 
-def _DMLOrthoForest_moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                            nuisance_estimates,
-                                                            parameter_estimate):
+def _DMLOrthoForest_moment_and_mean_gradient_estimator_func(Y, T, X, W, nuisance_estimates, parameter_estimate):
     """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
     # Return moments and gradients
     # Compute residuals
@@ -834,7 +908,7 @@ def _DMLOrthoForest_moment_and_mean_gradient_estimator_func(Y, T, X, W,
     # Moments shape is (n, d_T)
     moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
     # Compute moment gradients
-    mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+    mean_gradient = -np.matmul(T_res.T, T_res) / T_res.shape[0]
     return moments, mean_gradient
 
 
@@ -932,24 +1006,27 @@ class DROrthoForest(BaseOrthoForest):
         that can handle missing values.
     """
 
-    def __init__(self, *,
-                 n_trees=500,
-                 min_leaf_size=10, max_depth=10,
-                 subsample_ratio=0.7,
-                 bootstrap=False,
-                 lambda_reg=0.01,
-                 propensity_model=LogisticRegression(penalty='l1', solver='saga',
-                                                     multi_class='auto'),  # saga solver supports l1
-                 model_Y=WeightedLassoCVWrapper(cv=3),
-                 propensity_model_final=None,
-                 model_Y_final=None,
-                 categories='auto',
-                 n_jobs=-1,
-                 backend='loky',
-                 verbose=3,
-                 batch_size='auto',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        n_trees=500,
+        min_leaf_size=10,
+        max_depth=10,
+        subsample_ratio=0.7,
+        bootstrap=False,
+        lambda_reg=0.01,
+        propensity_model=LogisticRegression(penalty='l1', solver='saga', multi_class='auto'),  # saga solver supports l1
+        model_Y=WeightedLassoCVWrapper(cv=3),
+        propensity_model_final=None,
+        model_Y_final=None,
+        categories='auto',
+        n_jobs=-1,
+        backend='loky',
+        verbose=3,
+        batch_size='auto',
+        random_state=None,
+        allow_missing=False,
+    ):
         self.lambda_reg = lambda_reg
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
@@ -963,13 +1040,14 @@ class DROrthoForest(BaseOrthoForest):
         self.random_state = check_random_state(random_state)
 
         nuisance_estimator = DROrthoForest.nuisance_estimator_generator(
-            self.propensity_model, self.model_Y, self.random_state, second_stage=False)
+            self.propensity_model, self.model_Y, self.random_state, second_stage=False
+        )
         second_stage_nuisance_estimator = DROrthoForest.nuisance_estimator_generator(
-            self.propensity_model_final, self.model_Y_final, self.random_state, second_stage=True)
+            self.propensity_model_final, self.model_Y_final, self.random_state, second_stage=True
+        )
         # Define parameter estimators
         parameter_estimator = DROrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = DROrthoForest.second_stage_parameter_estimator_gen(
-            self.lambda_reg)
+        second_stage_parameter_estimator = DROrthoForest.second_stage_parameter_estimator_gen(self.lambda_reg)
         # Define moment and mean gradient estimator
         moment_and_mean_gradient_estimator = DROrthoForest.moment_and_mean_gradient_estimator_func
         super().__init__(
@@ -990,7 +1068,8 @@ class DROrthoForest(BaseOrthoForest):
             verbose=verbose,
             batch_size=batch_size,
             random_state=self.random_state,
-            allow_missing=allow_missing)
+            allow_missing=allow_missing,
+        )
 
     def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
@@ -1021,7 +1100,8 @@ class DROrthoForest(BaseOrthoForest):
         """
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(
-            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True
+        )
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)
@@ -1085,6 +1165,7 @@ class DROrthoForest(BaseOrthoForest):
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
+
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
             # Expand one-hot encoding to include the zero treatment
             ohe_T = np.hstack([np.all(1 - T, axis=1, keepdims=True), T])
@@ -1116,23 +1197,31 @@ class DROrthoForest(BaseOrthoForest):
                     propensity_model_clone = clone(propensity_model, safe=False)
                     propensity_model_clone.fit(X_tilde, T)
                     propensities = propensity_model_clone.predict_proba(X_tilde)
-                    Y_hat = _group_predict(X_tilde, ohe_T.shape[1],
-                                           clone(model_Y, safe=False).fit(np.hstack([X_tilde, ohe_T]), Y).predict)
+                    Y_hat = _group_predict(
+                        X_tilde, ohe_T.shape[1], clone(model_Y, safe=False).fit(np.hstack([X_tilde, ohe_T]), Y).predict
+                    )
                 else:
-                    propensities = _cross_fit(propensity_model, X_tilde, T, split_indices,
-                                              sample_weight=sample_weight, predict_func_name='predict_proba')
+                    propensities = _cross_fit(
+                        propensity_model,
+                        X_tilde,
+                        T,
+                        split_indices,
+                        sample_weight=sample_weight,
+                        predict_func_name='predict_proba',
+                    )
                     Y_hat = _group_cross_fit(model_Y, X_tilde, Y, ohe_T, split_indices, sample_weight=sample_weight)
             except ValueError as exc:
-                raise ValueError("The original error: {0}".format(str(exc)) +
-                                 " This might be caused by too few sample in the tree leafs." +
-                                 " Try increasing the min_leaf_size.")
+                raise ValueError(
+                    "The original error: {0}".format(str(exc))
+                    + " This might be caused by too few sample in the tree leafs."
+                    + " Try increasing the min_leaf_size."
+                )
             return Y_hat, propensities
+
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func(Y, T, X,
-                                 nuisance_estimates,
-                                 sample_weight=None):
+    def parameter_estimator_func(Y, T, X, nuisance_estimates, sample_weight=None):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
         # Compute partial moments
         pointwise_params = DROrthoForest._partial_moments(Y, T, nuisance_estimates)
@@ -1147,10 +1236,8 @@ class DROrthoForest(BaseOrthoForest):
         we fit a local linear function as opposed to a local constant function. We also penalize
         the linear part to reduce variance.
         """
-        def parameter_estimator_func(Y, T, X,
-                                     nuisance_estimates,
-                                     sample_weight,
-                                     X_single):
+
+        def parameter_estimator_func(Y, T, X, nuisance_estimates, sample_weight, X_single):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
 
             The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
@@ -1169,9 +1256,9 @@ class DROrthoForest(BaseOrthoForest):
             diagonal[0] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_X_aug.T, X_aug) + reg,
-                                                   np.matmul(weighted_X_aug.T, pointwise_params),
-                                                   rcond=None)[0].flatten()
+            linear_coef_estimate = np.linalg.lstsq(
+                np.matmul(weighted_X_aug.T, X_aug) + reg, np.matmul(weighted_X_aug.T, pointwise_params), rcond=None
+            )[0].flatten()
             X_aug = np.append([1], X_single)
             linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
             # Parameter returned is of shape (d_T, )
@@ -1180,9 +1267,7 @@ class DROrthoForest(BaseOrthoForest):
         return parameter_estimator_func
 
     @staticmethod
-    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                nuisance_estimates,
-                                                parameter_estimate):
+    def moment_and_mean_gradient_estimator_func(Y, T, X, W, nuisance_estimates, parameter_estimate):
         """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
         # Return moments and gradients
         # Compute partial moments
@@ -1200,11 +1285,11 @@ class DROrthoForest(BaseOrthoForest):
         Y_hat, propensities = nuisance_estimates
         partial_moments = np.zeros((len(Y), Y_hat.shape[1] - 1))
         T = T @ np.arange(1, T.shape[1] + 1)
-        mask_0 = (T == 0)
+        mask_0 = T == 0
         for i in range(0, Y_hat.shape[1] - 1):
             # Need to calculate this in an elegant way for when propensity is 0
             partial_moments[:, i] = Y_hat[:, i + 1] - Y_hat[:, 0]
-            mask_i = (T == (i + 1))
+            mask_i = T == (i + 1)
             partial_moments[:, i][mask_i] += (Y - Y_hat[:, i + 1])[mask_i] / propensities[:, i + 1][mask_i]
             partial_moments[:, i][mask_0] -= (Y - Y_hat[:, 0])[mask_0] / propensities[:, 0][mask_0]
         return partial_moments
@@ -1248,8 +1333,10 @@ class BLBInference(Inference):
         self.d_y = self._d_y[0] if self._d_y else 1
         # Test whether the input estimator is supported
         if not hasattr(self._estimator, "_predict"):
-            raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
-                            " Estimators must implement the '_predict' method with the correct signature.")
+            raise TypeError(
+                "Unsupported estimator of type {}.".format(self._estimator.__class__.__name__)
+                + " Estimators must implement the '_predict' method with the correct signature."
+            )
         return self
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
@@ -1277,16 +1364,21 @@ class BLBInference(Inference):
         # Calculate confidence intervals for the parameter (marginal effect)
         lower = alpha / 2
         upper = 1 - alpha / 2
-        param_lower = [param + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, np.sqrt(np.diag(cov_mat)))
-                       for (param, cov_mat) in params_and_cov]
-        param_upper = [param + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, np.sqrt(np.diag(cov_mat)))
-                       for (param, cov_mat) in params_and_cov]
+        param_lower = [
+            param + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, np.sqrt(np.diag(cov_mat)))
+            for (param, cov_mat) in params_and_cov
+        ]
+        param_upper = [
+            param + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, np.sqrt(np.diag(cov_mat)))
+            for (param, cov_mat) in params_and_cov
+        ]
         param_lower, param_upper = np.asarray(param_lower), np.asarray(param_upper)
-        return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t), \
-            param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
+        return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t), param_upper.reshape(
+            (-1,) + self._estimator._d_y + self._estimator._d_t
+        )
 
     def const_marginal_effect_inference(self, X=None):
-        """ Inference results for the quantities :math:`\\theta(X)` produced
+        """Inference results for the quantities :math:`\\theta(X)` produced
         by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
@@ -1307,12 +1399,17 @@ class BLBInference(Inference):
         params = np.array(params).reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
         stderr = np.sqrt(np.diagonal(np.array(cov), axis1=1, axis2=2))
         stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
-        return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
-                                      d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=params, pred_stderr=stderr, mean_pred_stderr=None, inf_type='effect',
-                                      feature_names=self._estimator.cate_feature_names(),
-                                      output_names=self._estimator.cate_output_names(),
-                                      treatment_names=self._estimator.cate_treatment_names())
+        return NormalInferenceResults(
+            d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
+            d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+            pred=params,
+            pred_stderr=stderr,
+            mean_pred_stderr=None,
+            inf_type='effect',
+            feature_names=self._estimator.cate_feature_names(),
+            output_names=self._estimator.cate_output_names(),
+            treatment_names=self._estimator.cate_treatment_names(),
+        )
 
     def _effect_inference_helper(self, X, T0, T1):
         X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
@@ -1326,7 +1423,7 @@ class BLBInference(Inference):
         return eff.reshape((-1,) + self._estimator._d_y), scales.reshape((-1,) + self._estimator._d_y)
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
+        """Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
         by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
@@ -1355,7 +1452,7 @@ class BLBInference(Inference):
         return effect_lower, effect_upper
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
+        """Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
         by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
@@ -1378,11 +1475,17 @@ class BLBInference(Inference):
         eff, scales = self._effect_inference_helper(X, T0, T1)
 
         # d_t=None here since we measure the effect across all Ts
-        return NormalInferenceResults(d_t=None, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
-                                      feature_names=self._estimator.cate_feature_names(),
-                                      output_names=self._estimator.cate_output_names(),
-                                      treatment_names=self._estimator.cate_treatment_names())
+        return NormalInferenceResults(
+            d_t=None,
+            d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+            pred=eff,
+            pred_stderr=scales,
+            mean_pred_stderr=None,
+            inf_type='effect',
+            feature_names=self._estimator.cate_feature_names(),
+            output_names=self._estimator.cate_output_names(),
+            treatment_names=self._estimator.cate_treatment_names(),
+        )
 
     def _marginal_effect_inference_helper(self, T, X):
         if not self._estimator._original_treatment_featurizer:
@@ -1450,11 +1553,17 @@ class BLBInference(Inference):
         d_y = self._d_y[0] if self._d_y else 1
         d_t = self._d_t[0] if self._d_t else 1
 
-        return NormalInferenceResults(d_t=self.d_t_orig, d_y=d_y,
-                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
-                                      feature_names=self._estimator.cate_feature_names(),
-                                      output_names=self._estimator.cate_output_names(),
-                                      treatment_names=self._estimator.cate_treatment_names())
+        return NormalInferenceResults(
+            d_t=self.d_t_orig,
+            d_y=d_y,
+            pred=eff,
+            pred_stderr=scales,
+            mean_pred_stderr=None,
+            inf_type='effect',
+            feature_names=self._estimator.cate_feature_names(),
+            output_names=self._estimator.cate_output_names(),
+            treatment_names=self._estimator.cate_treatment_names(),
+        )
 
     def marginal_effect_interval(self, T, X, *, alpha=0.05):
         return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)

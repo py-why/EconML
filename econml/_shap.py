@@ -19,9 +19,17 @@ import numpy as np
 from .utilities import broadcast_unit_treatments, cross_product, get_feature_names_or_default
 
 
-def _shap_explain_cme(cme_model, X, d_t, d_y,
-                      feature_names=None, treatment_names=None, output_names=None,
-                      input_names=None, background_samples=100):
+def _shap_explain_cme(
+    cme_model,
+    X,
+    d_t,
+    d_y,
+    feature_names=None,
+    treatment_names=None,
+    output_names=None,
+    input_names=None,
+    background_samples=100,
+):
     """
     Method to explain `const_marginal_effect` function using shap Explainer().
 
@@ -55,41 +63,60 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
         and the shap_values explanation object as value.
 
     """
-    (dt, dy, treatment_names, output_names, feature_names, _) = _define_names(d_t, d_y, treatment_names,
-                                                                              output_names, feature_names,
-                                                                              input_names, None)
+    (dt, dy, treatment_names, output_names, feature_names, _) = _define_names(
+        d_t, d_y, treatment_names, output_names, feature_names, input_names, None
+    )
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
     bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
     background = shap.maskers.Independent(X, max_samples=bg_samples)
     shap_outs = defaultdict(dict)
     for i in range(dy):
+
         def cmd_func(X):
             return cme_model(X).reshape(-1, dy, dt)[:, i, :]
-        explainer = shap.Explainer(cmd_func, background,
-                                   feature_names=feature_names)
+
+        explainer = shap.Explainer(cmd_func, background, feature_names=feature_names)
         shap_out = explainer(X)
         if dt > 1:
             for j in range(dt):
                 base_values = shap_out.base_values[..., j]
                 values = shap_out.values[..., j]
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., j]
-                shap_out_new = shap.Explanation(values, base_values=base_values,
-                                                data=shap_out.data, main_effects=main_effects,
-                                                feature_names=shap_out.feature_names)
+                shap_out_new = shap.Explanation(
+                    values,
+                    base_values=base_values,
+                    data=shap_out.data,
+                    main_effects=main_effects,
+                    feature_names=shap_out.feature_names,
+                )
                 shap_outs[output_names[i]][treatment_names[j]] = shap_out_new
         else:
             base_values = shap_out.base_values[..., 0]
-            shap_out_new = shap.Explanation(shap_out.values, base_values=base_values,
-                                            data=shap_out.data, main_effects=shap_out.main_effects,
-                                            feature_names=shap_out.feature_names)
+            shap_out_new = shap.Explanation(
+                shap_out.values,
+                base_values=base_values,
+                data=shap_out.data,
+                main_effects=shap_out.main_effects,
+                feature_names=shap_out.feature_names,
+            )
             shap_outs[output_names[i]][treatment_names[0]] = shap_out_new
     # return plain dictionary so that erroneous accesses don't half work (see #708)
     return dict(shap_outs)
 
 
-def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, feature_names=None,
-                             treatment_names=None, output_names=None,
-                             input_names=None, background_samples=100):
+def _shap_explain_model_cate(
+    cme_model,
+    models,
+    X,
+    d_t,
+    d_y,
+    featurizer=None,
+    feature_names=None,
+    treatment_names=None,
+    output_names=None,
+    input_names=None,
+    background_samples=100,
+):
     """
     Method to explain `model_cate` using shap Explainer(), will instead explain `const_marignal_effect`
     if `model_cate` can't be parsed. Models should be a list of length d_t. Each element in the list of
@@ -130,14 +157,14 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
         and the shap_values explanation object as value.
     """
     d_t_, d_y_ = d_t, d_y
-    feature_names_, treatment_names_ = feature_names, treatment_names,
+    feature_names_, treatment_names_ = (
+        feature_names,
+        treatment_names,
+    )
     output_names_, input_names_ = output_names, input_names
-    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(d_t, d_y,
-                                                                                                      treatment_names,
-                                                                                                      output_names,
-                                                                                                      feature_names,
-                                                                                                      input_names,
-                                                                                                      featurizer)
+    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(
+        d_t, d_y, treatment_names, output_names, feature_names, input_names, featurizer
+    )
     if featurizer is not None:
         F = featurizer.transform(X)
     else:
@@ -152,16 +179,20 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
     shap_outs = defaultdict(dict)
     for i in range(dt):
         try:
-            explainer = shap.Explainer(models[i], masker=background,
-                                       feature_names=transformed_feature_names)
+            explainer = shap.Explainer(models[i], masker=background, feature_names=transformed_feature_names)
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
-            return _shap_explain_cme(cme_model, X, d_t_, d_y_,
-                                     feature_names=feature_names_,
-                                     treatment_names=treatment_names_,
-                                     output_names=output_names_,
-                                     input_names=input_names_,
-                                     background_samples=background_samples)
+            return _shap_explain_cme(
+                cme_model,
+                X,
+                d_t_,
+                d_y_,
+                feature_names=feature_names_,
+                treatment_names=treatment_names_,
+                output_names=output_names_,
+                input_names=input_names_,
+                background_samples=background_samples,
+            )
         if "check_additivity" in inspect.signature(explainer).parameters:
             shap_out = explainer(F, check_additivity=False)
         else:
@@ -171,9 +202,13 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
                 base_values = shap_out.base_values[..., j]
                 values = shap_out.values[..., j]
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., j]
-                shap_out_new = shap.Explanation(values, base_values=base_values,
-                                                data=shap_out.data, main_effects=main_effects,
-                                                feature_names=shap_out.feature_names)
+                shap_out_new = shap.Explanation(
+                    values,
+                    base_values=base_values,
+                    data=shap_out.data,
+                    main_effects=main_effects,
+                    feature_names=shap_out.feature_names,
+                )
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             shap_outs[output_names[0]][treatment_names[i]] = shap_out
@@ -182,9 +217,18 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
     return dict(shap_outs)
 
 
-def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_intercept,
-                                          feature_names=None, treatment_names=None, output_names=None,
-                                          input_names=None, background_samples=100):
+def _shap_explain_joint_linear_model_cate(
+    model_final,
+    X,
+    d_t,
+    d_y,
+    fit_cate_intercept,
+    feature_names=None,
+    treatment_names=None,
+    output_names=None,
+    input_names=None,
+    background_samples=100,
+):
     """
     Method to explain `model_cate` of parametric final stage that was fitted on the cross product of
     `featurizer(X)` and T.
@@ -223,10 +267,9 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         and the shap_values explanation object as value.
     """
     # input feature name is already updated by cate_feature_names.
-    (d_t, d_y, treatment_names, output_names, _, _) = _define_names(d_t, d_y, treatment_names,
-                                                                    output_names,
-                                                                    feature_names,
-                                                                    input_names, None)
+    (d_t, d_y, treatment_names, output_names, _, _) = _define_names(
+        d_t, d_y, treatment_names, output_names, feature_names, input_names, None
+    )
     X, T = broadcast_unit_treatments(X, d_t)
     X = cross_product(X, T)
     d_x = X.shape[1]
@@ -250,25 +293,43 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
                 base_values = shap_out.base_values[..., j]
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., ind_x[i], j]
                 values = shap_out.values[..., ind_x[i], j]
-                shap_out_new = shap.Explanation(values, base_values=base_values, data=data, main_effects=main_effects,
-                                                feature_names=shap_out.feature_names)
+                shap_out_new = shap.Explanation(
+                    values,
+                    base_values=base_values,
+                    data=data,
+                    main_effects=main_effects,
+                    feature_names=shap_out.feature_names,
+                )
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             values = shap_out.values[..., ind_x[i]]
             main_effects = shap_out.main_effects[..., ind_x[i], 0]
-            shap_out_new = shap.Explanation(values, base_values=shap_out.base_values, data=data,
-                                            main_effects=main_effects,
-                                            feature_names=shap_out.feature_names)
+            shap_out_new = shap.Explanation(
+                values,
+                base_values=shap_out.base_values,
+                data=data,
+                main_effects=main_effects,
+                feature_names=shap_out.feature_names,
+            )
             shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
 
     # return plain dictionary so that erroneous accesses don't half work (see #708)
     return dict(shap_outs)
 
 
-def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, d_y, featurizer=None,
-                                       feature_names=None,
-                                       treatment_names=None, output_names=None,
-                                       input_names=None, background_samples=100):
+def _shap_explain_multitask_model_cate(
+    cme_model,
+    multitask_model_cate,
+    X,
+    d_t,
+    d_y,
+    featurizer=None,
+    feature_names=None,
+    treatment_names=None,
+    output_names=None,
+    input_names=None,
+    background_samples=100,
+):
     """
     Method to explain a final cate model that is represented in a multi-task manner, i.e. the prediction
     of the method is of dimension equal to the number of treatments and represents the const_marginal_effect
@@ -309,14 +370,14 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         and the shap_values explanation object as value.
     """
     d_t_, d_y_ = d_t, d_y
-    feature_names_, treatment_names_ = feature_names, treatment_names,
+    feature_names_, treatment_names_ = (
+        feature_names,
+        treatment_names,
+    )
     output_names_, input_names_ = output_names, input_names
-    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(d_t, d_y,
-                                                                                                      treatment_names,
-                                                                                                      output_names,
-                                                                                                      feature_names,
-                                                                                                      input_names,
-                                                                                                      featurizer)
+    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(
+        d_t, d_y, treatment_names, output_names, feature_names, input_names, featurizer
+    )
     if featurizer is not None:
         F = featurizer.transform(X)
     else:
@@ -330,16 +391,22 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     shap_outs = defaultdict(dict)
     for j in range(dy):
         try:
-            explainer = shap.Explainer(multitask_model_cate[j], masker=background,
-                                       feature_names=transformed_feature_names)
+            explainer = shap.Explainer(
+                multitask_model_cate[j], masker=background, feature_names=transformed_feature_names
+            )
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
-            return _shap_explain_cme(cme_model, X, d_t_, d_y_,
-                                     feature_names=feature_names_,
-                                     treatment_names=treatment_names_,
-                                     output_names=output_names_,
-                                     input_names=input_names_,
-                                     background_samples=background_samples)
+            return _shap_explain_cme(
+                cme_model,
+                X,
+                d_t_,
+                d_y_,
+                feature_names=feature_names_,
+                treatment_names=treatment_names_,
+                output_names=output_names_,
+                input_names=input_names_,
+                background_samples=background_samples,
+            )
 
         if "check_additivity" in inspect.signature(explainer).parameters:
             shap_out = explainer(F, check_additivity=False)
@@ -350,9 +417,13 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
                 base_values = shap_out.base_values[..., i]
                 values = shap_out.values[..., i]
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., i]
-                shap_out_new = shap.Explanation(values, base_values=base_values,
-                                                data=shap_out.data, main_effects=main_effects,
-                                                feature_names=shap_out.feature_names)
+                shap_out_new = shap.Explanation(
+                    values,
+                    base_values=base_values,
+                    data=shap_out.data,
+                    main_effects=main_effects,
+                    feature_names=shap_out.feature_names,
+                )
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             shap_outs[output_names[j]][treatment_names[0]] = shap_out

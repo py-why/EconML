@@ -16,8 +16,15 @@ from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
-                         _deprecate_positional, cross_product, Summary)
+from ..utilities import (
+    add_intercept,
+    shape,
+    check_inputs,
+    check_input_arrays,
+    _deprecate_positional,
+    cross_product,
+    Summary,
+)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -25,7 +32,6 @@ from .._ortho_learner import _OrthoLearner
 
 
 class _CausalForestFinalWrapper:
-
     def __init__(self, model_final, featurizer, discrete_treatment, drate):
         self._model = clone(model_final, safe=False)
         self._original_featurizer = clone(featurizer, safe=False)
@@ -40,8 +46,7 @@ class _CausalForestFinalWrapper:
             else:
                 F = X
         else:
-            raise AttributeError("Cannot use this method with X=None. Consider "
-                                 "using the LinearDML estimator.")
+            raise AttributeError("Cannot use this method with X=None. Consider " "using the LinearDML estimator.")
         return F
 
     def _ate_and_stderr(self, drpreds, mask=None):
@@ -67,10 +72,12 @@ class _CausalForestFinalWrapper:
             oob_preds = self._model.oob_predict(fts)
             self._oob_preds = oob_preds
             if np.any(np.isnan(oob_preds)):
-                warn("Could not generate out-of-bag predictions on some training data. "
-                     "Consider increasing the number of trees. `ate_` results will take the "
-                     "average of the subset of training data for which out-of-bag predictions "
-                     "where available.")
+                warn(
+                    "Could not generate out-of-bag predictions on some training data. "
+                    "Consider increasing the number of trees. `ate_` results will take the "
+                    "average of the subset of training data for which out-of-bag predictions "
+                    "where available."
+                )
             residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
             propensities = T - T_res
             VarT = np.clip(propensities * (1 - propensities), 1e-2, np.inf)
@@ -96,11 +103,13 @@ class _CausalForestFinalWrapper:
     @property
     def ate_(self):
         if not self._discrete_treatment:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only on discrete treatments!")
+            raise AttributeError(
+                "Doubly Robust ATE calculation on training data " "is available only on discrete treatments!"
+            )
         if not self._drate:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only when `drate=True`!")
+            raise AttributeError(
+                "Doubly Robust ATE calculation on training data " "is available only when `drate=True`!"
+            )
         return self._ate
 
     @ate_.setter
@@ -110,11 +119,13 @@ class _CausalForestFinalWrapper:
     @property
     def ate_stderr_(self):
         if not self._discrete_treatment:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only on discrete treatments!")
+            raise AttributeError(
+                "Doubly Robust ATE calculation on training data " "is available only on discrete treatments!"
+            )
         if not self._drate:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only when `drate=True`!")
+            raise AttributeError(
+                "Doubly Robust ATE calculation on training data " "is available only when `drate=True`!"
+            )
         return self._ate_stderr
 
     @ate_stderr_.setter
@@ -124,11 +135,13 @@ class _CausalForestFinalWrapper:
     @property
     def att_(self):
         if not self._discrete_treatment:
-            raise AttributeError("Doubly Robust ATT calculation on training data "
-                                 "is available only on discrete treatments!")
+            raise AttributeError(
+                "Doubly Robust ATT calculation on training data " "is available only on discrete treatments!"
+            )
         if not self._drate:
-            raise AttributeError("Doubly Robust ATT calculation on training data "
-                                 "is available only when `drate=True`!")
+            raise AttributeError(
+                "Doubly Robust ATT calculation on training data " "is available only when `drate=True`!"
+            )
         return self._att
 
     @att_.setter
@@ -138,11 +151,13 @@ class _CausalForestFinalWrapper:
     @property
     def att_stderr_(self):
         if not self._discrete_treatment:
-            raise AttributeError("Doubly Robust ATT calculation on training data "
-                                 "is available only on discrete treatments!")
+            raise AttributeError(
+                "Doubly Robust ATT calculation on training data " "is available only on discrete treatments!"
+            )
         if not self._drate:
-            raise AttributeError("Doubly Robust ATT calculation on training data "
-                                 "is available only when `drate=True`!")
+            raise AttributeError(
+                "Doubly Robust ATT calculation on training data " "is available only when `drate=True`!"
+            )
         return self._att_stderr
 
     @att_stderr_.setter
@@ -151,7 +166,6 @@ class _CausalForestFinalWrapper:
 
 
 class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
-
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final_
         self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
@@ -176,8 +190,9 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred, pred_var = self.model_final.predict_and_var(X)
         pred = pred.reshape((-1,) + self._d_y + self._d_t)
         pred_stderr = np.sqrt(np.diagonal(pred_var, axis1=2, axis2=3).reshape((-1,) + self._d_y + self._d_t))
-        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
+        return NormalInferenceResults(
+            d_t=self.d_t, d_y=self.d_y, pred=pred, pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect'
+        )
 
     def effect_interval(self, X, *, T0, T1, alpha=0.05):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
@@ -194,8 +209,9 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred, pred_var = self.model_final.predict_projection_and_var(X, dT)
         pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
-        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
+        return NormalInferenceResults(
+            d_t=None, d_y=self.d_y, pred=pred, pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect'
+        )
 
     def marginal_effect_interval(self, T, X, alpha=0.05):
         return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
@@ -252,8 +268,9 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
             me_pred[tuple(me_index)] = e_pred
             me_stderr[tuple(me_index)] = e_stderr
 
-        return NormalInferenceResults(d_t=d_t_orig, d_y=self.d_y, pred=me_pred,
-                                      pred_stderr=me_stderr, mean_pred_stderr=None, inf_type='effect')
+        return NormalInferenceResults(
+            d_t=d_t_orig, d_y=self.d_y, pred=me_pred, pred_stderr=me_stderr, mean_pred_stderr=None, inf_type='effect'
+        )
 
 
 class CausalForestDML(_BaseDML):
@@ -461,8 +478,7 @@ class CausalForestDML(_BaseDML):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -592,41 +608,43 @@ class CausalForestDML(_BaseDML):
 
     """
 
-    def __init__(self, *,
-                 model_y='auto',
-                 model_t='auto',
-                 featurizer=None,
-                 treatment_featurizer=None,
-                 discrete_outcome=False,
-                 discrete_treatment=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 drate=True,
-                 n_estimators=100,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 min_var_fraction_leaf=None,
-                 min_var_leaf_on_val=False,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 fit_intercept=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
-
+    def __init__(
+        self,
+        *,
+        model_y='auto',
+        model_t='auto',
+        featurizer=None,
+        treatment_featurizer=None,
+        discrete_outcome=False,
+        discrete_treatment=False,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        drate=True,
+        n_estimators=100,
+        criterion="mse",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        min_var_fraction_leaf=None,
+        min_var_leaf_on_val=False,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        inference=True,
+        fit_intercept=True,
+        subforest_size=4,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.drate = drate
@@ -654,17 +672,19 @@ class CausalForestDML(_BaseDML):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -685,41 +705,58 @@ class CausalForestDML(_BaseDML):
         return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
 
     def _gen_model_final(self):
-        return MultiOutputGRF(CausalForest(n_estimators=self.n_estimators,
-                                           criterion=self.criterion,
-                                           max_depth=self.max_depth,
-                                           min_samples_split=self.min_samples_split,
-                                           min_samples_leaf=self.min_samples_leaf,
-                                           min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                           min_var_fraction_leaf=self.min_var_fraction_leaf,
-                                           min_var_leaf_on_val=self.min_var_leaf_on_val,
-                                           max_features=self.max_features,
-                                           min_impurity_decrease=self.min_impurity_decrease,
-                                           max_samples=self.max_samples,
-                                           min_balancedness_tol=self.min_balancedness_tol,
-                                           honest=self.honest,
-                                           inference=self.inference,
-                                           fit_intercept=self.fit_intercept,
-                                           subforest_size=self.subforest_size,
-                                           n_jobs=self.n_jobs,
-                                           random_state=self.random_state,
-                                           verbose=self.verbose,
-                                           warm_start=False))
+        return MultiOutputGRF(
+            CausalForest(
+                n_estimators=self.n_estimators,
+                criterion=self.criterion,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                min_var_fraction_leaf=self.min_var_fraction_leaf,
+                min_var_leaf_on_val=self.min_var_leaf_on_val,
+                max_features=self.max_features,
+                min_impurity_decrease=self.min_impurity_decrease,
+                max_samples=self.max_samples,
+                min_balancedness_tol=self.min_balancedness_tol,
+                honest=self.honest,
+                inference=self.inference,
+                fit_intercept=self.fit_intercept,
+                subforest_size=self.subforest_size,
+                n_jobs=self.n_jobs,
+                random_state=self.random_state,
+                verbose=self.verbose,
+                warm_start=False,
+            )
+        )
 
     def _gen_rlearner_model_final(self):
-        return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(),
-                                         self.discrete_treatment, self.drate)
+        return _CausalForestFinalWrapper(
+            self._gen_model_final(), self._gen_featurizer(), self.discrete_treatment, self.drate
+        )
 
     @property
     def tunable_params(self):
-        return ['n_estimators', 'criterion', 'max_depth', 'min_samples_split', 'min_samples_leaf',
-                'min_weight_fraction_leaf', 'min_var_fraction_leaf', 'min_var_leaf_on_val',
-                'max_features', 'min_impurity_decrease', 'max_samples', 'min_balancedness_tol',
-                'honest', 'inference', 'fit_intercept', 'subforest_size']
+        return [
+            'n_estimators',
+            'criterion',
+            'max_depth',
+            'min_samples_split',
+            'min_samples_leaf',
+            'min_weight_fraction_leaf',
+            'min_var_fraction_leaf',
+            'min_var_leaf_on_val',
+            'max_features',
+            'min_impurity_decrease',
+            'max_samples',
+            'min_balancedness_tol',
+            'honest',
+            'inference',
+            'fit_intercept',
+            'subforest_size',
+        ]
 
-    def tune(self, Y, T, *, X=None, W=None,
-             sample_weight=None, groups=None,
-             params='auto'):
+    def tune(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None, params='auto'):
         """
         Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
         performance. It trains small forests of size 100 trees on a grid of parameters and tests the
@@ -756,14 +793,15 @@ class CausalForestDML(_BaseDML):
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
         from ..score import RScorer  # import here to avoid circular import issue
+
         Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
-        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        (W,) = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
 
         if params == 'auto':
             params = {
-                'min_weight_fraction_leaf': [0.0001, .01],
+                'min_weight_fraction_leaf': [0.0001, 0.01],
                 'max_depth': [3, 5, None],
-                'min_var_fraction_leaf': [0.001, .01]
+                'min_var_fraction_leaf': [0.001, 0.01],
             }
         else:
             # If custom param grid, check that only estimator parameters are being altered
@@ -776,8 +814,9 @@ class CausalForestDML(_BaseDML):
         if self.discrete_treatment:
             strata = self._strata(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
         # use 0.699 instead of 0.7 as train size so that if there are 5 examples in a stratum, we get 2 in test
-        train, test = train_test_split(np.arange(Y.shape[0]), train_size=0.699,
-                                       random_state=self.random_state, stratify=strata)
+        train, test = train_test_split(
+            np.arange(Y.shape[0]), train_size=0.699, random_state=self.random_state, stratify=strata
+        )
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)
         Wtrain, Wval = (W[train], W[test]) if W is not None else (None, None)
@@ -791,10 +830,16 @@ class CausalForestDML(_BaseDML):
         est.n_estimators = 100
         est.inference = False
 
-        scorer = RScorer(model_y=est.model_y, model_t=est.model_t,
-                         discrete_treatment=est.discrete_treatment, categories=est.categories,
-                         cv=est.cv, mc_iters=est.mc_iters, mc_agg=est.mc_agg,
-                         random_state=est.random_state)
+        scorer = RScorer(
+            model_y=est.model_y,
+            model_t=est.model_t,
+            discrete_treatment=est.discrete_treatment,
+            categories=est.categories,
+            cv=est.cv,
+            mc_iters=est.mc_iters,
+            mc_agg=est.mc_agg,
+            random_state=est.random_state,
+        )
         scorer.fit(yval, Tval, X=Xval, W=Wval, sample_weight=sample_weight_val, groups=groups_val)
 
         names = params.keys()
@@ -803,8 +848,15 @@ class CausalForestDML(_BaseDML):
             for key, value in zip(names, values):
                 setattr(est, key, value)
             if it == 0:
-                est.fit(ytrain, Ttrain, X=Xtrain, W=Wtrain, sample_weight=sample_weight_train,
-                        groups=groups_train, cache_values=True)
+                est.fit(
+                    ytrain,
+                    Ttrain,
+                    X=Xtrain,
+                    W=Wtrain,
+                    sample_weight=sample_weight_train,
+                    groups=groups_train,
+                    cache_values=True,
+                )
             else:
                 est.refit_final()
             scores.append((scorer.score(est), tuple(zip(names, values))))
@@ -817,8 +869,7 @@ class CausalForestDML(_BaseDML):
         return self
 
     # override only so that we can update the docstring to indicate support for `blb`
-    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -851,13 +902,13 @@ class CausalForestDML(_BaseDML):
         """
         if X is None:
             raise ValueError("This estimator does not support X=None!")
-        return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, groups=groups,
-                           cache_values=cache_values,
-                           inference=inference)
+        return super().fit(
+            Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups, cache_values=cache_values, inference=inference
+        )
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
+
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
@@ -865,7 +916,7 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        """The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
         Parameters
@@ -896,10 +947,9 @@ class CausalForestDML(_BaseDML):
         # Summary
         if self._cached_values is not None:
             print("Population summary of CATE predictions on Training Data")
-            smry = self.const_marginal_ate_inference(self._cached_values.X).summary(alpha=alpha, value=value,
-                                                                                    decimals=decimals,
-                                                                                    output_names=output_names,
-                                                                                    treatment_names=treatment_names)
+            smry = self.const_marginal_ate_inference(self._cached_values.X).summary(
+                alpha=alpha, value=value, decimals=decimals, output_names=output_names, treatment_names=treatment_names
+            )
         else:
             print("Population summary results are available only if `cache_values=True` at fit time!")
             smry = Summary()
@@ -907,11 +957,14 @@ class CausalForestDML(_BaseDML):
         d_y = self._d_y[0] if self._d_y else 1
 
         try:
-            intercept_table = self.ate__inference().summary_frame(alpha=alpha,
-                                                                  value=value, decimals=decimals,
-                                                                  feature_names=None,
-                                                                  treatment_names=treatment_names,
-                                                                  output_names=output_names)
+            intercept_table = self.ate__inference().summary_frame(
+                alpha=alpha,
+                value=value,
+                decimals=decimals,
+                feature_names=None,
+                treatment_names=treatment_names,
+                output_names=output_names,
+            )
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()
             n_level = intercept_table.index.nlevels
@@ -926,10 +979,9 @@ class CausalForestDML(_BaseDML):
 
         for t in range(0, d_t + 1):
             try:
-                intercept_table = self.att__inference(T=t).summary_frame(alpha=alpha,
-                                                                         value=value, decimals=decimals,
-                                                                         feature_names=None,
-                                                                         output_names=output_names)
+                intercept_table = self.att__inference(T=t).summary_frame(
+                    alpha=alpha, value=value, decimals=decimals, feature_names=None, output_names=output_names
+                )
                 intercept_array = intercept_table.values
                 intercept_headers = intercept_table.columns.tolist()
                 n_level = intercept_table.index.nlevels
@@ -946,13 +998,20 @@ class CausalForestDML(_BaseDML):
             return smry
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, X,
-                                                  self._d_t, self._d_y, featurizer=self.featurizer_,
-                                                  feature_names=feature_names,
-                                                  treatment_names=treatment_names,
-                                                  output_names=output_names,
-                                                  input_names=self._input_names,
-                                                  background_samples=background_samples)
+        return _shap_explain_multitask_model_cate(
+            self.const_marginal_effect,
+            self.model_cate.estimators_,
+            X,
+            self._d_t,
+            self._d_y,
+            featurizer=self.featurizer_,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            output_names=output_names,
+            input_names=self._input_names,
+            background_samples=background_samples,
+        )
+
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     def ate__inference(self):
@@ -965,15 +1024,17 @@ class CausalForestDML(_BaseDML):
             over the training data and with a doubly robust correction.
             Available only when `discrete_treatment=True` and `drate=True`.
         """
-        return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
-                                      d_y=self._d_y[0] if self._d_y else 1,
-                                      pred=self.ate_,
-                                      pred_stderr=self.ate_stderr_,
-                                      mean_pred_stderr=None,
-                                      inf_type='ate',
-                                      feature_names=self.cate_feature_names(),
-                                      output_names=self.cate_output_names(),
-                                      treatment_names=self.cate_treatment_names())
+        return NormalInferenceResults(
+            d_t=self._d_t[0] if self._d_t else 1,
+            d_y=self._d_y[0] if self._d_y else 1,
+            pred=self.ate_,
+            pred_stderr=self.ate_stderr_,
+            mean_pred_stderr=None,
+            inf_type='ate',
+            feature_names=self.cate_feature_names(),
+            output_names=self.cate_output_names(),
+            treatment_names=self.cate_treatment_names(),
+        )
 
     @property
     def ate_(self):
@@ -999,15 +1060,17 @@ class CausalForestDML(_BaseDML):
             over the training data treated with treatment T and with a doubly robust correction.
             Available only when `discrete_treatment=True` and `drate=True`.
         """
-        return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
-                                      d_y=self._d_y[0] if self._d_y else 1,
-                                      pred=self.att_(T=T),
-                                      pred_stderr=self.att_stderr_(T=T),
-                                      mean_pred_stderr=None,
-                                      inf_type='att',
-                                      feature_names=self.cate_feature_names(),
-                                      output_names=self.cate_output_names(),
-                                      treatment_names=self.cate_treatment_names())
+        return NormalInferenceResults(
+            d_t=self._d_t[0] if self._d_t else 1,
+            d_y=self._d_y[0] if self._d_y else 1,
+            pred=self.att_(T=T),
+            pred_stderr=self.att_stderr_(T=T),
+            mean_pred_stderr=None,
+            inf_type='att',
+            feature_names=self.cate_feature_names(),
+            output_names=self.cate_output_names(),
+            treatment_names=self.cate_treatment_names(),
+        )
 
     def att_(self, *, T):
         """

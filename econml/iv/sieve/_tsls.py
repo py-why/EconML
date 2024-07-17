@@ -7,8 +7,7 @@ import numpy as np
 from copy import deepcopy
 from sklearn import clone
 from sklearn.linear_model import LinearRegression
-from ...utilities import (shape, transpose, reshape, cross_product, ndim, size,
-                          _deprecate_positional, check_input_arrays)
+from ...utilities import shape, transpose, reshape, cross_product, ndim, size, _deprecate_positional, check_input_arrays
 from ..._cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
@@ -69,8 +68,9 @@ class HermiteFeatures(TransformerMixin):
         columns = []
         for indices in product(*[range(ncols) for i in range(self._shift)]):
             if self._joint:
-                columns.append(cross_product(*[self._column_feats(X[:, i], indices.count(i))
-                                               for i in range(shape(X)[1])]))
+                columns.append(
+                    cross_product(*[self._column_feats(X[:, i], indices.count(i)) for i in range(shape(X)[1])])
+                )
             else:
                 indices = set(indices)
                 if self._shift == 0:  # return features for all columns:
@@ -80,8 +80,9 @@ class HermiteFeatures(TransformerMixin):
                 elif len(indices) == 1:
                     index = list(indices)[0]
                     feats = self._column_feats(X[:, index], self._shift)
-                    columns.append(np.hstack([feats if i == index else np.zeros(shape(feats))
-                                              for i in range(shape(X)[1])]))
+                    columns.append(
+                        np.hstack([feats if i == index else np.zeros(shape(feats)) for i in range(shape(X)[1])])
+                    )
                 else:
                     columns.append(np.zeros((n, (self._degree + 1) * ncols)))
         return reshape(np.hstack(columns), (n,) + (ncols,) * self._shift + (-1,))
@@ -193,11 +194,7 @@ class SieveTSLS(BaseCateEstimator):
 
     """
 
-    def __init__(self, *,
-                 t_featurizer,
-                 x_featurizer,
-                 z_featurizer,
-                 dt_featurizer):
+    def __init__(self, *, t_featurizer, x_featurizer, z_featurizer, dt_featurizer):
         self._t_featurizer = clone(t_featurizer, safe=False)
         self._x_featurizer = clone(x_featurizer, safe=False)
         self._z_featurizer = clone(z_featurizer, safe=False)
@@ -255,10 +252,12 @@ class SieveTSLS(BaseCateEstimator):
         ft_T = self._t_featurizer.fit_transform(T)
         # TODO: is it right that the effective number of intruments is the
         #       product of ft_X and ft_Z, not just ft_Z?
-        assert shape(ft_T)[1] <= shape(ft_X)[1] * shape(ft_Z)[1], ("There can be no more T features than the product "
-                                                                   "of the number of X and Z features; otherwise "
-                                                                   "there is not enough information to identify their "
-                                                                   "structure")
+        assert shape(ft_T)[1] <= shape(ft_X)[1] * shape(ft_Z)[1], (
+            "There can be no more T features than the product "
+            "of the number of X and Z features; otherwise "
+            "there is not enough information to identify their "
+            "structure"
+        )
 
         # regress T expansion on X,Z expansions concatenated with W
         features = _add_ones(np.hstack([W, cross_product(ft_X, ft_Z)]))

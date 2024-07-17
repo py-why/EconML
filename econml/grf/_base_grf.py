@@ -14,9 +14,15 @@ from warnings import catch_warnings, simplefilter, warn
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import threading
-from .._ensemble import (BaseEnsemble, _partition_estimators, _get_n_samples_subsample,
-                         _accumulate_prediction, _accumulate_prediction_var, _accumulate_prediction_and_var,
-                         _accumulate_oob_preds)
+from .._ensemble import (
+    BaseEnsemble,
+    _partition_estimators,
+    _get_n_samples_subsample,
+    _accumulate_prediction,
+    _accumulate_prediction_var,
+    _accumulate_prediction_and_var,
+    _accumulate_oob_preds,
+)
 from ..utilities import check_inputs, cross_product
 from ..tree._tree import DTYPE, DOUBLE
 from ._base_grftree import GRFTree
@@ -52,36 +58,48 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     instead.
     """
 
-    def __init__(self,
-                 n_estimators=100, *,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 min_var_fraction_leaf=None,
-                 min_var_leaf_on_val=False,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 fit_intercept=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
+    def __init__(
+        self,
+        n_estimators=100,
+        *,
+        criterion="mse",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        min_var_fraction_leaf=None,
+        min_var_leaf_on_val=False,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        inference=True,
+        fit_intercept=True,
+        subforest_size=4,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
         super().__init__(
             base_estimator=GRFTree(),
             n_estimators=n_estimators,
-            estimator_params=("criterion", "max_depth", "min_samples_split",
-                              "min_samples_leaf", "min_weight_fraction_leaf",
-                              "min_var_leaf", "min_var_leaf_on_val",
-                              "max_features", "min_impurity_decrease", "honest",
-                              "min_balancedness_tol",
-                              "random_state"))
+            estimator_params=(
+                "criterion",
+                "max_depth",
+                "min_samples_split",
+                "min_samples_leaf",
+                "min_weight_fraction_leaf",
+                "min_var_leaf",
+                "min_var_leaf_on_val",
+                "max_features",
+                "min_impurity_decrease",
+                "honest",
+                "min_balancedness_tol",
+                "random_state",
+            ),
+        )
 
         self.criterion = criterion
         self.max_depth = max_depth
@@ -105,7 +123,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @abstractmethod
     def _get_alpha_and_pointJ(self, X, T, y, **kwargs):
-        """ This function must be implemented by child class and given input variables
+        """This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should be calculating
         the point-wise random vector A and the point-wise jacobian random variable J of
         the linear moment equation for every sample in the input samples.
@@ -121,7 +139,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @abstractmethod
     def _get_n_outputs_decomposition(self, X, T, y, **kwargs):
-        """ This function must be implemented by child class and given input variables
+        """This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should return a tuple
         (n_outputs, n_relevant_outputs), which determines how many parameters is the moment
         estimating and what prefix of these parameters are the relevant ones that we care about.
@@ -153,8 +171,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         """
         X = self._validate_X_predict(X)
         results = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend="threading")(
-            delayed(tree.apply)(X, check_input=False)
-            for tree in self.estimators_)
+            delayed(tree.apply)(X, check_input=False) for tree in self.estimators_
+        )
 
         return np.array(results).T
 
@@ -180,8 +198,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         """
         X = self._validate_X_predict(X)
         indicators = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-            delayed(tree.decision_path)(X, check_input=False)
-            for tree in self.estimators_)
+            delayed(tree.decision_path)(X, check_input=False) for tree in self.estimators_
+        )
 
         n_nodes = [0]
         n_nodes.extend([i.shape[1] for i in indicators])
@@ -249,10 +267,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             X = X.astype(DTYPE)
 
         # Get subsample sample size
-        n_samples_subsample = _get_n_samples_subsample(
-            n_samples=n_samples,
-            max_samples=self.max_samples
-        )
+        n_samples_subsample = _get_n_samples_subsample(n_samples=n_samples, max_samples=self.max_samples)
 
         # Converting `min_var_fraction_leaf` to an absolute `min_var_leaf` that the GRFTree can handle
         if self.min_var_fraction_leaf is None:
@@ -286,9 +301,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             random_state.randint(MAX_INT)  # just advance random_state
         subsample_random_state = check_random_state(self.subsample_random_seed_)
 
-        if (self.warm_start and hasattr(self, 'inference_') and (self.inference != self.inference_)):
-            raise ValueError("Parameter inference cannot be altered in between `fit` "
-                             "calls when `warm_start=True`.")
+        if self.warm_start and hasattr(self, 'inference_') and (self.inference != self.inference_):
+            raise ValueError("Parameter inference cannot be altered in between `fit` " "calls when `warm_start=True`.")
         self.inference_ = self.inference
         self.warm_start_ = self.warm_start
 
@@ -305,42 +319,53 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
         if n_more_estimators < 0:
-            raise ValueError('n_estimators=%d must be larger or equal to '
-                             'len(estimators_)=%d when warm_start==True'
-                             % (self.n_estimators, len(self.estimators_)))
+            raise ValueError(
+                'n_estimators=%d must be larger or equal to '
+                'len(estimators_)=%d when warm_start==True' % (self.n_estimators, len(self.estimators_))
+            )
 
         elif n_more_estimators == 0:
-            warn("Warm-start fitting without increasing n_estimators does not "
-                 "fit new trees.")
+            warn("Warm-start fitting without increasing n_estimators does not " "fit new trees.")
         else:
             if self.inference:
                 if not isinstance(self.subforest_size, numbers.Integral):
-                    raise ValueError("Parameter `subforest_size` must be "
-                                     "an integer but got value {}.".format(self.subforest_size))
+                    raise ValueError(
+                        "Parameter `subforest_size` must be " "an integer but got value {}.".format(self.subforest_size)
+                    )
                 if self.subforest_size < 2:
-                    raise ValueError("Parameter `subforest_size` must be at least 2 if `inference=True`, "
-                                     "but got value {}".format(self.subforest_size))
+                    raise ValueError(
+                        "Parameter `subforest_size` must be at least 2 if `inference=True`, " "but got value {}".format(
+                            self.subforest_size
+                        )
+                    )
                 if not (n_more_estimators % self.subforest_size == 0):
-                    raise ValueError("The number of estimators to be constructed must be divisible "
-                                     "the `subforest_size` parameter. Asked to build `n_estimators={}` "
-                                     "with `subforest_size={}`.".format(n_more_estimators, self.subforest_size))
+                    raise ValueError(
+                        "The number of estimators to be constructed must be divisible "
+                        "the `subforest_size` parameter. Asked to build `n_estimators={}` "
+                        "with `subforest_size={}`.".format(n_more_estimators, self.subforest_size)
+                    )
                 if n_samples_subsample > n_samples // 2:
                     if isinstance(self.max_samples, numbers.Integral):
-                        raise ValueError("Parameter `max_samples` must be in [1, n_samples // 2], "
-                                         "if `inference=True`. "
-                                         "Got values n_samples={}, max_samples={}".format(n_samples, self.max_samples))
+                        raise ValueError(
+                            "Parameter `max_samples` must be in [1, n_samples // 2], "
+                            "if `inference=True`. "
+                            "Got values n_samples={}, max_samples={}".format(n_samples, self.max_samples)
+                        )
                     else:
-                        raise ValueError("Parameter `max_samples` must be in (0, .5], if `inference=True`. "
-                                         "Got value {}".format(self.max_samples))
+                        raise ValueError(
+                            "Parameter `max_samples` must be in (0, .5], if `inference=True`. " "Got value {}".format(
+                                self.max_samples
+                            )
+                        )
 
             if self.warm_start and len(self.estimators_) > 0:
                 # We draw from the random state to get the random state we
                 # would have got if we hadn't used a warm_start.
                 random_state.randint(MAX_INT, size=len(self.estimators_))
 
-            trees = [self._make_estimator(append=False,
-                                          random_state=random_state).init()
-                     for i in range(n_more_estimators)]
+            trees = [
+                self._make_estimator(append=False, random_state=random_state).init() for i in range(n_more_estimators)
+            ]
 
             if self.inference:
                 if self.warm_start:
@@ -356,16 +381,20 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # faster than how sklearn does it. The reason is that random samplers do not release the
                 # gil it seems.
                 n_groups = n_more_estimators // self.subforest_size
-                new_slices = np.array_split(np.arange(len(self.estimators_),
-                                                      len(self.estimators_) + n_more_estimators),
-                                            n_groups)
+                new_slices = np.array_split(
+                    np.arange(len(self.estimators_), len(self.estimators_) + n_more_estimators), n_groups
+                )
                 s_inds = []
                 for sl in new_slices:
                     half_sample_inds = subsample_random_state.choice(n_samples, n_samples // 2, replace=False)
-                    s_inds.extend([half_sample_inds[subsample_random_state.choice(n_samples // 2,
-                                                                                  n_samples_subsample,
-                                                                                  replace=False)]
-                                   for _ in range(len(sl))])
+                    s_inds.extend(
+                        [
+                            half_sample_inds[
+                                subsample_random_state.choice(n_samples // 2, n_samples_subsample, replace=False)
+                            ]
+                            for _ in range(len(sl))
+                        ]
+                    )
             else:
                 if self.warm_start:
                     # Advancing subsample_random_state. Assumes each prior fit call has the same number of
@@ -374,8 +403,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                     for _, n_, ns_ in zip(range(len(self.estimators_)), self.n_samples_, self.n_samples_subsample_):
                         subsample_random_state.choice(n_, ns_, replace=False)
                 new_slices = []
-                s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
-                          for _ in range(n_more_estimators)]
+                s_inds = [
+                    subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
+                    for _ in range(n_more_estimators)
+                ]
 
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
@@ -384,10 +415,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # parallel_backend contexts set at a higher level,
             # since correctness does not rely on using threads.
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                               sample_weight=sample_weight[s] if sample_weight is not None else None,
-                               check_input=False)
-                for t, s in zip(trees, s_inds))
+                delayed(t.fit)(
+                    X[s],
+                    yaug[s],
+                    self.n_y_,
+                    self.n_outputs_,
+                    self.n_relevant_outputs_,
+                    sample_weight=sample_weight[s] if sample_weight is not None else None,
+                    check_input=False,
+                )
+                for t, s in zip(trees, s_inds)
+            )
 
             # Collect newly grown trees
             self.estimators_.extend(trees)
@@ -399,21 +437,28 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return self
 
-    def get_subsample_inds(self,):
-        """ Re-generate the example same sample indices as those at fit time using same pseudo-randomness.
-        """
+    def get_subsample_inds(
+        self,
+    ):
+        """Re-generate the example same sample indices as those at fit time using same pseudo-randomness."""
         check_is_fitted(self)
         subsample_random_state = check_random_state(self.subsample_random_seed_)
         if self.inference_:
             s_inds = []
             for sl, n_, ns_ in zip(self.slices_, self.slices_n_samples_, self.slices_n_samples_subsample_):
                 half_sample_inds = subsample_random_state.choice(n_, n_ // 2, replace=False)
-                s_inds.extend([half_sample_inds[subsample_random_state.choice(n_ // 2, ns_, replace=False)]
-                               for _ in range(len(sl))])
+                s_inds.extend(
+                    [
+                        half_sample_inds[subsample_random_state.choice(n_ // 2, ns_, replace=False)]
+                        for _ in range(len(sl))
+                    ]
+                )
             return s_inds
         else:
-            return [subsample_random_state.choice(n_, ns_, replace=False)
-                    for n_, ns_ in zip(self.n_samples_, self.n_samples_subsample_)]
+            return [
+                subsample_random_state.choice(n_, ns_, replace=False)
+                for n_, ns_ in zip(self.n_samples_, self.n_samples_subsample_)
+            ]
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
@@ -442,15 +487,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         check_is_fitted(self)
 
         all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(tree.feature_importances)(
-                max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
-            for tree in self.estimators_ if tree.tree_.node_count > 1)
+            delayed(tree.feature_importances)(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+            for tree in self.estimators_
+            if tree.tree_.node_count > 1
+        )
 
         if not all_importances:
             return np.zeros(self.n_features_, dtype=np.float64)
 
-        all_importances = np.mean(all_importances,
-                                  axis=0, dtype=np.float64)
+        all_importances = np.mean(all_importances, axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
 
     @property
@@ -465,7 +510,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_tree_average_full(self, X):
-        """ Return the fitted local parameters for each X, i.e. theta(X). This
+        """Return the fitted local parameters for each X, i.e. theta(X). This
         method simply returns the average of the parameters estimated by each tree. `predict_full`
         should be preferred over `pred_tree_average_full`, as it performs a more stable averaging across
         trees.
@@ -495,15 +540,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         # Parallel loop
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
-            delayed(_accumulate_prediction)(e.predict_full, X, [y_hat], lock)
-            for e in self.estimators_)
+            delayed(_accumulate_prediction)(e.predict_full, X, [y_hat], lock) for e in self.estimators_
+        )
 
         y_hat /= len(self.estimators_)
 
         return y_hat
 
     def predict_tree_average(self, X):
-        """ Return the prefix of relevant fitted local parameters for each X, i.e. theta(X)[1..n_relevant_outputs].
+        """Return the prefix of relevant fitted local parameters for each X, i.e. theta(X)[1..n_relevant_outputs].
         This method simply returns the average of the parameters estimated by each tree. `predict`
         should be preferred over `pred_tree_average`, as it performs a more stable averaging across
         trees.
@@ -522,10 +567,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         y_hat = self.predict_tree_average_full(X)
         if self.n_relevant_outputs_ == self.n_outputs_:
             return y_hat
-        return y_hat[:, :self.n_relevant_outputs_]
+        return y_hat[:, : self.n_relevant_outputs_]
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
-        """ Return the value of the conditional expected moment vector at each sample and
+        """Return the value of the conditional expected moment vector at each sample and
         for the given parameter estimate for each sample::
 
             M(x; theta(x)) := E[J | X=x] theta(x) - E[A | X=x]
@@ -577,15 +622,18 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             verbose = self.verbose
             # Parallel loop
             Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-                delayed(_accumulate_prediction_and_var)(self.estimators_[t].predict_moment, X,
-                                                        [moment_hat], [moment_var_hat], lock,
-                                                        parameter)
-                for t in slice)
+                delayed(_accumulate_prediction_and_var)(
+                    self.estimators_[t].predict_moment, X, [moment_hat], [moment_var_hat], lock, parameter
+                )
+                for t in slice
+            )
         else:
-            [_accumulate_prediction_and_var(self.estimators_[t].predict_moment, X,
-                                            [moment_hat], [moment_var_hat], lock,
-                                            parameter)
-             for t in slice]
+            [
+                _accumulate_prediction_and_var(
+                    self.estimators_[t].predict_moment, X, [moment_hat], [moment_var_hat], lock, parameter
+                )
+                for t in slice
+            ]
 
         moment_hat /= len(slice)
         moment_var_hat /= len(slice)
@@ -593,7 +641,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return moment_hat, moment_var_hat
 
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
-        """ Return the value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
+        """Return the value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
         using the forest as kernel weights, i.e.::
 
             alpha(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] A[i]
@@ -640,7 +688,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
             delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha_and_jac, X, [alpha_hat, jac_hat], lock)
-            for t in slice)
+            for t in slice
+        )
 
         alpha_hat /= len(slice)
         jac_hat /= len(slice)
@@ -648,7 +697,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
     def _predict_point_and_var(self, X, full=False, point=True, var=False, project=False, projector=None):
-        """ An internal private method that coordinates all prediction functionality and tries to share
+        """An internal private method that coordinates all prediction functionality and tries to share
         as much computation between different predict methods to avoid re-computation and re-spawining of
         parallel executions.
 
@@ -697,25 +746,34 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             slices = self.slices_
             n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
 
-            moment_bags, moment_var_bags = zip(*Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(self.predict_moment_and_var)(X, parameter, slice=sl, parallel=False) for sl in slices))
+            moment_bags, moment_var_bags = zip(
+                *Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+                    delayed(self.predict_moment_and_var)(X, parameter, slice=sl, parallel=False) for sl in slices
+                )
+            )
 
             moment = np.mean(moment_bags, axis=0)
 
             trans_moment_bags = np.moveaxis(moment_bags, 0, -1)
-            sq_between = np.einsum('tij,tjk->tik', trans_moment_bags,
-                                   np.transpose(trans_moment_bags, (0, 2, 1))) / len(slices)
-            moment_sq = np.einsum('tij,tjk->tik',
-                                  moment.reshape(moment.shape + (1,)),
-                                  moment.reshape(moment.shape[:-1] + (1, moment.shape[-1])))
+            sq_between = np.einsum('tij,tjk->tik', trans_moment_bags, np.transpose(trans_moment_bags, (0, 2, 1))) / len(
+                slices
+            )
+            moment_sq = np.einsum(
+                'tij,tjk->tik',
+                moment.reshape(moment.shape + (1,)),
+                moment.reshape(moment.shape[:-1] + (1, moment.shape[-1])),
+            )
             var_between = sq_between - moment_sq
-            pred_cov = np.einsum('ijk,ikm->ijm', invjac,
-                                 np.einsum('ijk,ikm->ijm', var_between, np.transpose(invjac, (0, 2, 1))))
+            pred_cov = np.einsum(
+                'ijk,ikm->ijm', invjac, np.einsum('ijk,ikm->ijm', var_between, np.transpose(invjac, (0, 2, 1)))
+            )
 
             if project:
-                pred_var = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
-                                     np.einsum('ijk,ikm->ijm', pred_cov,
-                                               projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
+                pred_var = np.einsum(
+                    'ijk,ikm->ijm',
+                    projector.reshape((-1, 1, projector.shape[1])),
+                    np.einsum('ijk,ikm->ijm', pred_cov, projector.reshape((-1, projector.shape[1], 1))),
+                )[:, 0, 0]
             else:
                 pred_var = np.diagonal(pred_cov, axis1=1, axis2=2)
 
@@ -727,12 +785,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # The negative part is just sq_between.
             var_total = np.mean(moment_var_bags, axis=0)
             correction = (var_total - sq_between) / (len(slices[0]) - 1)
-            pred_cov_correction = np.einsum('ijk,ikm->ijm', invjac,
-                                            np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
+            pred_cov_correction = np.einsum(
+                'ijk,ikm->ijm', invjac, np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1)))
+            )
             if project:
-                pred_var_correction = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
-                                                np.einsum('ijk,ikm->ijm', pred_cov_correction,
-                                                          projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
+                pred_var_correction = np.einsum(
+                    'ijk,ikm->ijm',
+                    projector.reshape((-1, 1, projector.shape[1])),
+                    np.einsum('ijk,ikm->ijm', pred_cov_correction, projector.reshape((-1, projector.shape[1], 1))),
+                )[:, 0, 0]
             else:
                 pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
             # Objective bayes debiasing for the diagonals where we know a-prior they are positive
@@ -740,7 +801,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             naive_estimate = pred_var - pred_var_correction
             se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
             zstat = naive_estimate / np.clip(se, 1e-10, np.inf)
-            numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
+            numerator = np.exp(-(zstat**2) / 2) / np.sqrt(2.0 * np.pi)
             denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
             pred_var_corrected = naive_estimate + se * numerator / denominator
 
@@ -764,15 +825,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         else:
             n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
             if point and var:
-                return (parameter[:, :n_outputs],
-                        pred_cov[:, :n_outputs, :n_outputs],)
+                return (
+                    parameter[:, :n_outputs],
+                    pred_cov[:, :n_outputs, :n_outputs],
+                )
             elif point:
                 return parameter[:, :n_outputs]
             else:
                 return pred_cov[:, :n_outputs, :n_outputs]
 
     def predict_full(self, X, interval=False, alpha=0.05):
-        """ Return the fitted local parameters for each x in X, i.e. theta(x).
+        """Return the fitted local parameters for each x in X, i.e. theta(x).
 
         Parameters
         ----------
@@ -808,7 +871,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
     def predict(self, X, interval=False, alpha=0.05):
-        """ Return the prefix of relevant fitted local parameters for each x in X,
+        """Return the prefix of relevant fitted local parameters for each x in X,
         i.e. theta(x)[1..n_relevant_outputs].
 
         Parameters
@@ -834,16 +897,19 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat, lb, ub
-            return (y_hat[:, :self.n_relevant_outputs_],
-                    lb[:, :self.n_relevant_outputs_], ub[:, :self.n_relevant_outputs_])
+            return (
+                y_hat[:, : self.n_relevant_outputs_],
+                lb[:, : self.n_relevant_outputs_],
+                ub[:, : self.n_relevant_outputs_],
+            )
         else:
             y_hat = self.predict_full(X, interval=False)
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat
-            return y_hat[:, :self.n_relevant_outputs_]
+            return y_hat[:, : self.n_relevant_outputs_]
 
     def predict_interval(self, X, alpha=0.05):
-        """ Return the confidence interval for the relevant fitted local parameters for each x in X,
+        """Return the confidence interval for the relevant fitted local parameters for each x in X,
         i.e. theta(x)[1..n_relevant_outputs].
 
         Parameters
@@ -865,7 +931,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return lb, ub
 
     def predict_and_var(self, X):
-        """ Return the prefix of relevant fitted local parameters for each x in X,
+        """Return the prefix of relevant fitted local parameters for each x in X,
         i.e. theta(x)[1..n_relevant_outputs] and their covariance matrix.
 
         Parameters
@@ -884,7 +950,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=True, var=True)
 
     def predict_var(self, X):
-        """ Return the covariance matrix of the prefix of relevant fitted local parameters
+        """Return the covariance matrix of the prefix of relevant fitted local parameters
         for each x in X.
 
         Parameters
@@ -901,7 +967,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=False, var=True)
 
     def prediction_stderr(self, X):
-        """ Return the standard deviation of each coordinate of the prefix of relevant fitted local parameters
+        """Return the standard deviation of each coordinate of the prefix of relevant fitted local parameters
         for each x in X.
 
         Parameters
@@ -918,18 +984,18 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return np.sqrt(np.diagonal(self.predict_var(X), axis1=1, axis2=2))
 
     def _check_projector(self, X, projector):
-        """ validate the projector parameter
-        """
+        """validate the projector parameter"""
         X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
         if projector.ndim == 1:
             projector = projector.reshape((-1, 1))
         if self.n_outputs_ > self.n_relevant_outputs_:
-            projector = np.hstack([projector,
-                                   np.zeros((projector.shape[0], self.n_outputs_ - self.n_relevant_outputs_))])
+            projector = np.hstack(
+                [projector, np.zeros((projector.shape[0], self.n_outputs_ - self.n_relevant_outputs_))]
+            )
         return X, projector
 
     def predict_projection_and_var(self, X, projector):
-        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
+        """Return the inner product of the prefix of relevant fitted local parameters for each x in X,
         i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
 
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
@@ -952,11 +1018,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             The variance of the estimated inner product
         """
         X, projector = self._check_projector(X, projector)
-        return self._predict_point_and_var(X, full=False, point=True, var=True,
-                                           project=True, projector=projector)
+        return self._predict_point_and_var(X, full=False, point=True, var=True, project=True, projector=projector)
 
     def predict_projection(self, X, projector):
-        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
+        """Return the inner product of the prefix of relevant fitted local parameters for each x in X,
         i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
 
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
@@ -975,11 +1040,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             The estimated inner product of the relevant parameters with the projector for each row x of X
         """
         X, projector = self._check_projector(X, projector)
-        return self._predict_point_and_var(X, full=False, point=True, var=False,
-                                           project=True, projector=projector)
+        return self._predict_point_and_var(X, full=False, point=True, var=False, project=True, projector=projector)
 
     def predict_projection_var(self, X, projector):
-        """ Return the variance of the inner product of the prefix of relevant fitted local parameters
+        """Return the variance of the inner product of the prefix of relevant fitted local parameters
         for each x in X, i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
 
             Var(mu(x)) for mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
@@ -998,11 +1062,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             The variance of the estimated inner product
         """
         X, projector = self._check_projector(X, projector)
-        return self._predict_point_and_var(X, full=False, point=False, var=True,
-                                           project=True, projector=projector)
+        return self._predict_point_and_var(X, full=False, point=False, var=True, project=True, projector=projector)
 
     def oob_predict(self, Xtrain):
-        """ Returns the relevant output predictions for each of the training data points, when
+        """Returns the relevant output predictions for each of the training data points, when
         only trees where that data point was not used are incorporated. This method is not
         available is the estimator was trained with `warm_start=True`.
 
@@ -1018,8 +1081,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         """
 
         if self.warm_start_:
-            raise AttributeError("`oob_predict` is not available when "
-                                 "the estimator was fitted with `warm_start=True`")
+            raise AttributeError(
+                "`oob_predict` is not available when " "the estimator was fitted with `warm_start=True`"
+            )
 
         # avoid storing the output of every estimator by summing them here
         alpha_hat = np.zeros((Xtrain.shape[0], self.n_outputs_), dtype=np.float64)
@@ -1031,13 +1095,14 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         lock = threading.Lock()
         Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
             delayed(_accumulate_oob_preds)(tree, Xtrain, sinds, alpha_hat, jac_hat, counts, lock)
-            for tree, sinds in zip(self.estimators_, subsample_inds))
+            for tree, sinds in zip(self.estimators_, subsample_inds)
+        )
 
-        pos_count = (counts > 0)
+        pos_count = counts > 0
         alpha_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
         jac_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
 
         invjac = np.linalg.pinv(jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_)))
-        oob_preds = np.einsum('ijk,ik->ij', invjac, alpha_hat)[:, :self.n_relevant_outputs_]
+        oob_preds = np.einsum('ijk,ik->ij', invjac, alpha_hat)[:, : self.n_relevant_outputs_]
         oob_preds[~pos_count] = np.nan
         return oob_preds

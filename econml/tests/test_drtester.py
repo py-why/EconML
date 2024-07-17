@@ -10,7 +10,6 @@ from econml.dml import DML
 
 
 class TestDRTester(unittest.TestCase):
-
     @staticmethod
     def _get_data(num_treatments=1):
         np.random.seed(576)
@@ -44,7 +43,7 @@ class TestDRTester(unittest.TestCase):
         Y = X @ X_beta + (D_dum @ D_beta) + X[:, 1] * (D_dum @ DX1_beta) + np.random.normal(0, Y_sig, N)
         Y = Y.to_numpy()
 
-        train_prop = .5
+        train_prop = 0.5
         train_N = np.ceil(train_prop * N)
         ind = np.array(range(N))
         train_ind = np.random.choice(N, int(train_N), replace=False)
@@ -62,27 +61,21 @@ class TestDRTester(unittest.TestCase):
         reg_t = RandomForestClassifier(random_state=0)
         reg_y = GradientBoostingRegressor(random_state=0)
 
-        cate = DML(
-            model_y=reg_y,
-            model_t=reg_t,
-            model_final=reg_y,
-            discrete_treatment=True
-        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+        cate = DML(model_y=reg_y, model_t=reg_t, model_final=reg_y, discrete_treatment=True).fit(
+            Y=Ytrain, T=Dtrain, X=Xtrain
+        )
 
         # test the DR outcome difference
-        my_dr_tester = DRTester(
-            model_regression=reg_y,
-            model_propensity=reg_t,
-            cate=cate
-        ).fit_nuisance(
+        my_dr_tester = DRTester(model_regression=reg_y, model_propensity=reg_t, cate=cate).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
         dr_outcomes = my_dr_tester.dr_val_
 
         ates = dr_outcomes.mean(axis=0)
         for k in range(dr_outcomes.shape[1]):
-            ate_errs = np.sqrt(((dr_outcomes[:, k] - ates[k]) ** 2).sum() /
-                               (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+            ate_errs = np.sqrt(
+                ((dr_outcomes[:, k] - ates[k]) ** 2).sum() / (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1))
+            )
 
             self.assertLess(abs(ates[k] - (k + 1)), 2 * ate_errs)
 
@@ -115,26 +108,18 @@ class TestDRTester(unittest.TestCase):
         reg_t = RandomForestClassifier(random_state=0)
         reg_y = GradientBoostingRegressor(random_state=0)
 
-        cate = DML(
-            model_y=reg_y,
-            model_t=reg_t,
-            model_final=reg_y,
-            discrete_treatment=True
-        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+        cate = DML(model_y=reg_y, model_t=reg_t, model_final=reg_y, discrete_treatment=True).fit(
+            Y=Ytrain, T=Dtrain, X=Xtrain
+        )
 
         # test the DR outcome difference
-        my_dr_tester = DRTester(
-            model_regression=reg_y,
-            model_propensity=reg_t,
-            cate=cate
-        ).fit_nuisance(
+        my_dr_tester = DRTester(model_regression=reg_y, model_propensity=reg_t, cate=cate).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
         dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
-        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
-                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
@@ -163,25 +148,19 @@ class TestDRTester(unittest.TestCase):
         reg_t = RandomForestClassifier(random_state=0)
         reg_y = GradientBoostingRegressor(random_state=0)
 
-        cate = DML(
-            model_y=reg_y,
-            model_t=reg_t,
-            model_final=reg_y,
-            discrete_treatment=True
-        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+        cate = DML(model_y=reg_y, model_t=reg_t, model_final=reg_y, discrete_treatment=True).fit(
+            Y=Ytrain, T=Dtrain, X=Xtrain
+        )
 
         # test the DR outcome difference
-        my_dr_tester = DRTester(
-            model_regression=reg_y,
-            model_propensity=reg_t,
-            cate=cate
-        ).fit_nuisance(Xval, Dval, Yval)
+        my_dr_tester = DRTester(model_regression=reg_y, model_propensity=reg_t, cate=cate).fit_nuisance(
+            Xval, Dval, Yval
+        )
 
         dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
-        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
-                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
@@ -204,19 +183,12 @@ class TestDRTester(unittest.TestCase):
         reg_t = RandomForestClassifier(random_state=0)
         reg_y = GradientBoostingRegressor(random_state=0)
 
-        cate = DML(
-            model_y=reg_y,
-            model_t=reg_t,
-            model_final=reg_y,
-            discrete_treatment=True
-        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+        cate = DML(model_y=reg_y, model_t=reg_t, model_final=reg_y, discrete_treatment=True).fit(
+            Y=Ytrain, T=Dtrain, X=Xtrain
+        )
 
         # test the DR outcome difference
-        my_dr_tester = DRTester(
-            model_regression=reg_y,
-            model_propensity=reg_t,
-            cate=cate
-        )
+        my_dr_tester = DRTester(model_regression=reg_y, model_propensity=reg_t, cate=cate)
 
         # fit nothing
         for func in [my_dr_tester.evaluate_blp, my_dr_tester.evaluate_cal, my_dr_tester.evaluate_uplift]:
@@ -229,50 +201,36 @@ class TestDRTester(unittest.TestCase):
             else:
                 self.assertEqual(str(exc.exception), "Must fit nuisances before evaluating")
 
-        my_dr_tester = my_dr_tester.fit_nuisance(
-            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
-        )
+        my_dr_tester = my_dr_tester.fit_nuisance(Xval, Dval, Yval, Xtrain, Dtrain, Ytrain)
 
         for func in [
             my_dr_tester.evaluate_blp,
             my_dr_tester.evaluate_cal,
             my_dr_tester.evaluate_uplift,
-            my_dr_tester.evaluate_all
+            my_dr_tester.evaluate_all,
         ]:
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_blp':
-                self.assertEqual(
-                    str(exc.exception), "CATE predictions not yet calculated - must provide Xval"
-                )
+                self.assertEqual(str(exc.exception), "CATE predictions not yet calculated - must provide Xval")
             else:
-                self.assertEqual(str(exc.exception),
-                                 "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+                self.assertEqual(
+                    str(exc.exception), "CATE predictions not yet calculated - must provide both Xval, Xtrain"
+                )
 
-        for func in [
-            my_dr_tester.evaluate_cal,
-            my_dr_tester.evaluate_uplift,
-            my_dr_tester.evaluate_all
-        ]:
+        for func in [my_dr_tester.evaluate_cal, my_dr_tester.evaluate_uplift, my_dr_tester.evaluate_all]:
             with self.assertRaises(Exception) as exc:
                 func(Xval=Xval)
-            self.assertEqual(
-                str(exc.exception), "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+            self.assertEqual(str(exc.exception), "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         cal_res = my_dr_tester.evaluate_cal(Xval, Xtrain)
         self.assertGreater(cal_res.cal_r_squared[0], 0)  # good R2
 
         with self.assertRaises(Exception) as exc:
             my_dr_tester.evaluate_uplift(metric='blah')
-        self.assertEqual(
-            str(exc.exception), "Unsupported metric 'blah' - must be one of ['toc', 'qini']"
-        )
+        self.assertEqual(str(exc.exception), "Unsupported metric 'blah' - must be one of ['toc', 'qini']")
 
-        my_dr_tester = DRTester(
-            model_regression=reg_y,
-            model_propensity=reg_t,
-            cate=cate
-        ).fit_nuisance(
+        my_dr_tester = DRTester(model_regression=reg_y, model_propensity=reg_t, cate=cate).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
         qini_res = my_dr_tester.evaluate_uplift(Xval, Xtrain)
@@ -280,9 +238,7 @@ class TestDRTester(unittest.TestCase):
 
         with self.assertRaises(Exception) as exc:
             qini_res.plot_uplift(tmt=1, err_type='blah')
-        self.assertEqual(
-            str(exc.exception), "Invalid error type 'blah'; must be one of [None, 'ucb2', 'ucb1']"
-        )
+        self.assertEqual(str(exc.exception), "Invalid error type 'blah'; must be one of [None, 'ucb2', 'ucb1']")
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
         self.assertLess(autoc_res.pvals[0], 0.05)

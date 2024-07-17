@@ -23,6 +23,7 @@ from sklearn.model_selection import GroupKFold
 graphviz_works = True
 try:
     from graphviz import Graph
+
     g = Graph()
     g.render()
 except Exception:
@@ -30,20 +31,25 @@ except Exception:
 
 
 class TestPolicyForest(unittest.TestCase):
-
     def _get_base_config(self):
-        return {'n_estimators': 1, 'max_depth': 2,
-                'min_samples_split': 2, 'min_samples_leaf': 1,
-                'max_samples': 1.0, 'honest': False,
-                'n_jobs': None, 'random_state': 123}
+        return {
+            'n_estimators': 1,
+            'max_depth': 2,
+            'min_samples_split': 2,
+            'min_samples_leaf': 1,
+            'max_samples': 1.0,
+            'honest': False,
+            'n_jobs': None,
+            'random_state': 123,
+        }
 
     def _get_policy_data(self, n, n_features, random_state, n_outcomes=2):
         random_state = np.random.RandomState(random_state)
         X = random_state.normal(size=(n, n_features))
         if n_outcomes == 1:
-            y = (X[:, 0] > 0.0) - .5
+            y = (X[:, 0] > 0.0) - 0.5
         else:
-            y = np.hstack([np.zeros((X.shape[0], 1)), (X[:, [0]] > 0.0) - .5])
+            y = np.hstack([np.zeros((X.shape[0], 1)), (X[:, [0]] > 0.0) - 0.5])
         return (X, y, y)
 
     def _get_true_quantities(self, X, y, mask, sample_weight=None):
@@ -51,7 +57,7 @@ class TestPolicyForest(unittest.TestCase):
             sample_weight = np.ones(X.shape[0])
         X, y, sample_weight = X[mask], y[mask], sample_weight[mask]
         node_value = np.average(y, axis=0, weights=sample_weight)
-        impurity = - np.max(node_value)
+        impurity = -np.max(node_value)
         return node_value, impurity
 
     def _get_node_quantities(self, tree, node_id):
@@ -70,13 +76,17 @@ class TestPolicyForest(unittest.TestCase):
         T[:, 1] = 1
         T = T.flatten()
         y = y.flatten()
-        return DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
-                              model_propensity=DummyClassifier(strategy='uniform'),
-                              featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                              cv=GroupKFold(n_splits=2),
-                              **config).fit(y, T, X=X,
-                                            sample_weight=sample_weight,
-                                            groups=groups).policy_model_
+        return (
+            DRPolicyForest(
+                model_regression=DummyRegressor(strategy='constant', constant=0),
+                model_propensity=DummyClassifier(strategy='uniform'),
+                featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                cv=GroupKFold(n_splits=2),
+                **config,
+            )
+            .fit(y, T, X=X, sample_weight=sample_weight, groups=groups)
+            .policy_model_
+        )
 
     def _train_dr_policy_tree(self, X, y, config, sample_weight=None):
         config.pop('n_estimators')
@@ -91,12 +101,17 @@ class TestPolicyForest(unittest.TestCase):
         T[:, 1] = 1
         T = T.flatten()
         y = y.flatten()
-        return [DRPolicyTree(model_regression=DummyRegressor(strategy='constant', constant=0),
-                             model_propensity=DummyClassifier(strategy='uniform'),
-                             featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                             cv=GroupKFold(n_splits=2),
-                             **config).fit(y, T, X=X, sample_weight=sample_weight,
-                                           groups=groups).policy_model_]
+        return [
+            DRPolicyTree(
+                model_regression=DummyRegressor(strategy='constant', constant=0),
+                model_propensity=DummyClassifier(strategy='uniform'),
+                featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                cv=GroupKFold(n_splits=2),
+                **config,
+            )
+            .fit(y, T, X=X, sample_weight=sample_weight, groups=groups)
+            .policy_model_
+        ]
 
     def _test_policy_tree_internals(self, trainer):
         config = self._get_base_config()
@@ -112,9 +127,10 @@ class TestPolicyForest(unittest.TestCase):
             paths = np.array(forest[0].decision_path(X).todense())
             for node_id in range(len(tree.feature)):
                 mask = paths[:, node_id] > 0
-                [np.testing.assert_allclose(a, b, atol=1e-4)
-                    for a, b in zip(self._get_true_quantities(X, y, mask),
-                                    self._get_node_quantities(tree, node_id))]
+                [
+                    np.testing.assert_allclose(a, b, atol=1e-4)
+                    for a, b in zip(self._get_true_quantities(X, y, mask), self._get_node_quantities(tree, node_id))
+                ]
 
     def _test_policy_honesty(self, trainer, dr=False):
         n_outcome_list = [1, 2] if not dr else [2]
@@ -130,7 +146,7 @@ class TestPolicyForest(unittest.TestCase):
                         config['min_impurity_decrease'] = min_impurity_decrease
                         n, n_features = 800, 2
                         config['n_estimators'] = 4
-                        config['max_samples'] = .4 if not dr else 1.0
+                        config['max_samples'] = 0.4 if not dr else 1.0
                         config['n_jobs'] = 1
                         random_state = 123
                         if sample_weight is not None:
@@ -143,7 +159,7 @@ class TestPolicyForest(unittest.TestCase):
                         forest_apply = forest.apply(X)
                         for it, tree in enumerate(forest):
                             tree_paths = np.array(tree.decision_path(X).todense())
-                            np.testing.assert_array_equal(tree_paths, forest_paths[:, ptr[it]:ptr[it + 1]])
+                            np.testing.assert_array_equal(tree_paths, forest_paths[:, ptr[it] : ptr[it + 1]])
                             tree_apply = tree.apply(X)
                             np.testing.assert_array_equal(tree_apply, forest_apply[:, it])
                             _, samples_val = tree.get_train_test_split_inds()
@@ -155,38 +171,49 @@ class TestPolicyForest(unittest.TestCase):
                             paths = np.array(tree.decision_path(Xval).todense())
                             for node_id in range(len(tree.tree_.feature)):
                                 mask = paths[:, node_id] > 0
-                                [np.testing.assert_allclose(a, b, atol=1e-4)
-                                    for a, b in zip(self._get_true_quantities(Xval, yval, mask,
-                                                                              sample_weight=sample_weightval),
-                                                    self._get_node_quantities(tree.tree_, node_id))]
+                                [
+                                    np.testing.assert_allclose(a, b, atol=1e-4)
+                                    for a, b in zip(
+                                        self._get_true_quantities(Xval, yval, mask, sample_weight=sample_weightval),
+                                        self._get_node_quantities(tree.tree_, node_id),
+                                    )
+                                ]
                             if (sample_weight is None) and min_impurity_decrease > 0.0005:
                                 assert np.all((tree.tree_.feature == 0) | (tree.tree_.feature == -2))
 
-    def test_policy_tree(self,):
+    def test_policy_tree(
+        self,
+    ):
         self._test_policy_tree_internals(self._train_policy_forest)
         self._test_policy_honesty(self._train_policy_forest)
 
-    def test_drpolicy_tree(self,):
+    def test_drpolicy_tree(
+        self,
+    ):
         self._test_policy_tree_internals(self._train_dr_policy_tree)
 
-    def test_drpolicy_forest(self,):
+    def test_drpolicy_forest(
+        self,
+    ):
         self._test_policy_tree_internals(self._train_dr_policy_forest)
         self._test_policy_honesty(self._train_dr_policy_forest, dr=True)
 
-    def test_subsampling(self,):
+    def test_subsampling(
+        self,
+    ):
         # test that the subsampling scheme past to the trees is correct
         random_state = 123
         n, n_features = 10, 2
         n_estimators = 600
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
-        config['max_samples'] = .7
+        config['max_samples'] = 0.7
         config['max_depth'] = 1
         X, y, _ = self._get_policy_data(n, n_features, random_state)
         forest = self._train_policy_forest(X, y, config)
         subinds = forest.get_subsample_inds()
         inds, counts = np.unique(subinds, return_counts=True)
-        np.testing.assert_allclose(counts / n_estimators, .7, atol=.06)
+        np.testing.assert_allclose(counts / n_estimators, 0.7, atol=0.06)
         counts = np.zeros(n)
         for it, tree in enumerate(forest):
             samples_train, samples_val = tree.get_train_test_split_inds()
@@ -199,26 +226,28 @@ class TestPolicyForest(unittest.TestCase):
         forest = self._train_policy_forest(X, y, config)
         subinds = forest.get_subsample_inds()
         inds, counts = np.unique(subinds, return_counts=True)
-        np.testing.assert_allclose(counts / n_estimators, .7, atol=.06)
+        np.testing.assert_allclose(counts / n_estimators, 0.7, atol=0.06)
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
-        config['max_samples'] = .4
+        config['max_samples'] = 0.4
         config['max_depth'] = 1
         config['honest'] = True
         X, y, _ = self._get_policy_data(n, n_features, random_state)
         forest = self._train_policy_forest(X, y, config)
         subinds = forest.get_subsample_inds()
         inds, counts = np.unique(subinds, return_counts=True)
-        np.testing.assert_allclose(counts / n_estimators, .4, atol=.06)
+        np.testing.assert_allclose(counts / n_estimators, 0.4, atol=0.06)
         counts = np.zeros(n)
         for it, tree in enumerate(forest):
             _, samples_val = tree.get_train_test_split_inds()
             inds_val = subinds[it][samples_val]
             counts[inds_val] += 1
-        np.testing.assert_allclose(counts / n_estimators, .2, atol=.05)
+        np.testing.assert_allclose(counts / n_estimators, 0.2, atol=0.05)
         return
 
-    def test_feature_importances(self,):
+    def test_feature_importances(
+        self,
+    ):
         # test that the estimator calcualtes var correctly
         for trainer in [self._train_policy_forest]:
             for criterion in ['neg_welfare']:
@@ -230,7 +259,7 @@ class TestPolicyForest(unittest.TestCase):
                     config['min_samples_leaf'] = 5
                     config['min_impurity_decrease'] = 0.0
                     config['n_estimators'] = 4
-                    config['max_samples'] = .4
+                    config['max_samples'] = 0.4
                     config['n_jobs'] = 1
 
                     n, n_features = 800, 2
@@ -252,36 +281,42 @@ class TestPolicyForest(unittest.TestCase):
 
                         for max_depth in [0, 2]:
                             feature_importances = np.zeros(n_features)
-                            for it, (feat, impurity, depth, left, right, w) in\
-                                    enumerate(zip(tfeature, timpurity, tdepth, tleft, tright, tw)):
+                            for it, (feat, impurity, depth, left, right, w) in enumerate(
+                                zip(tfeature, timpurity, tdepth, tleft, tright, tw)
+                            ):
                                 if (left != -1) and (depth <= max_depth):
                                     gain = w * impurity - tw[left] * timpurity[left] - tw[right] * timpurity[right]
-                                    feature_importances[feat] += gain / (depth + 1)**2.0
+                                    feature_importances[feat] += gain / (depth + 1) ** 2.0
                             feature_importances /= tw[0]
-                            totest = tree.tree_.compute_feature_importances(normalize=False,
-                                                                            max_depth=max_depth, depth_decay=2.0)
+                            totest = tree.tree_.compute_feature_importances(
+                                normalize=False, max_depth=max_depth, depth_decay=2.0
+                            )
                             np.testing.assert_array_equal(feature_importances, totest)
 
                             het_importances = np.zeros(n_features)
-                            for it, (feat, depth, left, right, w) in\
-                                    enumerate(zip(tfeature, tdepth, tleft, tright, tw)):
+                            for it, (feat, depth, left, right, w) in enumerate(
+                                zip(tfeature, tdepth, tleft, tright, tw)
+                            ):
                                 if (left != -1) and (depth <= max_depth):
-                                    gain = tw[left] * tw[right] * np.mean((tvalue[left] - tvalue[right])**2) / w
-                                    het_importances[feat] += gain / (depth + 1)**2.0
+                                    gain = tw[left] * tw[right] * np.mean((tvalue[left] - tvalue[right]) ** 2) / w
+                                    het_importances[feat] += gain / (depth + 1) ** 2.0
                             het_importances /= tw[0]
-                            totest = tree.tree_.compute_feature_heterogeneity_importances(normalize=False,
-                                                                                          max_depth=max_depth,
-                                                                                          depth_decay=2.0)
+                            totest = tree.tree_.compute_feature_heterogeneity_importances(
+                                normalize=False, max_depth=max_depth, depth_decay=2.0
+                            )
                             np.testing.assert_allclose(het_importances, totest)
                         het_importances /= np.sum(het_importances)
                         forest_het_importances += het_importances / len(forest)
 
-                    np.testing.assert_allclose(forest_het_importances,
-                                               forest.feature_importances(max_depth=2, depth_decay_exponent=2.0))
+                    np.testing.assert_allclose(
+                        forest_het_importances, forest.feature_importances(max_depth=2, depth_decay_exponent=2.0)
+                    )
                     np.testing.assert_allclose(forest_het_importances, forest.feature_importances_)
         return
 
-    def test_non_standard_input(self,):
+    def test_non_standard_input(
+        self,
+    ):
         # test that the estimator accepts lists, tuples and pandas data frames
         n_features = 2
         n = 2000
@@ -293,8 +328,9 @@ class TestPolicyForest(unittest.TestCase):
         pred_prob = forest.predict_proba(X)
         assert pred_prob.shape == (X.shape[0], 2)
         feat_imp = forest.feature_importances()
-        forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X.astype(np.float32),
-                                                                               np.asfortranarray(y))
+        forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(
+            X.astype(np.float32), np.asfortranarray(y)
+        )
         np.testing.assert_allclose(pred, forest.predict(tuple(X)))
         np.testing.assert_allclose(pred_val, forest.predict_value(tuple(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(tuple(X), tuple(y))
@@ -317,16 +353,20 @@ class TestPolicyForest(unittest.TestCase):
         T[:, 1] = 1
         T = T.flatten()
         y = y.flatten()
-        forest = DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
-                                model_propensity=DummyClassifier(strategy='uniform'),
-                                featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                                cv=GroupKFold(n_splits=2),
-                                n_estimators=100, n_jobs=1, random_state=123).fit(y, T, X=X,
-                                                                                  groups=groups)
-        mask = np.abs(Xraw[:, 0]) > .1
+        forest = DRPolicyForest(
+            model_regression=DummyRegressor(strategy='constant', constant=0),
+            model_propensity=DummyClassifier(strategy='uniform'),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            cv=GroupKFold(n_splits=2),
+            n_estimators=100,
+            n_jobs=1,
+            random_state=123,
+        ).fit(y, T, X=X, groups=groups)
+        mask = np.abs(Xraw[:, 0]) > 0.1
         np.testing.assert_allclose(pred[mask], forest.predict(Xraw[mask]))
-        np.testing.assert_allclose(pred_val[mask, 1] - pred_val[mask, 0],
-                                   forest.predict_value(Xraw[mask]).flatten(), atol=.08)
+        np.testing.assert_allclose(
+            pred_val[mask, 1] - pred_val[mask, 0], forest.predict_value(Xraw[mask]).flatten(), atol=0.08
+        )
         np.testing.assert_allclose(feat_imp, forest.feature_importances(), atol=1e-4)
         np.testing.assert_allclose(feat_imp, forest.feature_importances_, atol=1e-4)
         pred = forest.predict(X)
@@ -340,7 +380,9 @@ class TestPolicyForest(unittest.TestCase):
 
         return
 
-    def test_raise_exceptions(self,):
+    def test_raise_exceptions(
+        self,
+    ):
         # test that we raise errors in mishandled situations.
         n_features = 2
         n = 10
@@ -363,11 +405,13 @@ class TestPolicyForest(unittest.TestCase):
         with np.testing.assert_raises(ValueError):
             forest = PolicyForest(n_estimators=4, max_features=10).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y)
+            forest = PolicyForest(n_estimators=4, min_balancedness_tol=0.55).fit(X, y)
 
         return
 
-    def test_warm_start(self,):
+    def test_warm_start(
+        self,
+    ):
         n_features = 2
         n = 10
         random_state = 123
@@ -413,27 +457,33 @@ class TestPolicyForest(unittest.TestCase):
         T[:, 1] = 1
         T = T.flatten()
         y = y.flatten()
-        forest = DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
-                                model_propensity=DummyClassifier(strategy='uniform'),
-                                featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                                cv=GroupKFold(n_splits=2),
-                                n_estimators=20, n_jobs=1, random_state=123).fit(y, T, X=X,
-                                                                                 groups=groups)
+        forest = DRPolicyForest(
+            model_regression=DummyRegressor(strategy='constant', constant=0),
+            model_propensity=DummyClassifier(strategy='uniform'),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            cv=GroupKFold(n_splits=2),
+            n_estimators=20,
+            n_jobs=1,
+            random_state=123,
+        ).fit(y, T, X=X, groups=groups)
         forest.plot(0, max_depth=2)
         forest.render(0, 'testdrf', max_depth=2)
         forest.export_graphviz(0, max_depth=2)
 
-        tree = DRPolicyTree(model_regression=DummyRegressor(strategy='constant', constant=0),
-                            model_propensity=DummyClassifier(strategy='uniform'),
-                            featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                            cv=GroupKFold(n_splits=2), random_state=123).fit(y, T, X=X,
-                                                                             groups=groups)
+        tree = DRPolicyTree(
+            model_regression=DummyRegressor(strategy='constant', constant=0),
+            model_propensity=DummyClassifier(strategy='uniform'),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            cv=GroupKFold(n_splits=2),
+            random_state=123,
+        ).fit(y, T, X=X, groups=groups)
         tree.plot(max_depth=2)
         tree.render('testdrt', max_depth=2)
         tree.export_graphviz(max_depth=2)
 
-    def test_pickling(self,):
-
+    def test_pickling(
+        self,
+    ):
         n_features = 2
         n = 10
         random_state = 123

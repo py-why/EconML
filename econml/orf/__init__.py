@@ -1,7 +1,7 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-""" An implementation of Orthogonal Random Forests [orf]_ and special
+"""An implementation of Orthogonal Random Forests [orf]_ and special
 case python classes.
 
 References
@@ -14,5 +14,4 @@ References
 
 from ._ortho_forest import DMLOrthoForest, DROrthoForest
 
-__all__ = ["DMLOrthoForest",
-           "DROrthoForest"]
+__all__ = ["DMLOrthoForest", "DROrthoForest"]

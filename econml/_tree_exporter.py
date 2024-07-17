@@ -22,9 +22,12 @@ except ImportError as exn:
     from .utilities import MissingModule
 
     # make any access to matplotlib or plt throw an exception
-    matplotlib = plt = MissingModule("matplotlib is no longer a dependency of the main econml package; "
-                                     "install econml[plt] or econml[all] to require it, or install matplotlib "
-                                     "separately, to use the tree interpreters", exn)
+    matplotlib = plt = MissingModule(
+        "matplotlib is no longer a dependency of the main econml package; "
+        "install econml[plt] or econml[all] to require it, or install matplotlib "
+        "separately, to use the tree interpreters",
+        exn,
+    )
 
 try:
     import graphviz
@@ -32,13 +35,17 @@ except ImportError as exn:
     from .utilities import MissingModule
 
     # make any access to graphviz or plt throw an exception
-    graphviz = MissingModule("graphviz is no longer a dependency of the main econml package; "
-                             "install econml[plt] or econml[all] to require it, or install graphviz "
-                             "separately, to use the tree interpreters", exn)
+    graphviz = MissingModule(
+        "graphviz is no longer a dependency of the main econml package; "
+        "install econml[plt] or econml[all] to require it, or install graphviz "
+        "separately, to use the tree interpreters",
+        exn,
+    )
 
 # HACK: We're relying on some of sklearn's non-public classes which are not completely stable.
 #       However, the alternative is reimplementing a bunch of intricate stuff by hand
 from sklearn.tree import _tree
+
 try:
     from sklearn.tree._export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
 except ImportError:  # prior to sklearn 0.22.0, the ``export`` submodule was public
@@ -63,23 +70,15 @@ def _color_brew(n):
     c = s * v
     m = v - c
 
-    for h in np.arange(25, 385, 360. / n).astype(int):
+    for h in np.arange(25, 385, 360.0 / n).astype(int):
         # Calculate some intermediate values
-        h_bar = h / 60.
+        h_bar = h / 60.0
         x = c * (1 - abs((h_bar % 2) - 1))
         # Initialize RGB with same hue & chroma as our color
-        rgb = [(c, x, 0),
-               (x, c, 0),
-               (0, c, x),
-               (0, x, c),
-               (x, 0, c),
-               (c, 0, x),
-               (c, x, 0)]
+        rgb = [(c, x, 0), (x, c, 0), (0, c, x), (0, x, c), (x, 0, c), (c, 0, x), (c, x, 0)]
         r, g, b = rgb[int(h_bar)]
         # Shift the initial RGB values to match value and store
-        rgb = [(int(255 * (r + m))),
-               (int(255 * (g + m))),
-               (int(255 * (b + m)))]
+        rgb = [(int(255 * (r + m))), (int(255 * (g + m))), (int(255 * (b + m)))]
         color_list.append(rgb)
 
     return color_list
@@ -99,11 +98,13 @@ class _TreeExporter(_BaseTreeExporter):
         if replacement is not None:
             # HACK: it's not optimal to use a regex like this, but the base class's node_to_str doesn't expose any
             #       clean way of achieving this
-            text = re.sub("value = .*(?=" + re.escape(self.characters[5]) + ")",
-                          # make sure we don't accidentally escape anything in the substitution
-                          replacement.replace('\\', '\\\\'),
-                          text,
-                          flags=re.S)
+            text = re.sub(
+                "value = .*(?=" + re.escape(self.characters[5]) + ")",
+                # make sure we don't accidentally escape anything in the substitution
+                replacement.replace('\\', '\\\\'),
+                text,
+                flags=re.S,
+            )
         return text
 
 
@@ -151,15 +152,13 @@ class _CateTreeMixin(_TreeExporter):
     Mixin that supports writing out the nodes of a CATE tree
     """
 
-    def __init__(self, include_uncertainty=False, uncertainty_level=0.1,
-                 *args, treatment_names=None, **kwargs):
+    def __init__(self, include_uncertainty=False, uncertainty_level=0.1, *args, treatment_names=None, **kwargs):
         self.include_uncertainty = include_uncertainty
         self.uncertainty_level = uncertainty_level
         self.treatment_names = treatment_names
         super().__init__(*args, **kwargs)
 
     def get_fill_color(self, tree, node_id):
-
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # red for negative, green for positive
@@ -181,7 +180,6 @@ class _CateTreeMixin(_TreeExporter):
         return self.get_color(value)
 
     def node_replacement_text(self, tree, node_id, criterion):
-
         # Write node mean CATE
         node_info = self.node_dict[node_id]
         node_string = 'CATE mean' + self.characters[4]
@@ -192,8 +190,10 @@ class _CateTreeMixin(_TreeExporter):
                 for i in range(mean.shape[0]):
                     value_text += "{}".format(np.around(mean[i], self.precision))
                     if 'ci' in node_info:
-                        value_text += " ({}, {})".format(np.around(node_info['ci'][0][i], self.precision),
-                                                         np.around(node_info['ci'][1][i], self.precision))
+                        value_text += " ({}, {})".format(
+                            np.around(node_info['ci'][0][i], self.precision),
+                            np.around(node_info['ci'][1][i], self.precision),
+                        )
                     if i != mean.shape[0] - 1:
                         value_text += ", "
                 value_text += self.characters[4]
@@ -202,8 +202,10 @@ class _CateTreeMixin(_TreeExporter):
                     for j in range(mean.shape[1]):
                         value_text += "{}".format(np.around(mean[i, j], self.precision))
                         if 'ci' in node_info:
-                            value_text += " ({}, {})".format(np.around(node_info['ci'][0][i, j], self.precision),
-                                                             np.around(node_info['ci'][1][i, j], self.precision))
+                            value_text += " ({}, {})".format(
+                                np.around(node_info['ci'][0][i, j], self.precision),
+                                np.around(node_info['ci'][1][i, j], self.precision),
+                            )
                         if j != mean.shape[1] - 1:
                             value_text += ", "
                     value_text += self.characters[4]
@@ -212,8 +214,9 @@ class _CateTreeMixin(_TreeExporter):
         else:
             value_text += "{}".format(np.around(mean, self.precision))
             if 'ci' in node_info:
-                value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
-                                                 np.around(node_info['ci'][1], self.precision))
+                value_text += " ({}, {})".format(
+                    np.around(node_info['ci'][0], self.precision), np.around(node_info['ci'][1], self.precision)
+                )
             value_text += self.characters[4]
         node_string += value_text
 
@@ -283,15 +286,12 @@ class _PolicyTreeMixin(_TreeExporter):
             if self.treatment_names:
                 class_name = self.treatment_names[np.argmax(value)]
             else:
-                class_name = "T%s%s%s" % (self.characters[1],
-                                          np.argmax(value),
-                                          self.characters[2])
+                class_name = "T%s%s%s" % (self.characters[1], np.argmax(value), self.characters[2])
             node_string += class_name
 
         return node_string
 
     def _node_replacement_text_with_dict(self, tree, node_id, criterion):
-
         # Write node mean CATE
         node_info = self.node_dict[node_id]
         node_string = 'CATE' + self.characters[4]
@@ -302,8 +302,10 @@ class _PolicyTreeMixin(_TreeExporter):
                 for i in range(mean.shape[0]):
                     value_text += "{}".format(np.around(mean[i], self.precision))
                     if 'ci' in node_info:
-                        value_text += " ({}, {})".format(np.around(node_info['ci'][0][i], self.precision),
-                                                         np.around(node_info['ci'][1][i], self.precision))
+                        value_text += " ({}, {})".format(
+                            np.around(node_info['ci'][0][i], self.precision),
+                            np.around(node_info['ci'][1][i], self.precision),
+                        )
                     if i != mean.shape[0] - 1:
                         value_text += ", "
                 value_text += self.characters[4]
@@ -312,8 +314,9 @@ class _PolicyTreeMixin(_TreeExporter):
         else:
             value_text += "{}".format(np.around(mean, self.precision))
             if 'ci' in node_info:
-                value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
-                                                 np.around(node_info['ci'][1], self.precision))
+                value_text += " ({}, {})".format(
+                    np.around(node_info['ci'][0], self.precision), np.around(node_info['ci'][1], self.precision)
+                )
             value_text += self.characters[4]
         node_string += value_text
 
@@ -327,9 +330,7 @@ class _PolicyTreeMixin(_TreeExporter):
             if self.treatment_names:
                 class_name = self.treatment_names[np.argmax(value)]
             else:
-                class_name = "T%s%s%s" % (self.characters[1],
-                                          np.argmax(value),
-                                          self.characters[2])
+                class_name = "T%s%s%s" % (self.characters[1], np.argmax(value), self.characters[2])
             node_string += "{}".format(class_name)
             node_string += self.characters[4]
 
@@ -371,16 +372,28 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
         Fontsize for text
     """
 
-    def __init__(self, treatment_names=None, title=None, feature_names=None,
-                 max_depth=None,
-                 filled=True,
-                 rounded=False, precision=3, fontsize=None):
-        super().__init__(treatment_names=treatment_names, title=title,
-                         feature_names=feature_names,
-                         max_depth=max_depth,
-                         filled=filled, rounded=rounded, precision=precision,
-                         fontsize=fontsize,
-                         impurity=False)
+    def __init__(
+        self,
+        treatment_names=None,
+        title=None,
+        feature_names=None,
+        max_depth=None,
+        filled=True,
+        rounded=False,
+        precision=3,
+        fontsize=None,
+    ):
+        super().__init__(
+            treatment_names=treatment_names,
+            title=title,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+            impurity=False,
+        )
 
 
 class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
@@ -424,18 +437,32 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
         Fontsize for text
     """
 
-    def __init__(self, include_uncertainty, uncertainty_level, title=None,
-                 feature_names=None,
-                 treatment_names=None,
-                 max_depth=None,
-                 filled=True, rounded=False, precision=3, fontsize=None):
-        super().__init__(include_uncertainty, uncertainty_level, title=None,
-                         feature_names=feature_names,
-                         treatment_names=treatment_names,
-                         max_depth=max_depth,
-                         filled=filled,
-                         rounded=rounded, precision=precision, fontsize=fontsize,
-                         impurity=False)
+    def __init__(
+        self,
+        include_uncertainty,
+        uncertainty_level,
+        title=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        rounded=False,
+        precision=3,
+        fontsize=None,
+    ):
+        super().__init__(
+            include_uncertainty,
+            uncertainty_level,
+            title=None,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+            impurity=False,
+        )
 
 
 class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
@@ -484,15 +511,34 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
         impurity, threshold and value attributes of each node.
     """
 
-    def __init__(self, out_file=None, title=None, treatment_names=None, feature_names=None,
-                 max_depth=None,
-                 filled=True, leaves_parallel=False,
-                 rotate=False, rounded=False, special_characters=False, precision=3):
-        super().__init__(title=title, out_file=out_file, feature_names=feature_names,
-                         max_depth=max_depth, filled=filled, leaves_parallel=leaves_parallel,
-                         rotate=rotate, rounded=rounded, special_characters=special_characters,
-                         precision=precision, treatment_names=treatment_names,
-                         impurity=False)
+    def __init__(
+        self,
+        out_file=None,
+        title=None,
+        treatment_names=None,
+        feature_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=False,
+        rotate=False,
+        rounded=False,
+        special_characters=False,
+        precision=3,
+    ):
+        super().__init__(
+            title=title,
+            out_file=out_file,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+            treatment_names=treatment_names,
+            impurity=False,
+        )
 
 
 class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
@@ -547,28 +593,59 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
         impurity, threshold and value attributes of each node.
     """
 
-    def __init__(self, include_uncertainty, uncertainty_level, out_file=None, title=None, feature_names=None,
-                 treatment_names=None,
-                 max_depth=None, filled=True, leaves_parallel=False,
-                 rotate=False, rounded=False, special_characters=False, precision=3):
-        super().__init__(include_uncertainty, uncertainty_level,
-                         out_file=out_file, title=title, feature_names=feature_names,
-                         treatment_names=treatment_names,
-                         max_depth=max_depth, filled=filled, leaves_parallel=leaves_parallel,
-                         rotate=rotate, rounded=rounded, special_characters=special_characters,
-                         precision=precision,
-                         impurity=False)
+    def __init__(
+        self,
+        include_uncertainty,
+        uncertainty_level,
+        out_file=None,
+        title=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=False,
+        rotate=False,
+        rounded=False,
+        special_characters=False,
+        precision=3,
+    ):
+        super().__init__(
+            include_uncertainty,
+            uncertainty_level,
+            out_file=out_file,
+            title=title,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+            impurity=False,
+        )
 
 
 class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
-
     tree_model_ = None
     node_dict_ = None
 
     @abc.abstractmethod
-    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
-                           leaves_parallel, rotate, rounded,
-                           special_characters, precision):
+    def _make_dot_exporter(
+        self,
+        *,
+        out_file,
+        feature_names,
+        treatment_names,
+        max_depth,
+        filled,
+        leaves_parallel,
+        rotate,
+        rounded,
+        special_characters,
+        precision,
+    ):
         """
         Make a dot file exporter
 
@@ -614,8 +691,18 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
-    def _make_mpl_exporter(self, *, title=None, feature_names=None, treatment_names=None, max_depth=None,
-                           filled=True, rounded=True, precision=3, fontsize=None):
+    def _make_mpl_exporter(
+        self,
+        *,
+        title=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        rounded=True,
+        precision=3,
+        fontsize=None,
+    ):
         """
         Make a matplotlib exporter
 
@@ -651,10 +738,19 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Abstract method")
 
-    def export_graphviz(self, out_file=None, feature_names=None, treatment_names=None,
-                        max_depth=None,
-                        filled=True, leaves_parallel=True,
-                        rotate=False, rounded=True, special_characters=False, precision=3):
+    def export_graphviz(
+        self,
+        out_file=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Export a graphviz dot file representing the learned tree model
 
@@ -708,11 +804,18 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             if return_string:
                 out_file = StringIO()
 
-            exporter = self._make_dot_exporter(out_file=out_file, feature_names=feature_names,
-                                               treatment_names=treatment_names,
-                                               max_depth=max_depth, filled=filled,
-                                               leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
-                                               special_characters=special_characters, precision=precision)
+            exporter = self._make_dot_exporter(
+                out_file=out_file,
+                feature_names=feature_names,
+                treatment_names=treatment_names,
+                max_depth=max_depth,
+                filled=filled,
+                leaves_parallel=leaves_parallel,
+                rotate=rotate,
+                rounded=rounded,
+                special_characters=special_characters,
+                precision=precision,
+            )
             exporter.export(self.tree_model_, node_dict=self.node_dict_)
 
             if return_string:
@@ -722,11 +825,21 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             if own_file:
                 out_file.close()
 
-    def render(self, out_file, format='pdf', view=True, feature_names=None,
-               treatment_names=None,
-               max_depth=None,
-               filled=True, leaves_parallel=True, rotate=False, rounded=True,
-               special_characters=False, precision=3):
+    def render(
+        self,
+        out_file,
+        format='pdf',
+        view=True,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Render the tree to a flie
 
@@ -772,17 +885,32 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-        dot_source = self.export_graphviz(out_file=None,  # want the output as a string, only write the final file
-                                          feature_names=feature_names, treatment_names=treatment_names,
-                                          max_depth=max_depth,
-                                          filled=filled,
-                                          leaves_parallel=leaves_parallel, rotate=rotate,
-                                          rounded=rounded, special_characters=special_characters,
-                                          precision=precision)
+        dot_source = self.export_graphviz(
+            out_file=None,  # want the output as a string, only write the final file
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
         graphviz.Source(dot_source).render(out_file, format=format, view=view)
 
-    def plot(self, ax=None, title=None, feature_names=None, treatment_names=None,
-             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
+    def plot(
+        self,
+        ax=None,
+        title=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        rounded=True,
+        precision=3,
+        fontsize=None,
+    ):
         """
         Exports policy trees to matplotlib
 
@@ -820,8 +948,14 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             Font size for text
         """
         check_is_fitted(self.tree_model_, 'tree_')
-        exporter = self._make_mpl_exporter(title=title, feature_names=feature_names, treatment_names=treatment_names,
-                                           max_depth=max_depth,
-                                           filled=filled,
-                                           rounded=rounded, precision=precision, fontsize=fontsize)
+        exporter = self._make_mpl_exporter(
+            title=title,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )
         exporter.export(self.tree_model_, node_dict=self.node_dict_, ax=ax)

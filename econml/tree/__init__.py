@@ -7,11 +7,13 @@ from ._tree import DepthFirstTreeBuilder
 from ._tree import Tree
 from ._tree_classes import BaseTree
 
-__all__ = ["BaseTree",
-           "Tree",
-           "Splitter",
-           "BestSplitter",
-           "DepthFirstTreeBuilder",
-           "Criterion",
-           "RegressionCriterion",
-           "MSE"]
+__all__ = [
+    "BaseTree",
+    "Tree",
+    "Splitter",
+    "BestSplitter",
+    "DepthFirstTreeBuilder",
+    "Criterion",
+    "RegressionCriterion",
+    "MSE",
+]

@@ -5,8 +5,12 @@ import numpy as np
 from sklearn import clone
 
 from econml.utilities import check_input_arrays
-from ._cate_estimator import (LinearCateEstimator, TreatmentExpansionMixin,
-                              StatsModelsCateEstimatorMixin, StatsModelsCateEstimatorDiscreteMixin)
+from ._cate_estimator import (
+    LinearCateEstimator,
+    TreatmentExpansionMixin,
+    StatsModelsCateEstimatorMixin,
+    StatsModelsCateEstimatorDiscreteMixin,
+)
 from .dml import LinearDML
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
@@ -32,9 +36,8 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
         self.estimators = estimators
         dummy_est = clone(self.estimators[0], safe=False)  # used to extract various attributes later
         infs = [est._inference for est in self.estimators]
-        assert (
-            all(isinstance(inf, StatsModelsInference) for inf in infs) or
-            all(isinstance(inf, StatsModelsInferenceDiscrete) for inf in infs)
+        assert all(isinstance(inf, StatsModelsInference) for inf in infs) or all(
+            isinstance(inf, StatsModelsInferenceDiscrete) for inf in infs
         ), "All estimators must use either StatsModelsInference or StatsModelsInferenceDiscrete"
         cov_types = set(inf.cov_type for inf in infs)
         assert len(cov_types) == 1, f"All estimators must use the same covariance type, got {cov_types}"
@@ -49,7 +52,8 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
             cate_est_type = StatsModelsCateEstimatorDiscreteMixin
             self.fitted_models_final = [
                 StatsModelsLinearRegression.aggregate(models)
-                for models in zip(*[est.fitted_models_final for est in self.estimators])]
+                for models in zip(*[est.fitted_models_final for est in self.estimators])
+            ]
             inf.fitted_models_final = self.fitted_models_final
 
         # mix in the appropriate inference class
@@ -74,7 +78,7 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
     # Methods needed to implement the LinearCateEstimator interface
 
     def const_marginal_effect(self, X=None):
-        X, = check_input_arrays(X)
+        (X,) = check_input_arrays(X)
         return self._inference.const_marginal_effect_inference(X).point_estimate
 
     def fit(self, *args, **kwargs):

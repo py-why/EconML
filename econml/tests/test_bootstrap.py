@@ -14,7 +14,6 @@ import joblib
 
 
 class TestBootstrap(unittest.TestCase):
-
     def test_with_sklearn(self):
         """Test that we can bootstrap sklearn estimators."""
         for n_jobs in [None, -1]:  # test parallelism
@@ -235,10 +234,12 @@ class TestBootstrap(unittest.TestCase):
 
         opts = BootstrapInference(50, 2)
 
-        est = SieveTSLS(t_featurizer=PolynomialFeatures(2),
-                        x_featurizer=PolynomialFeatures(2),
-                        z_featurizer=PolynomialFeatures(2),
-                        dt_featurizer=None)
+        est = SieveTSLS(
+            t_featurizer=PolynomialFeatures(2),
+            x_featurizer=PolynomialFeatures(2),
+            z_featurizer=PolynomialFeatures(2),
+            dt_featurizer=None,
+        )
         est.fit(y, t, X=x, W=None, Z=z, inference=opts)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
@@ -290,8 +291,12 @@ class TestBootstrap(unittest.TestCase):
         Z = [1, 0, 0, 1, 0, 1, 0, 1]
         Y = [1, 2, 3, 4, 5, 6, 7, 8]
         X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
-        est = LinearIntentToTreatDRIV(model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(),
-                                      flexible_model_effect=LinearRegression(), cv=2)
+        est = LinearIntentToTreatDRIV(
+            model_y_xw=LinearRegression(),
+            model_t_xwz=LogisticRegression(),
+            flexible_model_effect=LinearRegression(),
+            cv=2,
+        )
         inference = BootstrapInference(n_bootstrap_samples=20, n_jobs=-1, verbose=3)
         est.fit(Y, T, Z=Z, X=X, inference=inference)
         est.const_marginal_effect_interval(X)

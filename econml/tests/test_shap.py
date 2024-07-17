@@ -27,20 +27,25 @@ class TestShap(unittest.TestCase):
                 T = np.random.normal(size=(n, d_t))
                 T = T.flatten() if d_t == 1 else T
                 for featurizer in [None, PolynomialFeatures(degree=2, include_bias=False)]:
-
-                    est_list = [LinearDML(model_y=LinearRegression(),
-                                          model_t=LinearRegression(), featurizer=featurizer),
-                                CausalForestDML(model_y=LinearRegression(), model_t=LinearRegression())]
+                    est_list = [
+                        LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), featurizer=featurizer),
+                        CausalForestDML(model_y=LinearRegression(), model_t=LinearRegression()),
+                    ]
                     if d_t == 1:
                         est_list += [
-                            NonParamDML(model_y=LinearRegression(
-                            ), model_t=LinearRegression(), model_final=RandomForestRegressor(), featurizer=featurizer),
+                            NonParamDML(
+                                model_y=LinearRegression(),
+                                model_t=LinearRegression(),
+                                model_final=RandomForestRegressor(),
+                                featurizer=featurizer,
+                            ),
                         ]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             est.fit(Y, T, X=X, W=W)
-                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
-                                                          background_samples=None)
+                            shap_values = est.shap_values(
+                                X[:10], feature_names=["a", "b", "c"], background_samples=None
+                            )
 
                             for i, output in enumerate(est.cate_output_names()):
                                 for j, treat in enumerate(est.cate_treatment_names()):
@@ -49,7 +54,8 @@ class TestShap(unittest.TestCase):
                                         mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
                                         mean_cate = np.array(mean_cate).reshape((d_y, d_t))[i, j]
                                         self.assertAlmostEqual(
-                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2)
+                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2
+                                        )
 
                                     # test shape of shap values output is as expected
                                     self.assertEqual(len(shap_values[output]), d_t)
@@ -61,7 +67,8 @@ class TestShap(unittest.TestCase):
                                     # test length of feature names equals to shap values shape
                                     self.assertEqual(
                                         len(shap_values[output][treat].feature_names),
-                                        shap_values[output][treat].values.shape[1])
+                                        shap_values[output][treat].values.shape[1],
+                                    )
 
     def test_discrete_t(self):
         n = 100
@@ -75,33 +82,41 @@ class TestShap(unittest.TestCase):
                 Y = Y.flatten() if d_y == 1 else Y
                 T = np.random.choice(range(d_t), size=(n,))
                 for featurizer in [None, PolynomialFeatures(degree=2, include_bias=False)]:
-
-                    est_list = [LinearDML(featurizer=featurizer, discrete_treatment=True),
-                                TLearner(models=RandomForestRegressor()),
-                                SLearner(overall_model=RandomForestRegressor()),
-                                XLearner(models=RandomForestRegressor()),
-                                DomainAdaptationLearner(models=RandomForestRegressor(),
-                                                        final_models=RandomForestRegressor()),
-                                CausalForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
-                                                discrete_treatment=True)
-                                ]
+                    est_list = [
+                        LinearDML(featurizer=featurizer, discrete_treatment=True),
+                        TLearner(models=RandomForestRegressor()),
+                        SLearner(overall_model=RandomForestRegressor()),
+                        XLearner(models=RandomForestRegressor()),
+                        DomainAdaptationLearner(models=RandomForestRegressor(), final_models=RandomForestRegressor()),
+                        CausalForestDML(
+                            model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True
+                        ),
+                    ]
                     if d_t == 2:
                         est_list += [
-                            NonParamDML(model_y=LinearRegression(
-                            ), model_t=LogisticRegression(), model_final=RandomForestRegressor(),
-                                featurizer=featurizer, discrete_treatment=True)]
+                            NonParamDML(
+                                model_y=LinearRegression(),
+                                model_t=LogisticRegression(),
+                                model_final=RandomForestRegressor(),
+                                featurizer=featurizer,
+                                discrete_treatment=True,
+                            )
+                        ]
                     if d_y == 1:
-                        est_list += [DRLearner(multitask_model_final=True, featurizer=featurizer),
-                                     DRLearner(multitask_model_final=False, featurizer=featurizer),
-                                     ForestDRLearner()]
+                        est_list += [
+                            DRLearner(multitask_model_final=True, featurizer=featurizer),
+                            DRLearner(multitask_model_final=False, featurizer=featurizer),
+                            ForestDRLearner(),
+                        ]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner)):
                                 est.fit(Y, T, X=X)
                             else:
                                 est.fit(Y, T, X=X, W=W)
-                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
-                                                          background_samples=None)
+                            shap_values = est.shap_values(
+                                X[:10], feature_names=["a", "b", "c"], background_samples=None
+                            )
                             for i, output in enumerate(est.cate_output_names()):
                                 for j, treat in enumerate(est.cate_treatment_names()):
                                     # test base values equals to mean of constant marginal effect
@@ -109,7 +124,8 @@ class TestShap(unittest.TestCase):
                                         mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
                                         mean_cate = np.array(mean_cate).reshape((d_y, d_t - 1))[i, j]
                                         self.assertAlmostEqual(
-                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2)
+                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2
+                                        )
 
                                     # test shape of shap values output is as expected
                                     self.assertEqual(len(shap_values[output]), d_t - 1)
@@ -121,17 +137,20 @@ class TestShap(unittest.TestCase):
                                     # test length of feature names equals to shap values shape
                                     self.assertEqual(
                                         len(shap_values[output][treat].feature_names),
-                                        shap_values[output][treat].values.shape[1])
+                                        shap_values[output][treat].values.shape[1],
+                                    )
 
     def test_identical_output(self):
         # import here since otherwise test collection would fail if matplotlib is not installed
         import matplotlib
+
         matplotlib.use('Agg')
         from shap.plots import scatter, heatmap, bar, beeswarm, waterfall
 
         # Treatment effect function
         def exp_te(x):
             return np.exp(2 * x[0])
+
         n = 500
         n_w = 10
         support_size = 5
@@ -142,12 +161,14 @@ class TestShap(unittest.TestCase):
 
         def epsilon_sample(n):
             return np.random.uniform(-1, 1, size=(n,))
+
         # Treatment support
         support_T = support_Y
         coefs_T = np.random.uniform(0, 1, size=support_size)
 
         def eta_sample(n):
             return np.random.uniform(-1, 1, size=n)
+
         # Generate controls, covariates, treatments and outcomes
         W = np.random.normal(0, 1, size=(n, n_w))
         X = np.random.uniform(0, 1, size=(n, n_x))
@@ -156,32 +177,34 @@ class TestShap(unittest.TestCase):
         T = np.dot(W[:, support_T], coefs_T) + eta_sample(n)
         Y = (TE * T) + np.dot(W[:, support_Y], coefs_Y) + epsilon_sample(n)
         Y = np.tile(Y.reshape(-1, 1), (1, 2))
-        est = LinearDML(model_y=Lasso(),
-                        model_t=Lasso(),
-                        random_state=123,
-                        fit_cate_intercept=True,
-                        featurizer=PolynomialFeatures(degree=2, include_bias=False))
+        est = LinearDML(
+            model_y=Lasso(),
+            model_t=Lasso(),
+            random_state=123,
+            fit_cate_intercept=True,
+            featurizer=PolynomialFeatures(degree=2, include_bias=False),
+        )
         est.fit(Y, T, X=X, W=W)
-        shap_values1 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"],
-                                       background_samples=None)
-        est = LinearDML(model_y=Lasso(),
-                        model_t=Lasso(),
-                        random_state=123,
-                        fit_cate_intercept=True,
-                        featurizer=PolynomialFeatures(degree=2, include_bias=False))
+        shap_values1 = est.shap_values(
+            X[:10], feature_names=["A", "B"], treatment_names=["orange"], background_samples=None
+        )
+        est = LinearDML(
+            model_y=Lasso(),
+            model_t=Lasso(),
+            random_state=123,
+            fit_cate_intercept=True,
+            featurizer=PolynomialFeatures(degree=2, include_bias=False),
+        )
         est.fit(Y[:, 0], T, X=X, W=W)
-        shap_values2 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"],
-                                       background_samples=None)
-        np.testing.assert_allclose(shap_values1["Y0"]["orange"].data,
-                                   shap_values2["Y0"]["orange"].data)
-        np.testing.assert_allclose(shap_values1["Y0"]["orange"].values,
-                                   shap_values2["Y0"]["orange"].values)
+        shap_values2 = est.shap_values(
+            X[:10], feature_names=["A", "B"], treatment_names=["orange"], background_samples=None
+        )
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].data, shap_values2["Y0"]["orange"].data)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].values, shap_values2["Y0"]["orange"].values)
         # TODO There is a matrix dimension mismatch between multiple outcome and single outcome, should solve that
         # through shap package.
-        np.testing.assert_allclose(shap_values1["Y0"]["orange"].main_effects,
-                                   shap_values2["Y0"]["orange"].main_effects)
-        np.testing.assert_allclose(shap_values1["Y0"]["orange"].base_values,
-                                   shap_values2["Y0"]["orange"].base_values)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].main_effects, shap_values2["Y0"]["orange"].main_effects)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].base_values, shap_values2["Y0"]["orange"].base_values)
 
         # test shap could generate the plot from the shap_values
         heatmap(shap_values1["Y0"]["orange"], show=False)

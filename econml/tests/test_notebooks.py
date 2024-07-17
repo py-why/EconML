@@ -18,7 +18,8 @@ _notebooks = [
     os.path.join(subdir, path)
     for subdir in _nbsubdirs
     for path in os.listdir(os.path.join(_nbdir, subdir))
-    if path.endswith('.ipynb')]
+    if path.endswith('.ipynb')
+]
 # omit the lalonde notebook
 _notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 
@@ -33,8 +34,7 @@ def test_notebook(file):
 
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
-    ep = nbconvert.preprocessors.ExecutePreprocessor(
-        timeout=1800, allow_errors=True)
+    ep = nbconvert.preprocessors.ExecutePreprocessor(timeout=1800, allow_errors=True)
 
     ep.preprocess(nb, {'metadata': {'path': '.'}})
 
@@ -43,10 +43,13 @@ def test_notebook(file):
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     nbformat.write(nb, output_file, version=4)
 
-    errors = [nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)
-              for cell in nb.cells if "outputs" in cell
-              for output in cell["outputs"]
-              if output.output_type == "error"]
+    errors = [
+        nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)
+        for cell in nb.cells
+        if "outputs" in cell
+        for output in cell["outputs"]
+        if output.output_type == "error"
+    ]
     if errors:
         err_str = "\n".join(html.unescape(str(err)) for err in errors)
         raise AssertionError("Encountered {0} exception(s):\n{1}".format(len(errors), err_str))

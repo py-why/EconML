@@ -1,4 +1,3 @@
-
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
@@ -34,13 +33,7 @@ References
     ACM Conference on Learning Theory. `<https://arxiv.org/abs/1901.09036>`_
 """
 
-from .dml import (DML, LinearDML, SparseLinearDML,
-                  KernelDML, NonParamDML)
+from .dml import DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML
 from .causal_forest import CausalForestDML
 
-__all__ = ["DML",
-           "LinearDML",
-           "SparseLinearDML",
-           "KernelDML",
-           "NonParamDML",
-           "CausalForestDML"]
+__all__ = ["DML", "LinearDML", "SparseLinearDML", "KernelDML", "NonParamDML", "CausalForestDML"]

@@ -4,5 +4,4 @@
 from ._tree import PolicyTree
 from ._forest import PolicyForest
 
-__all__ = ["PolicyTree",
-           "PolicyForest"]
+__all__ = ["PolicyTree", "PolicyForest"]

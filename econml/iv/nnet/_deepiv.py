@@ -6,15 +6,19 @@
 import numpy as np
 from ..._cate_estimator import BaseCateEstimator
 from ...utilities import check_input_arrays, _deprecate_positional, deprecated, MissingModule
+
 try:
     import keras
     from keras import backend as K
     import keras.layers as L
     from keras.models import Model
 except ImportError as exn:
-    keras = K = L = Model = MissingModule("keras and tensorflow are no longer dependencies of the main econml "
-                                          "package; install econml[tf] or econml[all] to require them, or install "
-                                          "them separately, to use DeepIV", exn)
+    keras = K = L = Model = MissingModule(
+        "keras and tensorflow are no longer dependencies of the main econml "
+        "package; install econml[tf] or econml[all] to require them, or install "
+        "them separately, to use DeepIV",
+        exn,
+    )
 
 # TODO: make sure to use random seeds wherever necessary
 # TODO: make sure that the public API consistently uses "T" instead of "P" for the treatment
@@ -85,8 +89,7 @@ def mog_loss_model(n_components, d_t):
     t = L.Input((d_t,))
 
     # || t - mu_i || ^2
-    d2 = L.Lambda(lambda d: K.sum(K.square(d), axis=-1),
-                  output_shape=(n_components,))(
+    d2 = L.Lambda(lambda d: K.sum(K.square(d), axis=-1), output_shape=(n_components,))(
         L.Subtract()([L.RepeatVector(n_components)(t), mu])
     )
 
@@ -136,6 +139,7 @@ def mog_sample_model(n_components, d_t):
         cumsum_shift = K.concatenate([K.zeros_like(cumsum[:, 0:1]), cumsum])[:, :-1]
         if K.backend() == 'cntk':
             import cntk as C
+
             # Generate standard uniform values in shape (batch_size,1)
             #   (since we can't use the dynamic batch_size with random.uniform in CNTK,
             #    we use uniform_like instead with an input of an appropriate shape)
@@ -217,6 +221,7 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
             return f()
         else:
             return L.average([f() for _ in range(n)])
+
     z, x, y = [L.Input((d,)) for d in [d_z, d_x, d_y]]
     if gradient_samples:
         # we want to separately sample the gradient; we use stop_gradient to treat the sampled model as constant
@@ -227,6 +232,7 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
 
         def make_expr(grad, diff):
             return K.stop_gradient(diff) * (K.stop_gradient(diff + 2 * grad) - 2 * grad)
+
         expr = L.Lambda(lambda args: make_expr(*args))([grad, diff])
     elif use_upper_bound:
         expr = sample(lambda: L.Lambda(K.square)(L.subtract([y, h(p(z, x), x)])), samples)
@@ -277,14 +283,19 @@ class DeepIV(BaseCateEstimator):
 
     """
 
-    def __init__(self, *,
-                 n_components,
-                 m,
-                 h,
-                 n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
-                 optimizer='adam',
-                 first_stage_options={"epochs": 100},
-                 second_stage_options={"epochs": 100}):
+    def __init__(
+        self,
+        *,
+        n_components,
+        m,
+        h,
+        n_samples,
+        use_upper_bound_loss=False,
+        n_gradient_samples=0,
+        optimizer='adam',
+        first_stage_options={"epochs": 100},
+        second_stage_options={"epochs": 100},
+    ):
         self._n_components = n_components
         self._m = m
         self._h = h
@@ -350,13 +361,21 @@ class DeepIV(BaseCateEstimator):
         # TODO: do we need to give the user more control over other arguments to fit?
         model.fit([Z, X, T], [], **self._first_stage_options)
 
-        lm = response_loss_model(lambda t, x: self._h(t, x),
-                                 lambda z, x: Model([z_in, x_in],
-                                                    # subtle point: we need to build a new model each time,
-                                                    # because each model encapsulates its randomness
-                                                    [mog_sample_model(n_components, d_t)([pi, mu, sig])])([z, x]),
-                                 d_z, d_x, d_y,
-                                 self._n_samples, self._use_upper_bound_loss, self._n_gradient_samples)
+        lm = response_loss_model(
+            lambda t, x: self._h(t, x),
+            lambda z, x: Model(
+                [z_in, x_in],
+                # subtle point: we need to build a new model each time,
+                # because each model encapsulates its randomness
+                [mog_sample_model(n_components, d_t)([pi, mu, sig])],
+            )([z, x]),
+            d_z,
+            d_x,
+            d_y,
+            self._n_samples,
+            self._use_upper_bound_loss,
+            self._n_gradient_samples,
+        )
 
         rl = lm([z_in, x_in, y_in])
         response_model = Model([z_in, x_in, y_in], [rl])
@@ -374,9 +393,7 @@ class DeepIV(BaseCateEstimator):
         #       Therefore, it's important that we use a batch size of 1 when we call predict with this model
         def calc_grad(t, x):
             h = self._h(t, x)
-            all_grads = K.concatenate([g
-                                       for i in range(d_y)
-                                       for g in K.gradients(K.sum(h[:, i]), [t])])
+            all_grads = K.concatenate([g for i in range(d_y) for g in K.gradients(K.sum(h[:, i]), [t])])
             return K.reshape(all_grads, (-1, d_y, d_t))
 
         self._marginal_effect_model = Model([t_in, x_in], L.Lambda(lambda tx: calc_grad(*tx))([t_in, x_in]))

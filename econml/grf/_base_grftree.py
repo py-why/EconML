@@ -23,8 +23,7 @@ import copy
 # =============================================================================
 
 
-CRITERIA_GRF = {"het": LinearMomentGRFCriterion,
-                "mse": LinearMomentGRFCriterionMSE}
+CRITERIA_GRF = {"het": LinearMomentGRFCriterion, "mse": LinearMomentGRFCriterionMSE}
 
 # =============================================================================
 # Base GRF tree
@@ -214,8 +213,7 @@ class GRFTree(BaseTree):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -285,33 +283,38 @@ class GRFTree(BaseTree):
 
     """
 
-    def __init__(self, *,
-                 criterion="mse",
-                 splitter="best",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 min_var_leaf=None,
-                 min_var_leaf_on_val=False,
-                 max_features=None,
-                 random_state=None,
-                 min_impurity_decrease=0.,
-                 min_balancedness_tol=0.45,
-                 honest=True):
-        super().__init__(criterion=criterion,
-                         splitter=splitter,
-                         max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf,
-                         min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         min_var_leaf=min_var_leaf,
-                         min_var_leaf_on_val=min_var_leaf_on_val,
-                         max_features=max_features,
-                         random_state=random_state,
-                         min_impurity_decrease=min_impurity_decrease,
-                         min_balancedness_tol=min_balancedness_tol,
-                         honest=honest)
+    def __init__(
+        self,
+        *,
+        criterion="mse",
+        splitter="best",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        min_var_leaf=None,
+        min_var_leaf_on_val=False,
+        max_features=None,
+        random_state=None,
+        min_impurity_decrease=0.0,
+        min_balancedness_tol=0.45,
+        honest=True,
+    ):
+        super().__init__(
+            criterion=criterion,
+            splitter=splitter,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            min_var_leaf=min_var_leaf,
+            min_var_leaf_on_val=min_var_leaf_on_val,
+            max_features=max_features,
+            random_state=random_state,
+            min_impurity_decrease=min_impurity_decrease,
+            min_balancedness_tol=min_balancedness_tol,
+            honest=honest,
+        )
 
     def _get_valid_criteria(self):
         return CRITERIA_GRF
@@ -322,8 +325,10 @@ class GRFTree(BaseTree):
     def _get_store_jac(self):
         return True
 
-    def init(self,):
-        """ This method should be called before fit. We added this pre-fit step so that this step
+    def init(
+        self,
+    ):
+        """This method should be called before fit. We added this pre-fit step so that this step
         can be executed without parallelism as it contains code that holds the gil and can hinder
         parallel execution. We also did not merge this step to ``__init__`` as we want ``__init__`` to just
         be storing the parameters for easy cloning. We also don't want to directly pass a RandomState
@@ -335,7 +340,7 @@ class GRFTree(BaseTree):
         return self
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
-        """ Fit the tree from the data
+        """Fit the tree from the data
 
         Parameters
         ----------
@@ -364,8 +369,9 @@ class GRFTree(BaseTree):
             forest class that spawned this tree.
         """
 
-        return super().fit(X, y, n_y, n_outputs, n_relevant_outputs,
-                           sample_weight=sample_weight, check_input=check_input)
+        return super().fit(
+            X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=sample_weight, check_input=check_input
+        )
 
     def predict(self, X, check_input=True):
         """Return the prefix of relevant fitted local parameters for each X, i.e. theta(X).
@@ -485,8 +491,9 @@ class GRFTree(BaseTree):
         """
         check_is_fitted(self)
 
-        return self.tree_.compute_feature_heterogeneity_importances(normalize=True, max_depth=max_depth,
-                                                                    depth_decay=depth_decay_exponent)
+        return self.tree_.compute_feature_heterogeneity_importances(
+            normalize=True, max_depth=max_depth, depth_decay=depth_decay_exponent
+        )
 
     @property
     def feature_importances_(self):

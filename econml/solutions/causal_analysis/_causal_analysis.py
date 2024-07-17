@@ -29,9 +29,11 @@ from ...utilities import _RegressionWrapper, get_feature_names_or_default, inver
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing
+
 # TODO: this utility is even less public...
 from packaging.version import parse
 import sklearn
+
 if parse(sklearn.__version__) < parse("1.5"):
     from sklearn.utils import _get_column_indices
 else:
@@ -56,22 +58,24 @@ class _CausalInsightsConstants:
     InitArgsKey = 'init_args'
     RowData = 'row_data'  # NOTE: RowData is mutually exclusive with the other data columns
 
-    ALL = [RawFeatureNameKey,
-           EngineeredNameKey,
-           CategoricalColumnKey,
-           TypeKey,
-           PointEstimateKey,
-           StandardErrorKey,
-           ZStatKey,
-           ConfidenceIntervalLowerKey,
-           ConfidenceIntervalUpperKey,
-           PValueKey,
-           Version,
-           CausalComputationTypeKey,
-           ConfoundingIntervalKey,
-           ViewKey,
-           InitArgsKey,
-           RowData]
+    ALL = [
+        RawFeatureNameKey,
+        EngineeredNameKey,
+        CategoricalColumnKey,
+        TypeKey,
+        PointEstimateKey,
+        StandardErrorKey,
+        ZStatKey,
+        ConfidenceIntervalLowerKey,
+        ConfidenceIntervalUpperKey,
+        PValueKey,
+        Version,
+        CausalComputationTypeKey,
+        ConfoundingIntervalKey,
+        ViewKey,
+        InitArgsKey,
+        RowData,
+    ]
 
 
 def _get_default_shared_insights_output():
@@ -90,7 +94,7 @@ def _get_default_shared_insights_output():
         _CausalInsightsConstants.Version: '1.0',
         _CausalInsightsConstants.CausalComputationTypeKey: "simple",
         _CausalInsightsConstants.ConfoundingIntervalKey: None,
-        _CausalInsightsConstants.InitArgsKey: {}
+        _CausalInsightsConstants.InitArgsKey: {},
     }
 
 
@@ -103,46 +107,56 @@ def _get_default_specific_insights(view):
         _CausalInsightsConstants.ConfidenceIntervalLowerKey: [],
         _CausalInsightsConstants.ConfidenceIntervalUpperKey: [],
         _CausalInsightsConstants.PValueKey: [],
-        _CausalInsightsConstants.ViewKey: view
+        _CausalInsightsConstants.ViewKey: view,
     }
 
 
 def _get_metadata_causal_insights_keys():
-    return [_CausalInsightsConstants.Version,
-            _CausalInsightsConstants.CausalComputationTypeKey,
-            _CausalInsightsConstants.ConfoundingIntervalKey,
-            _CausalInsightsConstants.ViewKey]
+    return [
+        _CausalInsightsConstants.Version,
+        _CausalInsightsConstants.CausalComputationTypeKey,
+        _CausalInsightsConstants.ConfoundingIntervalKey,
+        _CausalInsightsConstants.ViewKey,
+    ]
 
 
 def _get_column_causal_insights_keys():
-    return [_CausalInsightsConstants.RawFeatureNameKey,
-            _CausalInsightsConstants.EngineeredNameKey,
-            _CausalInsightsConstants.CategoricalColumnKey,
-            _CausalInsightsConstants.TypeKey]
+    return [
+        _CausalInsightsConstants.RawFeatureNameKey,
+        _CausalInsightsConstants.EngineeredNameKey,
+        _CausalInsightsConstants.CategoricalColumnKey,
+        _CausalInsightsConstants.TypeKey,
+    ]
 
 
 def _get_data_causal_insights_keys():
-    return [_CausalInsightsConstants.PointEstimateKey,
-            _CausalInsightsConstants.StandardErrorKey,
-            _CausalInsightsConstants.ZStatKey,
-            _CausalInsightsConstants.ConfidenceIntervalLowerKey,
-            _CausalInsightsConstants.ConfidenceIntervalUpperKey,
-            _CausalInsightsConstants.PValueKey]
+    return [
+        _CausalInsightsConstants.PointEstimateKey,
+        _CausalInsightsConstants.StandardErrorKey,
+        _CausalInsightsConstants.ZStatKey,
+        _CausalInsightsConstants.ConfidenceIntervalLowerKey,
+        _CausalInsightsConstants.ConfidenceIntervalUpperKey,
+        _CausalInsightsConstants.PValueKey,
+    ]
 
 
 def _first_stage_reg(X, y, *, automl=True, random_state=None, verbose=0):
     if automl:
-        model = GridSearchCVList([LassoCV(random_state=random_state),
-                                  RandomForestRegressor(
-                                      n_estimators=100, random_state=random_state, min_samples_leaf=10),
-                                  lgb.LGBMRegressor(num_leaves=32, random_state=random_state)],
-                                 param_grid_list=[{},
-                                                  {'min_weight_fraction_leaf':
-                                                      [.001, .01, .1]},
-                                                  {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]}],
-                                 cv=3,
-                                 scoring='r2',
-                                 verbose=verbose)
+        model = GridSearchCVList(
+            [
+                LassoCV(random_state=random_state),
+                RandomForestRegressor(n_estimators=100, random_state=random_state, min_samples_leaf=10),
+                lgb.LGBMRegressor(num_leaves=32, random_state=random_state),
+            ],
+            param_grid_list=[
+                {},
+                {'min_weight_fraction_leaf': [0.001, 0.01, 0.1]},
+                {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]},
+            ],
+            cv=3,
+            scoring='r2',
+            verbose=verbose,
+        )
         best_est = model.fit(X, y).best_estimator_
         if isinstance(best_est, LassoCV):
             return Lasso(alpha=best_est.alpha_, random_state=random_state)
@@ -162,22 +176,24 @@ def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None,
         # NOTE: we don't use LogisticRegressionCV inside the grid search because of the nested stratification
         #       which could affect how many times each distinct Y value needs to be present in the data
 
-        model = GridSearchCVList([LogisticRegression(max_iter=1000,
-                                                     random_state=random_state),
-                                  RandomForestClassifier(n_estimators=100, min_samples_leaf=10,
-                                                         random_state=random_state),
-                                  lgb.LGBMClassifier(num_leaves=32, random_state=random_state)],
-                                 param_grid_list=[{'C': cs},
-                                                  {'max_depth': [3, None],
-                                                   'min_weight_fraction_leaf': [.001, .01, .1]},
-                                                  {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]}],
-                                 cv=min(3, min_count),
-                                 scoring='neg_log_loss',
-                                 verbose=verbose)
+        model = GridSearchCVList(
+            [
+                LogisticRegression(max_iter=1000, random_state=random_state),
+                RandomForestClassifier(n_estimators=100, min_samples_leaf=10, random_state=random_state),
+                lgb.LGBMClassifier(num_leaves=32, random_state=random_state),
+            ],
+            param_grid_list=[
+                {'C': cs},
+                {'max_depth': [3, None], 'min_weight_fraction_leaf': [0.001, 0.01, 0.1]},
+                {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]},
+            ],
+            cv=min(3, min_count),
+            scoring='neg_log_loss',
+            verbose=verbose,
+        )
         est = model.fit(X, y).best_estimator_
     else:
-        model = LogisticRegressionCV(
-            cv=min(5, min_count), max_iter=1000, Cs=cs, random_state=random_state).fit(X, y)
+        model = LogisticRegressionCV(cv=min(5, min_count), max_iter=1000, Cs=cs, random_state=random_state).fit(X, y)
         est = LogisticRegression(C=model.C_[0], max_iter=1000, random_state=random_state)
     if make_regressor:
         return _RegressionWrapper(est)
@@ -186,14 +202,16 @@ def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None,
 
 
 def _final_stage(*, random_state=None, verbose=0):
-    return GridSearchCVList([WeightedLasso(random_state=random_state),
-                             RandomForestRegressor(n_estimators=100, random_state=random_state, verbose=verbose)],
-                            param_grid_list=[{'alpha': [.001, .01, .1, 1, 10]},
-                                             {'max_depth': [3, 5],
-                                              'min_samples_leaf': [10, 50]}],
-                            cv=3,
-                            scoring='neg_mean_squared_error',
-                            verbose=verbose)
+    return GridSearchCVList(
+        [
+            WeightedLasso(random_state=random_state),
+            RandomForestRegressor(n_estimators=100, random_state=random_state, verbose=verbose),
+        ],
+        param_grid_list=[{'alpha': [0.001, 0.01, 0.1, 1, 10]}, {'max_depth': [3, 5], 'min_samples_leaf': [10, 50]}],
+        cv=3,
+        scoring='neg_mean_squared_error',
+        verbose=verbose,
+    )
 
 
 # simplification of sklearn's ColumnTransformer that encodes categoricals and passes through selected other columns
@@ -282,9 +300,13 @@ def _tree_interpreter_to_dict(interp, features, leaf_data=lambda t, n: {}):
         if tree.children_left[node_id] == _tree.TREE_LEAF:
             return {'leaf': True, 'n_samples': tree.n_node_samples[node_id], **leaf_data(tree, node_id, node_dict)}
         else:
-            return {'leaf': False, 'feature': features[tree.feature[node_id]], 'threshold': tree.threshold[node_id],
-                    'left': recurse(tree.children_left[node_id]),
-                    'right': recurse(tree.children_right[node_id])}
+            return {
+                'leaf': False,
+                'feature': features[tree.feature[node_id]],
+                'threshold': tree.threshold[node_id],
+                'left': recurse(tree.children_left[node_id]),
+                'right': recurse(tree.children_right[node_id]),
+            }
 
     return recurse(0)
 
@@ -314,13 +336,40 @@ class _PolicyOutput:
 
 # named tuple type for storing results inside CausalAnalysis class;
 # must be lifted to module level to enable pickling
-_result = namedtuple("_result", field_names=[
-    "feature_index", "feature_name", "feature_baseline", "feature_levels", "hinds",
-    "X_transformer", "W_transformer", "estimator", "global_inference", "treatment_value"])
+_result = namedtuple(
+    "_result",
+    field_names=[
+        "feature_index",
+        "feature_name",
+        "feature_baseline",
+        "feature_levels",
+        "hinds",
+        "X_transformer",
+        "W_transformer",
+        "estimator",
+        "global_inference",
+        "treatment_value",
+    ],
+)
 
 
-def _process_feature(name, feat_ind, verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
-                     nuisance_models, h_model, random_state, model_y, cv, mc_iters):
+def _process_feature(
+    name,
+    feat_ind,
+    verbose,
+    categorical_inds,
+    categories,
+    heterogeneity_inds,
+    min_counts,
+    y,
+    X,
+    nuisance_models,
+    h_model,
+    random_state,
+    model_y,
+    cv,
+    mc_iters,
+):
     try:
         if verbose > 0:
             print(f"CausalAnalysis: Feature {name}")
@@ -339,25 +388,32 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
         # we achieve this by pipelining the X scaling with the Y and T models (with fixed scaling, not refitting)
 
         hinds = heterogeneity_inds[feat_ind]
-        WX_transformer = ColumnTransformer([('encode', one_hot_encoder(drop='first'),
-                                             [ind for ind in categorical_inds
-                                              if ind != feat_ind]),
-                                            ('drop', 'drop', feat_ind)],
-                                           remainder=StandardScaler())
-        W_transformer = ColumnTransformer([('encode', one_hot_encoder(drop='first'),
-                                            [ind for ind in categorical_inds
-                                             if ind != feat_ind and ind not in hinds]),
-                                           ('drop', 'drop', hinds),
-                                           ('drop_feat', 'drop', feat_ind)],
-                                          remainder=StandardScaler())
+        WX_transformer = ColumnTransformer(
+            [
+                ('encode', one_hot_encoder(drop='first'), [ind for ind in categorical_inds if ind != feat_ind]),
+                ('drop', 'drop', feat_ind),
+            ],
+            remainder=StandardScaler(),
+        )
+        W_transformer = ColumnTransformer(
+            [
+                (
+                    'encode',
+                    one_hot_encoder(drop='first'),
+                    [ind for ind in categorical_inds if ind != feat_ind and ind not in hinds],
+                ),
+                ('drop', 'drop', hinds),
+                ('drop_feat', 'drop', feat_ind),
+            ],
+            remainder=StandardScaler(),
+        )
 
-        X_cont_inds = [ind for ind in hinds
-                       if ind != feat_ind and ind not in categorical_inds]
+        X_cont_inds = [ind for ind in hinds if ind != feat_ind and ind not in categorical_inds]
 
         # Use _ColumnTransformer instead of ColumnTransformer so we can get feature names
-        X_transformer = _ColumnTransformer([ind for ind in categorical_inds
-                                            if ind != feat_ind and ind in hinds],
-                                           X_cont_inds)
+        X_transformer = _ColumnTransformer(
+            [ind for ind in categorical_inds if ind != feat_ind and ind in hinds], X_cont_inds
+        )
 
         # Controls are all other columns of X
         WX = WX_transformer.fit_transform(X)
@@ -377,13 +433,15 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
         # TODO: consider addding an API to DML that allows for better understanding of how the nuisance inputs are
         #       built, such as model_y_feature_names, model_t_feature_names, model_y_transformer, etc., so that this
         #       becomes a valid approach to handling this
-        X_scaler = ColumnTransformer([('scale', StandardScaler(),
-                                       list(range(len(X_cont_inds))))],
-                                     remainder='passthrough').fit(np.hstack([X_xf, W])).named_transformers_['scale']
+        X_scaler = (
+            ColumnTransformer([('scale', StandardScaler(), list(range(len(X_cont_inds))))], remainder='passthrough')
+            .fit(np.hstack([X_xf, W]))
+            .named_transformers_['scale']
+        )
 
-        X_scaler_fixed = ColumnTransformer([('scale', _freeze(X_scaler),
-                                             list(range(len(X_cont_inds))))],
-                                           remainder='passthrough')
+        X_scaler_fixed = ColumnTransformer(
+            [('scale', _freeze(X_scaler), list(range(len(X_cont_inds))))], remainder='passthrough'
+        )
 
         if W.shape[1] == 0:
             # array checking routines don't accept 0-width arrays
@@ -396,44 +454,54 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
             print("CausalAnalysis: performing model selection on T model")
 
         # perform model selection
-        model_t = (_first_stage_clf(WX, T, automl=nuisance_models == 'automl',
-                                    min_count=min_counts.get(feat_ind, None),
-                                    random_state=random_state, verbose=verbose)
-                   if discrete_treatment else _first_stage_reg(WX, T, automl=nuisance_models == 'automl',
-                                                               random_state=random_state,
-                                                               verbose=verbose))
+        model_t = (
+            _first_stage_clf(
+                WX,
+                T,
+                automl=nuisance_models == 'automl',
+                min_count=min_counts.get(feat_ind, None),
+                random_state=random_state,
+                verbose=verbose,
+            )
+            if discrete_treatment
+            else _first_stage_reg(WX, T, automl=nuisance_models == 'automl', random_state=random_state, verbose=verbose)
+        )
 
-        pipelined_model_t = Pipeline([('scale', X_scaler_fixed),
-                                      ('model', model_t)])
+        pipelined_model_t = Pipeline([('scale', X_scaler_fixed), ('model', model_t)])
 
-        pipelined_model_y = Pipeline([('scale', X_scaler_fixed),
-                                      ('model', model_y)])
+        pipelined_model_y = Pipeline([('scale', X_scaler_fixed), ('model', model_y)])
 
         if X_xf is None and h_model == 'forest':
-            warnings.warn(f"Using a linear model instead of a forest model for feature '{name}' "
-                          "because forests don't support models with no heterogeneity indices")
+            warnings.warn(
+                f"Using a linear model instead of a forest model for feature '{name}' "
+                "because forests don't support models with no heterogeneity indices"
+            )
             h_model = 'linear'
 
         if h_model == 'linear':
-            est = LinearDML(model_y=pipelined_model_y,
-                            model_t=pipelined_model_t,
-                            discrete_treatment=discrete_treatment,
-                            fit_cate_intercept=True,
-                            categories=cats,
-                            random_state=random_state,
-                            cv=cv,
-                            mc_iters=mc_iters)
+            est = LinearDML(
+                model_y=pipelined_model_y,
+                model_t=pipelined_model_t,
+                discrete_treatment=discrete_treatment,
+                fit_cate_intercept=True,
+                categories=cats,
+                random_state=random_state,
+                cv=cv,
+                mc_iters=mc_iters,
+            )
         elif h_model == 'forest':
-            est = CausalForestDML(model_y=pipelined_model_y,
-                                  model_t=pipelined_model_t,
-                                  discrete_treatment=discrete_treatment,
-                                  n_estimators=4000,
-                                  min_var_leaf_on_val=True,
-                                  categories=cats,
-                                  random_state=random_state,
-                                  verbose=verbose,
-                                  cv=cv,
-                                  mc_iters=mc_iters)
+            est = CausalForestDML(
+                model_y=pipelined_model_y,
+                model_t=pipelined_model_t,
+                discrete_treatment=discrete_treatment,
+                n_estimators=4000,
+                min_var_leaf_on_val=True,
+                categories=cats,
+                random_state=random_state,
+                verbose=verbose,
+                cv=cv,
+                mc_iters=mc_iters,
+            )
 
             if verbose > 0:
                 print("CausalAnalysis: tuning forest")
@@ -448,25 +516,26 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
         else:
             # convert to NormalInferenceResults for consistency
             inf = est.const_marginal_ate_inference(X=X_xf)
-            global_inference = NormalInferenceResults(d_t=inf.d_t, d_y=inf.d_y,
-                                                      pred=inf.mean_point,
-                                                      pred_stderr=inf.stderr_mean,
-                                                      mean_pred_stderr=None,
-                                                      inf_type='ate')
+            global_inference = NormalInferenceResults(
+                d_t=inf.d_t,
+                d_y=inf.d_y,
+                pred=inf.mean_point,
+                pred_stderr=inf.stderr_mean,
+                mean_pred_stderr=None,
+                inf_type='ate',
+            )
 
         # Set the dictionary values shared between local and global summaries
         if discrete_treatment:
             cats = est.transformer.categories_[0]
             baseline = cats[est.transformer.drop_idx_[0]]
-            cats = cats[np.setdiff1d(np.arange(len(cats)),
-                                     est.transformer.drop_idx_[0])]
+            cats = cats[np.setdiff1d(np.arange(len(cats)), est.transformer.drop_idx_[0])]
             d_t = len(cats)
             insights = {
                 _CausalInsightsConstants.TypeKey: ['cat'] * d_t,
                 _CausalInsightsConstants.RawFeatureNameKey: [name] * d_t,
                 _CausalInsightsConstants.CategoricalColumnKey: cats.tolist(),
-                _CausalInsightsConstants.EngineeredNameKey: [
-                    f"{name} (base={baseline}): {c}" for c in cats]
+                _CausalInsightsConstants.EngineeredNameKey: [f"{name} (base={baseline}): {c}" for c in cats],
             }
             treatment_value = 1
         else:
@@ -477,21 +546,23 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                 _CausalInsightsConstants.TypeKey: ["num"],
                 _CausalInsightsConstants.RawFeatureNameKey: [name],
                 _CausalInsightsConstants.CategoricalColumnKey: [name],
-                _CausalInsightsConstants.EngineeredNameKey: [name]
+                _CausalInsightsConstants.EngineeredNameKey: [name],
             }
             # calculate a "typical" treatment value, using the mean of the absolute value of non-zero treatments
             treatment_value = np.mean(np.abs(T[T != 0]))
 
-        result = _result(feature_index=feat_ind,
-                         feature_name=name,
-                         feature_baseline=baseline,
-                         feature_levels=cats,
-                         hinds=hinds,
-                         X_transformer=X_transformer,
-                         W_transformer=W_transformer,
-                         estimator=est,
-                         global_inference=global_inference,
-                         treatment_value=treatment_value)
+        result = _result(
+            feature_index=feat_ind,
+            feature_name=name,
+            feature_baseline=baseline,
+            feature_levels=cats,
+            hinds=hinds,
+            X_transformer=X_transformer,
+            W_transformer=W_transformer,
+            estimator=est,
+            global_inference=global_inference,
+            treatment_value=treatment_value,
+        )
 
         return insights, result
     except Exception as e:
@@ -609,10 +680,25 @@ class CausalAnalysis:
         along with either a reason or caught Exception for each
     """
 
-    def __init__(self, feature_inds, categorical, heterogeneity_inds=None, feature_names=None, classification=False,
-                 upper_bound_on_cat_expansion=5, nuisance_models='linear', heterogeneity_model='linear', *,
-                 categories='auto', n_jobs=-1, verbose=0, cv=5, mc_iters=3, skip_cat_limit_checks=False,
-                 random_state=None):
+    def __init__(
+        self,
+        feature_inds,
+        categorical,
+        heterogeneity_inds=None,
+        feature_names=None,
+        classification=False,
+        upper_bound_on_cat_expansion=5,
+        nuisance_models='linear',
+        heterogeneity_model='linear',
+        *,
+        categories='auto',
+        n_jobs=-1,
+        verbose=0,
+        cv=5,
+        mc_iters=3,
+        skip_cat_limit_checks=False,
+        random_state=None,
+    ):
         self.feature_inds = feature_inds
         self.categorical = categorical
         self.heterogeneity_inds = heterogeneity_inds
@@ -651,23 +737,27 @@ class CausalAnalysis:
 
         # Validate inputs
         assert self.nuisance_models in ['automl', 'linear'], (
-            "The only supported nuisance models are 'linear' and 'automl', "
-            f"but was given {self.nuisance_models}")
+            "The only supported nuisance models are 'linear' and 'automl', " f"but was given {self.nuisance_models}"
+        )
 
         assert self.heterogeneity_model in ['linear', 'forest'], (
             "The only supported heterogeneity models are 'linear' and 'forest' but received "
-            f"{self.heterogeneity_model}")
+            f"{self.heterogeneity_model}"
+        )
 
         assert np.ndim(X) == 2, f"X must be a 2-dimensional array, but here had shape {np.shape(X)}"
 
         assert iterable(self.feature_inds), f"feature_inds should be array_like, but got {self.feature_inds}"
         assert iterable(self.categorical), f"categorical should be array_like, but got {self.categorical}"
-        assert self.heterogeneity_inds is None or iterable(self.heterogeneity_inds), (
-            f"heterogeneity_inds should be None or array_like, but got {self.heterogeneity_inds}")
-        assert self.feature_names is None or iterable(self.feature_names), (
-            f"feature_names should be None or array_like, but got {self.feature_names}")
-        assert self.categories == 'auto' or iterable(self.categories), (
-            f"categories should be 'auto' or array_like, but got {self.categories}")
+        assert self.heterogeneity_inds is None or iterable(
+            self.heterogeneity_inds
+        ), f"heterogeneity_inds should be None or array_like, but got {self.heterogeneity_inds}"
+        assert self.feature_names is None or iterable(
+            self.feature_names
+        ), f"feature_names should be None or array_like, but got {self.feature_names}"
+        assert self.categories == 'auto' or iterable(
+            self.categories
+        ), f"categories should be 'auto' or array_like, but got {self.categories}"
 
         # TODO: check compatibility of X and Y lengths
 
@@ -678,14 +768,16 @@ class CausalAnalysis:
 
             elif self._d_x != X.shape[1]:
                 raise ValueError(
-                    f"Can't warm start: previous X had {self._d_x} columns, new X has {X.shape[1]} columns")
+                    f"Can't warm start: previous X had {self._d_x} columns, new X has {X.shape[1]} columns"
+                )
 
         # work with numeric feature indices, so that we can easily compare with categorical ones
         train_inds = _get_column_indices(X, self.feature_inds)
 
         if len(train_inds) == 0:
             raise ValueError(
-                "No features specified. At least one feature index must be specified so that a model can be trained.")
+                "No features specified. At least one feature index must be specified so that a model can be trained."
+            )
 
         heterogeneity_inds = self.heterogeneity_inds
         if heterogeneity_inds is None:
@@ -697,26 +789,34 @@ class CausalAnalysis:
 
         # heterogeneity inds should be a 2D list of length same as train_inds
         elif heterogeneity_inds is not None and len(heterogeneity_inds) != len(train_inds):
-            raise ValueError("Heterogeneity indexes should have the same number of entries, but here "
-                             f" there were {len(heterogeneity_inds)} heterogeneity entries but "
-                             f" {len(train_inds)} feature indices.")
+            raise ValueError(
+                "Heterogeneity indexes should have the same number of entries, but here "
+                f" there were {len(heterogeneity_inds)} heterogeneity entries but "
+                f" {len(train_inds)} feature indices."
+            )
 
         # replace None elements of heterogeneity_inds and ensure indices are numeric
-        heterogeneity_inds = {ind: list(range(X.shape[1])) if hinds is None else _get_column_indices(X, hinds)
-                              for ind, hinds in zip(train_inds, heterogeneity_inds)}
+        heterogeneity_inds = {
+            ind: list(range(X.shape[1])) if hinds is None else _get_column_indices(X, hinds)
+            for ind, hinds in zip(train_inds, heterogeneity_inds)
+        }
 
         if warm_start:
             train_y_model = False
             if self.nuisance_models != self.nuisance_models_:
-                warnings.warn("warm_start will be ignored since the nuisance models have changed "
-                              f"from {self.nuisance_models_} to {self.nuisance_models} since the previous call to fit")
+                warnings.warn(
+                    "warm_start will be ignored since the nuisance models have changed "
+                    f"from {self.nuisance_models_} to {self.nuisance_models} since the previous call to fit"
+                )
                 warm_start = False
                 train_y_model = True
 
             if self.heterogeneity_model != self.heterogeneity_model_:
-                warnings.warn("warm_start will be ignored since the heterogeneity model has changed "
-                              f"from {self.heterogeneity_model_} to {self.heterogeneity_model} "
-                              "since the previous call to fit")
+                warnings.warn(
+                    "warm_start will be ignored since the heterogeneity model has changed "
+                    f"from {self.heterogeneity_model_} to {self.heterogeneity_model} "
+                    "since the previous call to fit"
+                )
                 warm_start = False
 
             # TODO: bail out also if categorical columns, classification, random_state changed?
@@ -725,8 +825,11 @@ class CausalAnalysis:
 
         # TODO: should we also train a new model_y under any circumstances when warm_start is True?
         if warm_start:
-            new_inds = [ind for ind in train_inds if (ind not in self._cache or
-                                                      heterogeneity_inds[ind] != self._cache[ind][1].hinds)]
+            new_inds = [
+                ind
+                for ind in train_inds
+                if (ind not in self._cache or heterogeneity_inds[ind] != self._cache[ind][1].hinds)
+            ]
         else:
             new_inds = list(train_inds)
 
@@ -735,21 +838,30 @@ class CausalAnalysis:
             # train the Y model
             if train_y_model:
                 # perform model selection for the Y model using all X, not on a per-column basis
-                allX = ColumnTransformer([('encode',
-                                           one_hot_encoder(drop='first'),
-                                           self.categorical)],
-                                         remainder=StandardScaler()).fit_transform(X)
+                allX = ColumnTransformer(
+                    [('encode', one_hot_encoder(drop='first'), self.categorical)], remainder=StandardScaler()
+                ).fit_transform(X)
 
                 if self.verbose > 0:
                     print("CausalAnalysis: performing model selection on overall Y model")
 
                 if self.classification:
-                    self._model_y = _first_stage_clf(allX, y, automl=self.nuisance_models == 'automl',
-                                                     make_regressor=True,
-                                                     random_state=self.random_state, verbose=self.verbose)
+                    self._model_y = _first_stage_clf(
+                        allX,
+                        y,
+                        automl=self.nuisance_models == 'automl',
+                        make_regressor=True,
+                        random_state=self.random_state,
+                        verbose=self.verbose,
+                    )
                 else:
-                    self._model_y = _first_stage_reg(allX, y, automl=self.nuisance_models == 'automl',
-                                                     random_state=self.random_state, verbose=self.verbose)
+                    self._model_y = _first_stage_reg(
+                        allX,
+                        y,
+                        automl=self.nuisance_models == 'automl',
+                        random_state=self.random_state,
+                        verbose=self.verbose,
+                    )
 
         if self.classification:
             # now that we've trained the classifier and wrapped it, ensure that y is transformed to
@@ -762,8 +874,9 @@ class CausalAnalysis:
             # since otherwise we'll have too many columns to be able to train a classifier
             y = one_hot_encoder(drop='first').fit_transform(y)
 
-        assert y.ndim == 1 or y.shape[1] == 1, ("Multiclass classification isn't supported" if self.classification
-                                                else "Only a single outcome is supported")
+        assert y.ndim == 1 or y.shape[1] == 1, (
+            "Multiclass classification isn't supported" if self.classification else "Only a single outcome is supported"
+        )
 
         self._vec_y = y.ndim == 1
         self._d_x = X.shape[1]
@@ -783,7 +896,7 @@ class CausalAnalysis:
             'categories': _sanitize(self.categories),
             'n_jobs': _sanitize(self.n_jobs),
             'verbose': _sanitize(self.verbose),
-            'random_state': _sanitize(self.random_state)
+            'random_state': _sanitize(self.random_state),
         }
 
         # convert categorical indicators to numeric indices
@@ -795,7 +908,8 @@ class CausalAnalysis:
         else:
             assert len(categories) == len(categorical_inds), (
                 "If categories is not 'auto', it must contain one entry per categorical column.  Instead, categories"
-                f"has length {len(categories)} while there are {len(categorical_inds)} categorical columns.")
+                f"has length {len(categories)} while there are {len(categorical_inds)} categorical columns."
+            )
 
         # check for indices over the categorical expansion bound
         invalid_inds = getattr(self, 'untrained_feature_indices_', [])
@@ -823,61 +937,86 @@ class CausalAnalysis:
                 min_ind = np.argmin(counts)
                 n_cat = len(cats)
                 if n_cat > self.upper_bound_on_cat_expansion:
-                    warnings.warn(f"{column_text} has more than {self.upper_bound_on_cat_expansion} "
-                                  f"values (found {n_cat}) so no heterogeneity model will be fit for it; "
-                                  "increase 'upper_bound_on_cat_expansion' to change this behavior.")
+                    warnings.warn(
+                        f"{column_text} has more than {self.upper_bound_on_cat_expansion} "
+                        f"values (found {n_cat}) so no heterogeneity model will be fit for it; "
+                        "increase 'upper_bound_on_cat_expansion' to change this behavior."
+                    )
                     # can't remove in place while iterating over new_inds, so store in separate list
                     invalid_inds.append((ind, 'upper_bound_on_cat_expansion'))
 
                 elif counts[min_ind] < _CAT_LIMIT:
-                    if self.skip_cat_limit_checks and (counts[min_ind] >= 5 or
-                                                       (counts[min_ind] >= 2 and
-                                                        self.heterogeneity_model != 'forest')):
+                    if self.skip_cat_limit_checks and (
+                        counts[min_ind] >= 5 or (counts[min_ind] >= 2 and self.heterogeneity_model != 'forest')
+                    ):
                         # train the model, but warn
-                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}). "
-                                      "A model will still be fit because 'skip_cat_limit_checks' is True, "
-                                      "but this model may not be robust.")
+                        warnings.warn(
+                            f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                            f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}). "
+                            "A model will still be fit because 'skip_cat_limit_checks' is True, "
+                            "but this model may not be robust."
+                        )
                         min_counts[ind] = counts[min_ind]
                     elif counts[min_ind] < 2 or (counts[min_ind] < 5 and self.heterogeneity_model == 'forest'):
                         # no model can be trained in this case since we need more folds
-                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      "the training dataset, but linear heterogeneity models need at least 2 and "
-                                      "forest heterogeneity models need at least 5 instances, so no model will be fit "
-                                      "for this column")
+                        warnings.warn(
+                            f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                            "the training dataset, but linear heterogeneity models need at least 2 and "
+                            "forest heterogeneity models need at least 5 instances, so no model will be fit "
+                            "for this column"
+                        )
                         invalid_inds.append((ind, 'cat_limit'))
                     else:
                         # don't train a model, but suggest workaround since there are enough instances of least
                         # populated class
-                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}), "
-                                      "so no heterogeneity model will be fit for it. This check can be turned off by "
-                                      "setting 'skip_cat_limit_checks' to True, but that may result in an inaccurate "
-                                      "model for this feature.")
+                        warnings.warn(
+                            f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                            f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}), "
+                            "so no heterogeneity model will be fit for it. This check can be turned off by "
+                            "setting 'skip_cat_limit_checks' to True, but that may result in an inaccurate "
+                            "model for this feature."
+                        )
                         invalid_inds.append((ind, 'cat_limit'))
 
-        for (ind, _) in invalid_inds:
+        for ind, _ in invalid_inds:
             new_inds.remove(ind)
             # also remove from train_inds so we don't try to access the result later
             train_inds.remove(ind)
             if len(train_inds) == 0:
-                raise ValueError("No features remain; increase the upper_bound_on_cat_expansion and ensure that there "
-                                 "are several instances of each categorical value so that at least "
-                                 "one feature model can be trained.")
+                raise ValueError(
+                    "No features remain; increase the upper_bound_on_cat_expansion and ensure that there "
+                    "are several instances of each categorical value so that at least "
+                    "one feature model can be trained."
+                )
 
         # extract subset of names matching new columns
         new_feat_names = _safe_indexing(feature_names, new_inds)
 
-        cache_updates = dict(zip(new_inds,
-                                 joblib.Parallel(
-                                     n_jobs=self.n_jobs,
-                                     verbose=self.verbose
-                                 )(joblib.delayed(_process_feature)(
-                                     feat_name, feat_ind,
-                                     self.verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
-                                     self.nuisance_models, self.heterogeneity_model, self.random_state, self._model_y,
-                                     self.cv, self.mc_iters)
-                                     for feat_name, feat_ind in zip(new_feat_names, new_inds))))
+        cache_updates = dict(
+            zip(
+                new_inds,
+                joblib.Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
+                    joblib.delayed(_process_feature)(
+                        feat_name,
+                        feat_ind,
+                        self.verbose,
+                        categorical_inds,
+                        categories,
+                        heterogeneity_inds,
+                        min_counts,
+                        y,
+                        X,
+                        self.nuisance_models,
+                        self.heterogeneity_model,
+                        self.random_state,
+                        self._model_y,
+                        self.cv,
+                        self.mc_iters,
+                    )
+                    for feat_name, feat_ind in zip(new_feat_names, new_inds)
+                ),
+            )
+        )
 
         # track indices where an exception was thrown, since we can't remove from dictionary while iterating
         inds_to_remove = []
@@ -916,22 +1055,26 @@ class CausalAnalysis:
     # properties to return from effect InferenceResults
     @staticmethod
     def _point_props(alpha):
-        return [(_CausalInsightsConstants.PointEstimateKey, 'point_estimate'),
-                (_CausalInsightsConstants.StandardErrorKey, 'stderr'),
-                (_CausalInsightsConstants.ZStatKey, 'zstat'),
-                (_CausalInsightsConstants.PValueKey, 'pvalue'),
-                (_CausalInsightsConstants.ConfidenceIntervalLowerKey, lambda inf: inf.conf_int(alpha=alpha)[0]),
-                (_CausalInsightsConstants.ConfidenceIntervalUpperKey, lambda inf: inf.conf_int(alpha=alpha)[1])]
+        return [
+            (_CausalInsightsConstants.PointEstimateKey, 'point_estimate'),
+            (_CausalInsightsConstants.StandardErrorKey, 'stderr'),
+            (_CausalInsightsConstants.ZStatKey, 'zstat'),
+            (_CausalInsightsConstants.PValueKey, 'pvalue'),
+            (_CausalInsightsConstants.ConfidenceIntervalLowerKey, lambda inf: inf.conf_int(alpha=alpha)[0]),
+            (_CausalInsightsConstants.ConfidenceIntervalUpperKey, lambda inf: inf.conf_int(alpha=alpha)[1]),
+        ]
 
     # properties to return from PopulationSummaryResults
     @staticmethod
     def _summary_props(alpha):
-        return [(_CausalInsightsConstants.PointEstimateKey, 'mean_point'),
-                (_CausalInsightsConstants.StandardErrorKey, 'stderr_mean'),
-                (_CausalInsightsConstants.ZStatKey, 'zstat'),
-                (_CausalInsightsConstants.PValueKey, 'pvalue'),
-                (_CausalInsightsConstants.ConfidenceIntervalLowerKey, lambda inf: inf.conf_int_mean(alpha=alpha)[0]),
-                (_CausalInsightsConstants.ConfidenceIntervalUpperKey, lambda inf: inf.conf_int_mean(alpha=alpha)[1])]
+        return [
+            (_CausalInsightsConstants.PointEstimateKey, 'mean_point'),
+            (_CausalInsightsConstants.StandardErrorKey, 'stderr_mean'),
+            (_CausalInsightsConstants.ZStatKey, 'zstat'),
+            (_CausalInsightsConstants.PValueKey, 'pvalue'),
+            (_CausalInsightsConstants.ConfidenceIntervalLowerKey, lambda inf: inf.conf_int_mean(alpha=alpha)[0]),
+            (_CausalInsightsConstants.ConfidenceIntervalUpperKey, lambda inf: inf.conf_int_mean(alpha=alpha)[1]),
+        ]
 
     # Converts strings to property lookups or method calls as a convenience so that the
     # _point_props and _summary_props above can be applied to an inference object
@@ -946,13 +1089,13 @@ class CausalAnalysis:
                     return val()
                 else:
                     return val
+
         return attr
 
     # Create a summary combining all results into a single output; this is used
     # by the various causal_effect and causal_effect_dict methods to generate either a dataframe
     # or a dictionary, respectively, based on the summary function passed into this method
     def _summarize(self, *, summary, get_inference, props, expand_arr, drop_sample):
-
         assert hasattr(self, "_results"), "This object has not been fit, so cannot get results"
 
         # ensure array has shape (m,y,t)
@@ -975,8 +1118,7 @@ class CausalAnalysis:
             """Join together the arrays for each feature"""
             attr = self._make_accessor(attr)
             # concatenate along treatment dimension
-            arr = np.concatenate([ensure_proper_dims(attr(inf))
-                                  for inf in infs], axis=2)
+            arr = np.concatenate([ensure_proper_dims(attr(inf)) for inf in infs], axis=2)
 
             # for dictionary representation, want to remove unneeded sample dimension
             # in cohort and global results
@@ -987,8 +1129,7 @@ class CausalAnalysis:
 
         return summary([(key, coalesce(val)) for key, val in props])
 
-    def _pandas_summary(self, get_inference, *, props, n,
-                        expand_arr=False, keep_all_levels=False):
+    def _pandas_summary(self, get_inference, *, props, n, expand_arr=False, keep_all_levels=False):
         """
         Summarizes results into a dataframe.
 
@@ -1006,20 +1147,26 @@ class CausalAnalysis:
             Whether to keep all levels, even when they don't take on more than one value;
             Note that regardless of this argument the "sample" level will only be present if expand_arr is False
         """
-        def make_dataframe(props):
 
-            to_include = OrderedDict([(key, value.reshape(-1))
-                                      for key, value in props])
+        def make_dataframe(props):
+            to_include = OrderedDict([(key, value.reshape(-1)) for key, value in props])
 
             # TODO: enrich outcome logic for multi-class classification when that is supported
-            index = pd.MultiIndex.from_tuples([(i, outcome, res.feature_name, f"{lvl}v{res.feature_baseline}"
-                                                if res.feature_baseline is not None
-                                                else lvl)
-                                               for i in range(n)
-                                               for outcome in ["y0"]
-                                               for res in self._results
-                                               for lvl in res.feature_levels],
-                                              names=["sample", "outcome", "feature", "feature_value"])
+            index = pd.MultiIndex.from_tuples(
+                [
+                    (
+                        i,
+                        outcome,
+                        res.feature_name,
+                        f"{lvl}v{res.feature_baseline}" if res.feature_baseline is not None else lvl,
+                    )
+                    for i in range(n)
+                    for outcome in ["y0"]
+                    for res in self._results
+                    for lvl in res.feature_levels
+                ],
+                names=["sample", "outcome", "feature", "feature_value"],
+            )
 
             if expand_arr:
                 # There is no actual sample level in this data
@@ -1035,11 +1182,9 @@ class CausalAnalysis:
                             index = index.droplevel(lvl.name)
             return pd.DataFrame(to_include, index=index)
 
-        return self._summarize(summary=make_dataframe,
-                               get_inference=get_inference,
-                               props=props,
-                               expand_arr=expand_arr,
-                               drop_sample=False)  # dropping the sample dimension is handled above instead
+        return self._summarize(
+            summary=make_dataframe, get_inference=get_inference, props=props, expand_arr=expand_arr, drop_sample=False
+        )  # dropping the sample dimension is handled above instead
 
     def _dict_summary(self, get_inference, *, n, props, kind, drop_sample=False, expand_arr=False, row_wise=False):
         """
@@ -1063,6 +1208,7 @@ class CausalAnalysis:
             Whether to return a list of dictionaries (one dictionary per row) instead of
             a dictionary of lists (one list per column)
         """
+
         def make_dict(props):
             # should be serialization-ready and contain no numpy arrays
             res = _get_default_specific_insights(kind)
@@ -1088,18 +1234,17 @@ class CausalAnalysis:
                 # get the length of the list corresponding to the first dictionary key
                 # `list(row_data)` gets the keys as a list, since `row_data.keys()` can't be indexed into
                 n_rows = len(row_data[list(row_data)[0]])
-                res[_CausalInsightsConstants.RowData] = [{key: row_data[key][i]
-                                                          for key in row_data} for i in range(n_rows)]
+                res[_CausalInsightsConstants.RowData] = [
+                    {key: row_data[key][i] for key in row_data} for i in range(n_rows)
+                ]
             else:
                 res.update([(key, value.tolist()) for key, value in props])
 
             return {**shared, **res}
 
-        return self._summarize(summary=make_dict,
-                               get_inference=get_inference,
-                               props=props,
-                               expand_arr=expand_arr,
-                               drop_sample=drop_sample)
+        return self._summarize(
+            summary=make_dict, get_inference=get_inference, props=props, expand_arr=expand_arr, drop_sample=drop_sample
+        )
 
     def global_causal_effect(self, *, alpha=0.05, keep_all_levels=False):
         """
@@ -1128,8 +1273,13 @@ class CausalAnalysis:
                     in the serialized dict.
         """
         # a global inference indicates the effect of that one feature on the outcome
-        return self._pandas_summary(lambda res: res.global_inference, props=self._point_props(alpha),
-                                    n=1, expand_arr=True, keep_all_levels=keep_all_levels)
+        return self._pandas_summary(
+            lambda res: res.global_inference,
+            props=self._point_props(alpha),
+            n=1,
+            expand_arr=True,
+            keep_all_levels=keep_all_levels,
+        )
 
     def _global_causal_effect_dict(self, *, alpha=0.05, row_wise=False):
         """
@@ -1139,8 +1289,15 @@ class CausalAnalysis:
 
         Only for serialization purposes to upload to AzureML
         """
-        return self._dict_summary(lambda res: res.global_inference, props=self._point_props(alpha),
-                                  kind='global', n=1, row_wise=row_wise, drop_sample=True, expand_arr=True)
+        return self._dict_summary(
+            lambda res: res.global_inference,
+            props=self._point_props(alpha),
+            kind='global',
+            n=1,
+            row_wise=row_wise,
+            drop_sample=True,
+            expand_arr=True,
+        )
 
     def _cohort_effect_inference(self, Xtest):
         assert np.ndim(Xtest) == 2 and np.shape(Xtest)[1] == self._d_x, (
@@ -1154,6 +1311,7 @@ class CausalAnalysis:
             if X.shape[1] == 0:
                 X = None
             return est.const_marginal_ate_inference(X=X)
+
         return inference_from_result
 
     def cohort_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
@@ -1184,9 +1342,13 @@ class CausalAnalysis:
               If all features are numerical then the feature_value index is dropped in the dataframe, but not
               in the serialized dict.
         """
-        return self._pandas_summary(self._cohort_effect_inference(Xtest),
-                                    props=self._summary_props(alpha), n=1,
-                                    expand_arr=True, keep_all_levels=keep_all_levels)
+        return self._pandas_summary(
+            self._cohort_effect_inference(Xtest),
+            props=self._summary_props(alpha),
+            n=1,
+            expand_arr=True,
+            keep_all_levels=keep_all_levels,
+        )
 
     def _cohort_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
@@ -1196,8 +1358,15 @@ class CausalAnalysis:
 
         Only for serialization purposes to upload to AzureML
         """
-        return self._dict_summary(self._cohort_effect_inference(Xtest), props=self._summary_props(alpha),
-                                  kind='cohort', n=1, row_wise=row_wise, expand_arr=True, drop_sample=True)
+        return self._dict_summary(
+            self._cohort_effect_inference(Xtest),
+            props=self._summary_props(alpha),
+            kind='cohort',
+            n=1,
+            row_wise=row_wise,
+            expand_arr=True,
+            drop_sample=True,
+        )
 
     def _local_effect_inference(self, Xtest):
         assert np.ndim(Xtest) == 2 and np.shape(Xtest)[1] == self._d_x, (
@@ -1215,6 +1384,7 @@ class CausalAnalysis:
                 # need to reshape the output to match the input
                 eff = eff._expand_outputs(Xtest.shape[0])
             return eff
+
         return inference_from_result
 
     def local_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
@@ -1247,8 +1417,12 @@ class CausalAnalysis:
                    If all features are numerical then the feature_value index is dropped in the dataframe, but not
                    in the serialized dict.
         """
-        return self._pandas_summary(self._local_effect_inference(Xtest),
-                                    props=self._point_props(alpha), n=Xtest.shape[0], keep_all_levels=keep_all_levels)
+        return self._pandas_summary(
+            self._local_effect_inference(Xtest),
+            props=self._point_props(alpha),
+            n=Xtest.shape[0],
+            keep_all_levels=keep_all_levels,
+        )
 
     def _local_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
@@ -1258,8 +1432,13 @@ class CausalAnalysis:
 
         Only for serialization purposes to upload to AzureML
         """
-        return self._dict_summary(self._local_effect_inference(Xtest), props=self._point_props(alpha),
-                                  kind='local', n=Xtest.shape[0], row_wise=row_wise)
+        return self._dict_summary(
+            self._local_effect_inference(Xtest),
+            props=self._point_props(alpha),
+            kind='local',
+            n=Xtest.shape[0],
+            row_wise=row_wise,
+        )
 
     def _safe_result_index(self, X, feature_index):
         assert hasattr(self, "_results"), "This instance has not yet been fitted"
@@ -1278,19 +1457,23 @@ class CausalAnalysis:
             if error == 'cat_limit':
                 msg = f"{col_text} had a value with fewer than {_CAT_LIMIT} occurences, so no model was fit for it"
             elif error == 'upper_bound_on_cat_expansion':
-                msg = (f"{col_text} had more distinct values than the setting of 'upper_bound_on_cat_expansion', "
-                       "so no model was fit for it")
+                msg = (
+                    f"{col_text} had more distinct values than the setting of 'upper_bound_on_cat_expansion', "
+                    "so no model was fit for it"
+                )
             else:
-                msg = (f"{col_text} generated the following error during fitting, "
-                       f"so no model was fit for it:\n{str(error)}")
+                msg = (
+                    f"{col_text} generated the following error during fitting, "
+                    f"so no model was fit for it:\n{str(error)}"
+                )
             raise ValueError(msg)
 
         if numeric_index not in self.trained_feature_indices_:
-            raise ValueError(f"{self._format_col(numeric_index)} was not passed as a feature index "
-                             "so no model was fit for it")
+            raise ValueError(
+                f"{self._format_col(numeric_index)} was not passed as a feature index " "so no model was fit for it"
+            )
 
-        results = [res for res in self._results
-                   if res.feature_index == numeric_index]
+        results = [res for res in self._results if res.feature_index == numeric_index]
 
         assert len(results) == 1
         (result,) = results
@@ -1390,16 +1573,24 @@ class CausalAnalysis:
             # get the length of the list corresponding to the first dictionary key
             # `list(row_data)` gets the keys as a list, since `row_data.keys()` can't be indexed into
             n_rows = len(row_data[list(row_data)[0]])
-            res[_CausalInsightsConstants.RowData] = [{key: row_data[key][i]
-                                                      for key in row_data} for i in range(n_rows)]
+            res[_CausalInsightsConstants.RowData] = [{key: row_data[key][i] for key in row_data} for i in range(n_rows)]
         else:
             res.update([(key, self._make_accessor(attr)(inf).tolist()) for key, attr in props])
         return res
 
-    def _tree(self, is_policy, Xtest, feature_index, *, treatment_costs=0,
-              max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-              include_model_uncertainty=False, alpha=0.05):
-
+    def _tree(
+        self,
+        is_policy,
+        Xtest,
+        feature_index,
+        *,
+        treatment_costs=0,
+        max_depth=3,
+        min_samples_leaf=2,
+        min_impurity_decrease=1e-4,
+        include_model_uncertainty=False,
+        alpha=0.05,
+    ):
         result = self._safe_result_index(Xtest, feature_index)
         Xtest = result.X_transformer.transform(Xtest)
         if Xtest.shape[1] == 0:
@@ -1407,20 +1598,20 @@ class CausalAnalysis:
         if result.feature_baseline is None:
             treatment_names = ['decrease', 'increase']
         else:
-            treatment_names = [f"{result.feature_baseline}"] + \
-                [f"{lvl}" for lvl in result.feature_levels]
+            treatment_names = [f"{result.feature_baseline}"] + [f"{lvl}" for lvl in result.feature_levels]
 
         TreeType = SingleTreePolicyInterpreter if is_policy else SingleTreeCateInterpreter
-        intrp = TreeType(include_model_uncertainty=include_model_uncertainty,
-                         uncertainty_level=alpha,
-                         max_depth=max_depth,
-                         min_samples_leaf=min_samples_leaf,
-                         min_impurity_decrease=min_impurity_decrease,
-                         random_state=self.random_state)
+        intrp = TreeType(
+            include_model_uncertainty=include_model_uncertainty,
+            uncertainty_level=alpha,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_impurity_decrease,
+            random_state=self.random_state,
+        )
 
         if is_policy:
-            intrp.interpret(result.estimator, Xtest,
-                            sample_treatment_costs=treatment_costs)
+            intrp.interpret(result.estimator, Xtest, sample_treatment_costs=treatment_costs)
             if result.feature_baseline is None:  # continuous treatment, so apply a treatment level 10% of typical
                 treatment_level = result.treatment_value * 0.1
 
@@ -1454,9 +1645,18 @@ class CausalAnalysis:
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
-    def plot_policy_tree(self, Xtest, feature_index, *, treatment_costs=0,
-                         max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, include_model_uncertainty=False,
-                         alpha=0.05):
+    def plot_policy_tree(
+        self,
+        Xtest,
+        feature_index,
+        *,
+        treatment_costs=0,
+        max_depth=3,
+        min_samples_leaf=2,
+        min_value_increase=1e-4,
+        include_model_uncertainty=False,
+        alpha=0.05,
+    ):
         """
         Plot a recommended policy tree using matplotlib.
 
@@ -1482,17 +1682,30 @@ class CausalAnalysis:
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
-        intrp, feature_names, treatment_names, _ = self._tree(True, Xtest, feature_index,
-                                                              treatment_costs=treatment_costs,
-                                                              max_depth=max_depth,
-                                                              min_samples_leaf=min_samples_leaf,
-                                                              min_impurity_decrease=min_value_increase,
-                                                              include_model_uncertainty=include_model_uncertainty,
-                                                              alpha=alpha)
+        intrp, feature_names, treatment_names, _ = self._tree(
+            True,
+            Xtest,
+            feature_index,
+            treatment_costs=treatment_costs,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_value_increase,
+            include_model_uncertainty=include_model_uncertainty,
+            alpha=alpha,
+        )
         return intrp.plot(feature_names=feature_names, treatment_names=treatment_names)
 
-    def _policy_tree_output(self, Xtest, feature_index, *, treatment_costs=0,
-                            max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, alpha=0.05):
+    def _policy_tree_output(
+        self,
+        Xtest,
+        feature_index,
+        *,
+        treatment_costs=0,
+        max_depth=3,
+        min_samples_leaf=2,
+        min_value_increase=1e-4,
+        alpha=0.05,
+    ):
         """
         Get a tuple of policy outputs.
 
@@ -1528,28 +1741,40 @@ class CausalAnalysis:
         output : _PolicyOutput
         """
 
-        (intrp, feature_names, treatment_names,
-            (policy_val, always_trt)) = self._tree(True, Xtest, feature_index,
-                                                   treatment_costs=treatment_costs,
-                                                   max_depth=max_depth,
-                                                   min_samples_leaf=min_samples_leaf,
-                                                   min_impurity_decrease=min_value_increase,
-                                                   alpha=alpha)
+        (intrp, feature_names, treatment_names, (policy_val, always_trt)) = self._tree(
+            True,
+            Xtest,
+            feature_index,
+            treatment_costs=treatment_costs,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_value_increase,
+            alpha=alpha,
+        )
 
         def policy_data(tree, node_id, node_dict):
             return {'treatment': treatment_names[np.argmax(tree.value[node_id])]}
-        return _PolicyOutput(_tree_interpreter_to_dict(intrp, feature_names, policy_data),
-                             policy_val,
-                             {treatment_names[i + 1]: val
-                              for (i, val) in enumerate(always_trt.tolist())},
-                             treatment_names[0])
+
+        return _PolicyOutput(
+            _tree_interpreter_to_dict(intrp, feature_names, policy_data),
+            policy_val,
+            {treatment_names[i + 1]: val for (i, val) in enumerate(always_trt.tolist())},
+            treatment_names[0],
+        )
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
-    def plot_heterogeneity_tree(self, Xtest, feature_index, *,
-                                max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-                                include_model_uncertainty=False,
-                                alpha=0.05):
+    def plot_heterogeneity_tree(
+        self,
+        Xtest,
+        feature_index,
+        *,
+        max_depth=3,
+        min_samples_leaf=2,
+        min_impurity_decrease=1e-4,
+        include_model_uncertainty=False,
+        alpha=0.05,
+    ):
         """
         Plot an effect heterogeneity tree using matplotlib.
 
@@ -1573,18 +1798,29 @@ class CausalAnalysis:
             A (1-alpha)*100% confidence interval is displayed.
         """
 
-        intrp, feature_names, treatment_names, _ = self._tree(False, Xtest, feature_index,
-                                                              max_depth=max_depth,
-                                                              min_samples_leaf=min_samples_leaf,
-                                                              min_impurity_decrease=min_impurity_decrease,
-                                                              include_model_uncertainty=include_model_uncertainty,
-                                                              alpha=alpha)
-        return intrp.plot(feature_names=feature_names,
-                          treatment_names=treatment_names)
+        intrp, feature_names, treatment_names, _ = self._tree(
+            False,
+            Xtest,
+            feature_index,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_impurity_decrease,
+            include_model_uncertainty=include_model_uncertainty,
+            alpha=alpha,
+        )
+        return intrp.plot(feature_names=feature_names, treatment_names=treatment_names)
 
-    def _heterogeneity_tree_output(self, Xtest, feature_index, *,
-                                   max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-                                   include_model_uncertainty=False, alpha=0.05):
+    def _heterogeneity_tree_output(
+        self,
+        Xtest,
+        feature_index,
+        *,
+        max_depth=3,
+        min_samples_leaf=2,
+        min_impurity_decrease=1e-4,
+        include_model_uncertainty=False,
+        alpha=0.05,
+    ):
         """
         Get an effect heterogeneity tree expressed as a dictionary.
 
@@ -1608,19 +1844,23 @@ class CausalAnalysis:
             A (1-alpha)*100% confidence interval is displayed.
         """
 
-        intrp, feature_names, _, _ = self._tree(False, Xtest, feature_index,
-                                                max_depth=max_depth,
-                                                min_samples_leaf=min_samples_leaf,
-                                                min_impurity_decrease=min_impurity_decrease,
-                                                include_model_uncertainty=include_model_uncertainty,
-                                                alpha=alpha)
+        intrp, feature_names, _, _ = self._tree(
+            False,
+            Xtest,
+            feature_index,
+            max_depth=max_depth,
+            min_samples_leaf=min_samples_leaf,
+            min_impurity_decrease=min_impurity_decrease,
+            include_model_uncertainty=include_model_uncertainty,
+            alpha=alpha,
+        )
 
         def hetero_data(tree, node_id, node_dict):
             if include_model_uncertainty:
-                return {'effect': _sanitize(tree.value[node_id]),
-                        'ci': _sanitize(node_dict[node_id]['ci'])}
+                return {'effect': _sanitize(tree.value[node_id]), 'ci': _sanitize(node_dict[node_id]['ci'])}
             else:
                 return {'effect': _sanitize(tree.value[node_id])}
+
         return _tree_interpreter_to_dict(intrp, feature_names, hetero_data)
 
     def individualized_policy(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.05):
@@ -1652,7 +1892,8 @@ class CausalAnalysis:
 
         # get dataframe with all but selected column
         orig_df = pd.DataFrame(Xtest, columns=self.feature_names_).rename(
-            columns={self.feature_names_[result.feature_index]: 'Current treatment'})
+            columns={self.feature_names_[result.feature_index]: 'Current treatment'}
+        )
 
         Xtest = result.X_transformer.transform(Xtest)
         if Xtest.shape[1] == 0:
@@ -1712,23 +1953,27 @@ class CausalAnalysis:
                 # remove third dimenions potentially added
                 if multi_y:  # y was an array, not a vector
                     treatment_costs = np.squeeze(treatment_costs, 1)
-                assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, "
-                                                                            " they must be of shape (n, d_t-1),"
-                                                                            " where n is the number of samples"
-                                                                            " and d_t the number of treatment"
-                                                                            " categories.")
+                assert treatment_costs.shape[1] == len(treatment_arr) - 1, (
+                    "If treatment costs are an array, "
+                    " they must be of shape (n, d_t-1),"
+                    " where n is the number of samples"
+                    " and d_t the number of treatment"
+                    " categories."
+                )
                 all_costs = np.hstack([zeros, treatment_costs])
                 # find cost of current treatment: equality creates a 2d array with True on each row,
                 # only if its the location of the current treatment. Then we take the corresponding cost.
                 current_cost = all_costs[current_treatment.reshape(-1, 1) == treatment_arr.reshape(1, -1)]
                 target_cost = np.take_along_axis(all_costs, eff_ind.reshape(-1, 1), 1).reshape(-1)
             else:
-                assert isinstance(treatment_costs, (int, float)), ("Treatments costs should either be float or "
-                                                                   "a 2d array of size (n, d_t-1).")
+                assert isinstance(treatment_costs, (int, float)), (
+                    "Treatments costs should either be float or " "a 2d array of size (n, d_t-1)."
+                )
                 all_costs = np.array([0] + [treatment_costs] * (len(treatment_arr) - 1))
                 # construct index of current treatment
-                current_ind = (current_treatment.reshape(-1, 1) ==
-                               treatment_arr.reshape(1, -1)) @ np.arange(len(treatment_arr))
+                current_ind = (current_treatment.reshape(-1, 1) == treatment_arr.reshape(1, -1)) @ np.arange(
+                    len(treatment_arr)
+                )
                 current_cost = all_costs[current_ind]
                 target_cost = all_costs[eff_ind]
             delta_cost = current_cost - target_cost
@@ -1743,14 +1988,17 @@ class CausalAnalysis:
                 eff_lb = np.squeeze(eff_lb, 1)
                 eff_ub = np.squeeze(eff_ub, 1)
 
-        df = pd.DataFrame({'Treatment': rec,
-                           'Effect of treatment': eff,
-                           'Effect of treatment lower bound': eff_lb,
-                           'Effect of treatment upper bound': eff_ub},
-                          index=orig_df.index)
+        df = pd.DataFrame(
+            {
+                'Treatment': rec,
+                'Effect of treatment': eff,
+                'Effect of treatment lower bound': eff_lb,
+                'Effect of treatment upper bound': eff_ub,
+            },
+            index=orig_df.index,
+        )
 
-        return df.join(orig_df).sort_values('Effect of treatment',
-                                            ascending=False).head(n_rows)
+        return df.join(orig_df).sort_values('Effect of treatment', ascending=False).head(n_rows)
 
     def _individualized_policy_dict(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.05):
         """
@@ -1775,10 +2023,9 @@ class CausalAnalysis:
         output: dictionary
             dictionary containing treatment policy, effects, and other columns
         """
-        return self.individualized_policy(Xtest, feature_index,
-                                          n_rows=n_rows,
-                                          treatment_costs=treatment_costs,
-                                          alpha=alpha).to_dict('list')
+        return self.individualized_policy(
+            Xtest, feature_index, n_rows=n_rows, treatment_costs=treatment_costs, alpha=alpha
+        ).to_dict('list')
 
     def typical_treatment_value(self, feature_index):
         """

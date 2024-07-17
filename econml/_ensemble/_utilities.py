@@ -71,15 +71,17 @@ def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
     prediction = predict(X, *args, check_input=False, **kwargs)
     with lock:
         if len(out) == 1:
-            out[0] += np.einsum('ijk,ikm->ijm',
-                                prediction.reshape(prediction.shape + (1,)),
-                                prediction.reshape((-1, 1) + prediction.shape[1:]))
+            out[0] += np.einsum(
+                'ijk,ikm->ijm',
+                prediction.reshape(prediction.shape + (1,)),
+                prediction.reshape((-1, 1) + prediction.shape[1:]),
+            )
         else:
             for i in range(len(out)):
                 pred_i = prediction[i]
-                out[i] += np.einsum('ijk,ikm->ijm',
-                                    pred_i.reshape(pred_i.shape + (1,)),
-                                    pred_i.reshape((-1, 1) + pred_i.shape[1:]))
+                out[i] += np.einsum(
+                    'ijk,ikm->ijm', pred_i.reshape(pred_i.shape + (1,)), pred_i.reshape((-1, 1) + pred_i.shape[1:])
+                )
 
 
 def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwargs):
@@ -95,16 +97,18 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
     with lock:
         if len(out) == 1:
             out[0] += prediction
-            out_var[0] += np.einsum('ijk,ikm->ijm',
-                                    prediction.reshape(prediction.shape + (1,)),
-                                    prediction.reshape((-1, 1) + prediction.shape[1:]))
+            out_var[0] += np.einsum(
+                'ijk,ikm->ijm',
+                prediction.reshape(prediction.shape + (1,)),
+                prediction.reshape((-1, 1) + prediction.shape[1:]),
+            )
         else:
             for i in range(len(out)):
                 pred_i = prediction[i]
                 out[i] += prediction
-                out_var[i] += np.einsum('ijk,ikm->ijm',
-                                        pred_i.reshape(pred_i.shape + (1,)),
-                                        pred_i.reshape((-1, 1) + pred_i.shape[1:]))
+                out_var[i] += np.einsum(
+                    'ijk,ikm->ijm', pred_i.reshape(pred_i.shape + (1,)), pred_i.reshape((-1, 1) + pred_i.shape[1:])
+                )
 
 
 def _accumulate_oob_preds(tree, X, subsample_inds, alpha_hat, jac_hat, counts, lock):

@@ -9,6 +9,7 @@ import pytest
 
 try:
     import keras
+
     keras_installed = True
 except ImportError:
     keras_installed = False
@@ -27,7 +28,6 @@ from econml.iv.nnet import DeepIV
 
 
 class TestPandasIntegration(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         np.random.seed(123)
@@ -76,13 +76,13 @@ class TestPandasIntegration(unittest.TestCase):
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         self._check_input_names(
-            est.summary(),
-            feat_comp=get_feature_names_or_default(est.original_featurizer, X.columns))
+            est.summary(), feat_comp=get_feature_names_or_default(est.original_featurizer, X.columns)
+        )
         est.featurizer = FunctionTransformer()
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         self._check_input_names(
-            est.summary(),
-            feat_comp=[f"feat(X){i}" for i in range(TestPandasIntegration.n_features)])
+            est.summary(), feat_comp=[f"feat(X){i}" for i in range(TestPandasIntegration.n_features)]
+        )
         est.featurizer = ColumnTransformer([('passthrough', 'passthrough', [0])])
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         # ColumnTransformer behaves differently depending on version of sklearn, so we no longer check the names
@@ -131,8 +131,7 @@ class TestPandasIntegration(unittest.TestCase):
         Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
         T = TestPandasIntegration.df[TestPandasIntegration.cont_treat]
         # Test DMLOrthoForest
-        est = DMLOrthoForest(
-            n_trees=100, max_depth=2, model_T=WeightedLasso(), model_Y=WeightedLasso())
+        est = DMLOrthoForest(n_trees=100, max_depth=2, model_T=WeightedLasso(), model_Y=WeightedLasso())
         est.fit(Y, T, X=X, W=W, inference='blb')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
@@ -152,9 +151,11 @@ class TestPandasIntegration(unittest.TestCase):
         T = TestPandasIntegration.df[TestPandasIntegration.bin_treat]
         # Test XLearner
         # Skipping population summary names test because bootstrap inference is too slow
-        est = XLearner(models=GradientBoostingRegressor(),
-                       propensity_model=GradientBoostingClassifier(),
-                       cate_models=GradientBoostingRegressor())
+        est = XLearner(
+            models=GradientBoostingRegressor(),
+            propensity_model=GradientBoostingClassifier(),
+            cate_models=GradientBoostingRegressor(),
+        )
         est.fit(Y, T, X=np.hstack([X, W]))
         treatment_effects = est.effect(np.hstack([X, W]))
         # Test SLearner
@@ -172,24 +173,27 @@ class TestPandasIntegration(unittest.TestCase):
         Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
         T = TestPandasIntegration.df[TestPandasIntegration.bin_treat]
         # Test LinearDRLearner
-        est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
-                              model_regression=GradientBoostingRegressor())
+        est = LinearDRLearner(
+            model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor()
+        )
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary(T=1))
         self._check_popsum_names(est.effect_inference(X).population_summary())
         # Test SparseLinearDRLearner
-        est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
-                                    model_regression=GradientBoostingRegressor())
+        est = SparseLinearDRLearner(
+            model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor()
+        )
         est.fit(Y, T, X=X, W=W, inference='debiasedlasso')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary(T=1))
         self._check_popsum_names(est.effect_inference(X).population_summary())
         # Test ForestDRLearner
-        est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
-                              model_regression=GradientBoostingRegressor())
+        est = ForestDRLearner(
+            model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor()
+        )
         est.fit(Y, T, X=X, W=W, inference='blb')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
@@ -201,9 +205,11 @@ class TestPandasIntegration(unittest.TestCase):
         T = TestPandasIntegration.df[TestPandasIntegration.bin_treat]
         Z = TestPandasIntegration.df[TestPandasIntegration.instrument]
         # Test LinearIntentToTreatDRIV
-        est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
-                                      model_t_xwz=GradientBoostingClassifier(),
-                                      flexible_model_effect=GradientBoostingRegressor())
+        est = LinearIntentToTreatDRIV(
+            model_y_xw=GradientBoostingRegressor(),
+            model_t_xwz=GradientBoostingClassifier(),
+            flexible_model_effect=GradientBoostingRegressor(),
+        )
         est.fit(Y, T, Z=Z, X=X, inference='statsmodels')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
@@ -217,24 +223,33 @@ class TestPandasIntegration(unittest.TestCase):
         T = TestPandasIntegration.df[TestPandasIntegration.cont_treat]
         Z = TestPandasIntegration.df[TestPandasIntegration.instrument]
         # Test DeepIV
-        treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(3,)),
-                                            keras.layers.Dropout(0.17),
-                                            keras.layers.Dense(64, activation='relu'),
-                                            keras.layers.Dropout(0.17),
-                                            keras.layers.Dense(32, activation='relu'),
-                                            keras.layers.Dropout(0.17)])
-        response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(3,)),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(64, activation='relu'),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(32, activation='relu'),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(1)])
-        est = DeepIV(n_components=10,  # Number of gaussians in the mixture density networks)
-                     m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # Treatment model
-                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # Response model
-                     n_samples=1  # Number of samples used to estimate the response
-                     )
+        treatment_model = keras.Sequential(
+            [
+                keras.layers.Dense(128, activation='relu', input_shape=(3,)),
+                keras.layers.Dropout(0.17),
+                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dropout(0.17),
+                keras.layers.Dense(32, activation='relu'),
+                keras.layers.Dropout(0.17),
+            ]
+        )
+        response_model = keras.Sequential(
+            [
+                keras.layers.Dense(128, activation='relu', input_shape=(3,)),
+                keras.layers.Dropout(0.17),
+                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dropout(0.17),
+                keras.layers.Dense(32, activation='relu'),
+                keras.layers.Dropout(0.17),
+                keras.layers.Dense(1),
+            ]
+        )
+        est = DeepIV(
+            n_components=10,  # Number of gaussians in the mixture density networks)
+            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # Treatment model
+            h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # Response model
+            n_samples=1,  # Number of samples used to estimate the response
+        )
         est.fit(Y, T, X=X, Z=Z)
         treatment_effects = est.effect(X)
 
@@ -243,13 +258,15 @@ class TestPandasIntegration(unittest.TestCase):
         Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
         T = TestPandasIntegration.df[TestPandasIntegration.cat_treat]
         # Test categorical treatments
-        est = LinearDML(discrete_treatment=True,
-                        categories=TestPandasIntegration.cat_treat_labels)
+        est = LinearDML(discrete_treatment=True, categories=TestPandasIntegration.cat_treat_labels)
         est.fit(Y, T, X=X)
         self._check_input_names(est.summary(), T_cat=True)
         treat_name = "Category"
-        self._check_input_names(est.summary(treatment_names=[treat_name]), T_cat=True, treat_comp=[
-                                f"{treat_name}_{t}" for t in TestPandasIntegration.cat_treat_labels[1:]])
+        self._check_input_names(
+            est.summary(treatment_names=[treat_name]),
+            T_cat=True,
+            treat_comp=[f"{treat_name}_{t}" for t in TestPandasIntegration.cat_treat_labels[1:]],
+        )
         # Check refit
         est.fit(Y, T, X=X)
         self._check_input_names(est.summary(), T_cat=True)
@@ -257,12 +274,17 @@ class TestPandasIntegration(unittest.TestCase):
         est.categories = [f"{t}_1" for t in TestPandasIntegration.cat_treat_labels]
         T = T.apply(lambda t: t + "_1")
         est.fit(Y, T, X=X)
-        self._check_input_names(est.summary(), T_cat=True, treat_comp=[
-                                f"{TestPandasIntegration.cat_treat[0]}_{t}_1" for t in
-                                TestPandasIntegration.cat_treat_labels[1:]])
+        self._check_input_names(
+            est.summary(),
+            T_cat=True,
+            treat_comp=[
+                f"{TestPandasIntegration.cat_treat[0]}_{t}_1" for t in TestPandasIntegration.cat_treat_labels[1:]
+            ],
+        )
 
-    def _check_input_names(self, summary_table,
-                           Y_multi=False, T_multi=False, T_cat=False, feat_comp=None, treat_comp=None):
+    def _check_input_names(
+        self, summary_table, Y_multi=False, T_multi=False, T_cat=False, feat_comp=None, treat_comp=None
+    ):
         index_name = np.array(summary_table.tables[0].data)[1:, 0]
         if feat_comp is None:
             feat_comp = TestPandasIntegration.features
@@ -270,27 +292,28 @@ class TestPandasIntegration(unittest.TestCase):
             if T_multi:
                 treat_comp = TestPandasIntegration.cont_treat_multi
             if T_cat:
-                treat_comp = ["{}_{}".format(TestPandasIntegration.cat_treat[0], label)
-                              for label in TestPandasIntegration.cat_treat_labels[1:]]
+                treat_comp = [
+                    "{}_{}".format(TestPandasIntegration.cat_treat[0], label)
+                    for label in TestPandasIntegration.cat_treat_labels[1:]
+                ]
 
         if Y_multi:
             out_comp = TestPandasIntegration.outcome_multi
             if T_cat or T_multi:
                 index_name_comp = [
-                    f"{feat}|{outcome}|{treat}" for feat in feat_comp for outcome in out_comp for treat in treat_comp]
+                    f"{feat}|{outcome}|{treat}" for feat in feat_comp for outcome in out_comp for treat in treat_comp
+                ]
 
             else:
-                index_name_comp = [
-                    f"{feat}|{outcome}" for feat in feat_comp for outcome in out_comp]
+                index_name_comp = [f"{feat}|{outcome}" for feat in feat_comp for outcome in out_comp]
         else:
             if T_cat or T_multi:
-                index_name_comp = [
-                    f"{feat}|{treat}" for feat in feat_comp for treat in treat_comp]
+                index_name_comp = [f"{feat}|{treat}" for feat in feat_comp for treat in treat_comp]
             else:
                 index_name_comp = feat_comp
         np.testing.assert_array_equal(index_name, index_name_comp)
 
     def _check_popsum_names(self, popsum, Y_multi=False):
-        np.testing.assert_array_equal(popsum.output_names,
-                                      TestPandasIntegration.outcome_multi if Y_multi
-                                      else TestPandasIntegration.outcome)
+        np.testing.assert_array_equal(
+            popsum.output_names, TestPandasIntegration.outcome_multi if Y_multi else TestPandasIntegration.outcome
+        )

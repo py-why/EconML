@@ -21,12 +21,7 @@ class CalibrationEvaluationResults:
         Sequence of treatment labels
     """
 
-    def __init__(
-        self,
-        cal_r_squared: np.array,
-        plot_data_dict: Dict[Any, pd.DataFrame],
-        treatments: np.array
-    ):
+    def __init__(self, cal_r_squared: np.array, plot_data_dict: Dict[Any, pd.DataFrame], treatments: np.array):
         self.cal_r_squared = cal_r_squared
         self.plot_data_dict = plot_data_dict
         self.treatments = treatments
@@ -44,10 +39,12 @@ class CalibrationEvaluationResults:
         pandas dataframe containing summary of calibration test results
         """
 
-        res = pd.DataFrame({
-            'treatment': self.treatments[1:],
-            'cal_r_squared': self.cal_r_squared,
-        }).round(3)
+        res = pd.DataFrame(
+            {
+                'treatment': self.treatments[1:],
+                'cal_r_squared': self.cal_r_squared,
+            }
+        ).round(3)
         return res
 
     def plot_cal(self, tmt: Any):
@@ -76,7 +73,7 @@ class CalibrationEvaluationResults:
             yerr='95_err',
             xlabel='Group Mean CATE',
             ylabel='GATE',
-            title=f"Treatment = {tmt}, Calibration R^2 = {rsq}"
+            title=f"Treatment = {tmt}, Calibration R^2 = {rsq}",
         )
 
         return fig
@@ -101,13 +98,7 @@ class BLPEvaluationResults:
        Sequence of treatment labels
     """
 
-    def __init__(
-        self,
-        params: List[float],
-        errs: List[float],
-        pvals: List[float],
-        treatments: np.array
-    ):
+    def __init__(self, params: List[float], errs: List[float], pvals: List[float], treatments: np.array):
         self.params = params
         self.errs = errs
         self.pvals = pvals
@@ -125,12 +116,9 @@ class BLPEvaluationResults:
         -------
         pandas dataframe containing summary of BLP test results
         """
-        res = pd.DataFrame({
-            'treatment': self.treatments[1:],
-            'blp_est': self.params,
-            'blp_se': self.errs,
-            'blp_pval': self.pvals
-        }).round(3)
+        res = pd.DataFrame(
+            {'treatment': self.treatments[1:], 'blp_est': self.params, 'blp_se': self.errs, 'blp_pval': self.pvals}
+        ).round(3)
         return res
 
 
@@ -163,7 +151,7 @@ class UpliftEvaluationResults:
         errs: List[float],
         pvals: List[float],
         treatments: np.array,
-        curve_data_dict: Dict[Any, pd.DataFrame]
+        curve_data_dict: Dict[Any, pd.DataFrame],
     ):
         self.params = params
         self.errs = errs
@@ -183,12 +171,9 @@ class UpliftEvaluationResults:
         -------
         pandas dataframe containing summary of QINI test results
         """
-        res = pd.DataFrame({
-            'treatment': self.treatments[1:],
-            'est': self.params,
-            'se': self.errs,
-            'pval': self.pvals
-        }).round(3)
+        res = pd.DataFrame(
+            {'treatment': self.treatments[1:], 'est': self.params, 'se': self.errs, 'pval': self.pvals}
+        ).round(3)
         return res
 
     def plot_uplift(self, tmt: Any, err_type: str = None):
@@ -233,7 +218,7 @@ class UpliftEvaluationResults:
                 y='value',
                 yerr=[[df['95_err'], np.zeros(len(df))]],
                 ylabel='Gain over Random',
-                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
+                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}",
             )
         else:
             fig = df.plot(
@@ -242,7 +227,7 @@ class UpliftEvaluationResults:
                 y='value',
                 yerr='95_err',
                 ylabel='Gain over Random',
-                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
+                title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}",
             )
 
         return fig
@@ -272,7 +257,7 @@ class EvaluationResults:
         cal_res: CalibrationEvaluationResults,
         blp_res: BLPEvaluationResults,
         qini_res: UpliftEvaluationResults,
-        toc_res: UpliftEvaluationResults
+        toc_res: UpliftEvaluationResults,
     ):
         self.cal = cal_res
         self.blp = blp_res
@@ -291,15 +276,17 @@ class EvaluationResults:
         -------
         pandas dataframe containing summary of all test results
         """
-        res = self.blp.summary().merge(
-            self.qini.summary().rename({'est': 'qini_est', 'se': 'qini_se', 'pval': 'qini_pval'}, axis=1),
-            on='treatment'
-        ).merge(
-            self.toc.summary().rename({'est': 'autoc_est', 'se': 'autoc_se', 'pval': 'autoc_pval'}, axis=1),
-            on='treatment'
-        ).merge(
-            self.cal.summary(),
-            on='treatment'
+        res = (
+            self.blp.summary()
+            .merge(
+                self.qini.summary().rename({'est': 'qini_est', 'se': 'qini_se', 'pval': 'qini_pval'}, axis=1),
+                on='treatment',
+            )
+            .merge(
+                self.toc.summary().rename({'est': 'autoc_est', 'se': 'autoc_se', 'pval': 'autoc_pval'}, axis=1),
+                on='treatment',
+            )
+            .merge(self.cal.summary(), on='treatment')
         )
         return res
 

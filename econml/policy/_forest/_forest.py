@@ -14,7 +14,7 @@ from warnings import catch_warnings, simplefilter, warn
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import threading
-from ..._ensemble import (BaseEnsemble, _partition_estimators, _get_n_samples_subsample, _accumulate_prediction)
+from ..._ensemble import BaseEnsemble, _partition_estimators, _get_n_samples_subsample, _accumulate_prediction
 from ...utilities import check_inputs, cross_product
 from ...tree._tree import DTYPE, DOUBLE
 from ._tree import PolicyTree
@@ -34,7 +34,7 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
-    """ Welfare maximization policy forest. Trains a forest to maximize the objective:
+    """Welfare maximization policy forest. Trains a forest to maximize the objective:
     :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
     to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
     optimization problem.
@@ -100,8 +100,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -157,30 +156,41 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         The higher, the more important the feature.
     """
 
-    def __init__(self,
-                 n_estimators=100, *,
-                 criterion='neg_welfare',
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.5,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
+    def __init__(
+        self,
+        n_estimators=100,
+        *,
+        criterion='neg_welfare',
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.5,
+        min_balancedness_tol=0.45,
+        honest=True,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
         super().__init__(
             base_estimator=PolicyTree(),
             n_estimators=n_estimators,
-            estimator_params=("criterion", "max_depth", "min_samples_split",
-                              "min_samples_leaf", "min_weight_fraction_leaf",
-                              "max_features", "min_impurity_decrease", "honest",
-                              "min_balancedness_tol",
-                              "random_state"))
+            estimator_params=(
+                "criterion",
+                "max_depth",
+                "min_samples_split",
+                "min_samples_leaf",
+                "min_weight_fraction_leaf",
+                "max_features",
+                "min_impurity_decrease",
+                "honest",
+                "min_balancedness_tol",
+                "random_state",
+            ),
+        )
 
         self.criterion = criterion
         self.max_depth = max_depth
@@ -215,8 +225,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         """
         X = self._validate_X_predict(X)
         results = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend="threading")(
-            delayed(tree.apply)(X, check_input=False)
-            for tree in self.estimators_)
+            delayed(tree.apply)(X, check_input=False) for tree in self.estimators_
+        )
 
         return np.array(results).T
 
@@ -242,8 +252,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         """
         X = self._validate_X_predict(X)
         indicators = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-            delayed(tree.decision_path)(X, check_input=False)
-            for tree in self.estimators_)
+            delayed(tree.decision_path)(X, check_input=False) for tree in self.estimators_
+        )
 
         n_nodes = [0]
         n_nodes.extend([i.shape[1] for i in indicators])
@@ -297,10 +307,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
             X = X.astype(DTYPE)
 
         # Get subsample sample size
-        n_samples_subsample = _get_n_samples_subsample(
-            n_samples=n_samples,
-            max_samples=self.max_samples
-        )
+        n_samples_subsample = _get_n_samples_subsample(n_samples=n_samples, max_samples=self.max_samples)
 
         # Check parameters
         self._validate_estimator()
@@ -325,23 +332,22 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
         if n_more_estimators < 0:
-            raise ValueError('n_estimators=%d must be larger or equal to '
-                             'len(estimators_)=%d when warm_start==True'
-                             % (self.n_estimators, len(self.estimators_)))
+            raise ValueError(
+                'n_estimators=%d must be larger or equal to '
+                'len(estimators_)=%d when warm_start==True' % (self.n_estimators, len(self.estimators_))
+            )
 
         elif n_more_estimators == 0:
-            warn("Warm-start fitting without increasing n_estimators does not "
-                 "fit new trees.", UserWarning)
+            warn("Warm-start fitting without increasing n_estimators does not " "fit new trees.", UserWarning)
         else:
-
             if self.warm_start and len(self.estimators_) > 0:
                 # We draw from the random state to get the random state we
                 # would have got if we hadn't used a warm_start.
                 random_state.randint(MAX_INT, size=len(self.estimators_))
 
-            trees = [self._make_estimator(append=False,
-                                          random_state=random_state).init()
-                     for i in range(n_more_estimators)]
+            trees = [
+                self._make_estimator(append=False, random_state=random_state).init() for i in range(n_more_estimators)
+            ]
 
             if self.warm_start:
                 # Advancing subsample_random_state. Assumes each prior fit call has the same number of
@@ -349,8 +355,10 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
                 # but would still advance randomness enough so that tree subsamples will be different.
                 for _, n_, ns_ in zip(range(len(self.estimators_)), self.n_samples_, self.n_samples_subsample_):
                     subsample_random_state.choice(n_, ns_, replace=False)
-            s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
-                      for _ in range(n_more_estimators)]
+            s_inds = [
+                subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
+                for _ in range(n_more_estimators)
+            ]
 
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
@@ -359,10 +367,11 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
             # parallel_backend contexts set at a higher level,
             # since correctness does not rely on using threads.
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(t.fit)(X[s], y[s],
-                               sample_weight=sample_weight[s] if sample_weight is not None else None,
-                               check_input=False)
-                for t, s in zip(trees, s_inds))
+                delayed(t.fit)(
+                    X[s], y[s], sample_weight=sample_weight[s] if sample_weight is not None else None, check_input=False
+                )
+                for t, s in zip(trees, s_inds)
+            )
 
             # Collect newly grown trees
             self.estimators_.extend(trees)
@@ -371,13 +380,16 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         return self
 
-    def get_subsample_inds(self,):
-        """ Re-generate the example same sample indices as those at fit time using same pseudo-randomness.
-        """
+    def get_subsample_inds(
+        self,
+    ):
+        """Re-generate the example same sample indices as those at fit time using same pseudo-randomness."""
         check_is_fitted(self)
         subsample_random_state = check_random_state(self.subsample_random_seed_)
-        return [subsample_random_state.choice(n_, ns_, replace=False)
-                for n_, ns_ in zip(self.n_samples_, self.n_samples_subsample_)]
+        return [
+            subsample_random_state.choice(n_, ns_, replace=False)
+            for n_, ns_ in zip(self.n_samples_, self.n_samples_subsample_)
+        ]
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
@@ -399,15 +411,15 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         check_is_fitted(self)
 
         all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(tree.feature_importances)(
-                max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
-            for tree in self.estimators_ if tree.tree_.node_count > 1)
+            delayed(tree.feature_importances)(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+            for tree in self.estimators_
+            if tree.tree_.node_count > 1
+        )
 
         if not all_importances:
             return np.zeros(self.n_features_, dtype=np.float64)
 
-        all_importances = np.mean(all_importances,
-                                  axis=0, dtype=np.float64)
+        all_importances = np.mean(all_importances, axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
 
     @property
@@ -422,7 +434,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_value(self, X):
-        """ Predict the expected value of each treatment for each sample
+        """Predict the expected value of each treatment for each sample
 
         Parameters
         ----------
@@ -449,15 +461,15 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         # Parallel loop
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
-            delayed(_accumulate_prediction)(e.predict_value, X, [y_hat], lock)
-            for e in self.estimators_)
+            delayed(_accumulate_prediction)(e.predict_value, X, [y_hat], lock) for e in self.estimators_
+        )
 
         y_hat /= len(self.estimators_)
 
         return y_hat
 
     def predict_proba(self, X):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment
 
         Parameters
         ----------
@@ -486,15 +498,15 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         # Parallel loop
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, require="sharedmem")(
-            delayed(_accumulate_prediction)(e.predict_proba, X, [y_hat], lock)
-            for e in self.estimators_)
+            delayed(_accumulate_prediction)(e.predict_proba, X, [y_hat], lock) for e in self.estimators_
+        )
 
         y_hat /= len(self.estimators_)
 
         return y_hat
 
     def predict(self, X):
-        """ Predict the best treatment for each sample
+        """Predict the best treatment for each sample
 
         Parameters
         ----------

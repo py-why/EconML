@@ -15,13 +15,17 @@ import pandas as pd
 import numpy as np
 import warnings
 from econml.utilities import check_input_arrays, reshape_arrays_2dim, get_input_columns, MissingModule
+
 try:
     import dowhy
     from dowhy import CausalModel
 except ImportError as exn:
-    dowhy = CausalModel = MissingModule("dowhy is no longer a dependency of the main econml "
-                                        "package; install econml[dowhy] or econml[all] to require it, or install "
-                                        "dowhy separately to use dowhy from econml", exn)
+    dowhy = CausalModel = MissingModule(
+        "dowhy is no longer a dependency of the main econml "
+        "package; install econml[dowhy] or econml[all] to require it, or install "
+        "dowhy separately to use dowhy from econml",
+        exn,
+    )
 
 
 class DoWhyWrapper:
@@ -37,6 +41,7 @@ class DoWhyWrapper:
 
     def __init__(self, cate_estimator):
         from packaging.version import parse
+
         if parse(dowhy.__version__) >= parse('0.12'):
             warnings.warn("econml has not been tested with dowhy versions >= 0.12")
         self._cate_estimator = cate_estimator
@@ -50,20 +55,40 @@ class DoWhyWrapper:
         params = []
         for p in parameters:
             if p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD:
-                raise RuntimeError("cate estimators should always specify their parameters in the signature "
-                                   "of their __init__ (no varargs, no varkwargs). "
-                                   f"{self._cate_estimator} with constructor {init_signature} doesn't "
-                                   "follow this convention.")
+                raise RuntimeError(
+                    "cate estimators should always specify their parameters in the signature "
+                    "of their __init__ (no varargs, no varkwargs). "
+                    f"{self._cate_estimator} with constructor {init_signature} doesn't "
+                    "follow this convention."
+                )
             # if the argument is deprecated, ignore it
             if p.default != "deprecated":
                 params.append(p.name)
         # Extract and sort argument names excluding 'self'
         return sorted(params)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, *, outcome_names=None, treatment_names=None, feature_names=None,
-            confounder_names=None, instrument_names=None, graph=None, estimand_type="nonparametric-ate",
-            proceed_when_unidentifiable=True, missing_nodes_as_confounders=False,
-            control_value=0, treatment_value=1, target_units="ate", **kwargs):
+    def fit(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        *,
+        outcome_names=None,
+        treatment_names=None,
+        feature_names=None,
+        confounder_names=None,
+        instrument_names=None,
+        graph=None,
+        estimand_type="nonparametric-ate",
+        proceed_when_unidentifiable=True,
+        missing_nodes_as_confounders=False,
+        control_value=0,
+        treatment_value=1,
+        target_units="ate",
+        **kwargs,
+    ):
         """
         Estimate the counterfactual model from data through dowhy package.
 
@@ -147,8 +172,9 @@ class DoWhyWrapper:
                 'DoWhyWrapper does not support missing values in X. Please set allow_missing=False before proceeding.'
             )
         Y, T, X, Z = check_input_arrays(Y, T, X, Z)
-        W, = check_input_arrays(
-            W, force_all_finite='allow-nan' if 'W' in self._cate_estimator._gen_allowed_missing_vars() else True)
+        (W,) = check_input_arrays(
+            W, force_all_finite='allow-nan' if 'W' in self._cate_estimator._gen_allowed_missing_vars() else True
+        )
         # transfer input to 2d arrays
         n_obs = Y.shape[0]
         Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)
@@ -170,23 +196,24 @@ class DoWhyWrapper:
             effect_modifiers=feature_names if X.shape[1] > 0 else None,
             estimand_type=estimand_type,
             proceed_when_unidetifiable=proceed_when_unidentifiable,
-            missing_nodes_as_confounders=missing_nodes_as_confounders
+            missing_nodes_as_confounders=missing_nodes_as_confounders,
         )
         self.identified_estimand_ = self.dowhy_.identify_effect(proceed_when_unidentifiable=True)
         method_name = "backdoor." + self._cate_estimator.__module__ + "." + self._cate_estimator.__class__.__name__
         init_params = {}
         for p in self._get_params():
             init_params[p] = getattr(self._cate_estimator, p)
-        self.estimate_ = self.dowhy_.estimate_effect(self.identified_estimand_,
-                                                     method_name=method_name,
-                                                     control_value=control_value,
-                                                     treatment_value=treatment_value,
-                                                     target_units=target_units,
-                                                     method_params={
-                                                         "init_params": init_params,
-                                                         "fit_params": kwargs,
-                                                     },
-                                                     )
+        self.estimate_ = self.dowhy_.estimate_effect(
+            self.identified_estimand_,
+            method_name=method_name,
+            control_value=control_value,
+            treatment_value=treatment_value,
+            target_units=target_units,
+            method_params={
+                "init_params": init_params,
+                "fit_params": kwargs,
+            },
+        )
         return self
 
     def refute_estimate(self, *, method_name, **kwargs):
@@ -218,45 +245,48 @@ class DoWhyWrapper:
         -------
         RefuteResult: an instance of the RefuteResult class
         """
-        return self.dowhy_.refute_estimate(
-            self.identified_estimand_, self.estimate_, method_name=method_name, **kwargs
-        )
+        return self.dowhy_.refute_estimate(self.identified_estimand_, self.estimate_, method_name=method_name, **kwargs)
 
     # We don't allow user to call refit_final from this class, since internally dowhy effect estimate will only update
     # cate estimator but not the effect.
     def refit_final(self, inference=None):
         raise AttributeError(
-            "Method refit_final is not allowed through a dowhy object; please perform a full fit instead.")
+            "Method refit_final is not allowed through a dowhy object; please perform a full fit instead."
+        )
 
     def __getattr__(self, attr):
         # don't proxy special methods
         if attr.startswith('__'):
             raise AttributeError(attr)
-        elif attr in ['_cate_estimator', 'dowhy_',
-                      'identified_estimand_', 'estimate_']:
+        elif attr in ['_cate_estimator', 'dowhy_', 'identified_estimand_', 'estimate_']:
             return super().__getattr__(attr)
         elif attr.startswith('dowhy__'):
-            return getattr(self.dowhy_, attr[len('dowhy__'):])
+            return getattr(self.dowhy_, attr[len('dowhy__') :])
         elif hasattr(self.estimate_._estimator_object, attr):
             if hasattr(self.dowhy_, attr):
-                warnings.warn("This call is ambiguous, "
-                              "we're defaulting to CATE estimator's attribute. "
-                              "Please add 'dowhy__' as prefix if you want to get dowhy attribute.", UserWarning)
+                warnings.warn(
+                    "This call is ambiguous, "
+                    "we're defaulting to CATE estimator's attribute. "
+                    "Please add 'dowhy__' as prefix if you want to get dowhy attribute.",
+                    UserWarning,
+                )
             return getattr(self.estimate_._estimator_object, attr)
         else:
             return getattr(self.dowhy_, attr)
 
     def __setattr__(self, attr, value):
-        if attr in ['_cate_estimator', 'dowhy_',
-                    'identified_estimand_', 'estimate_']:
+        if attr in ['_cate_estimator', 'dowhy_', 'identified_estimand_', 'estimate_']:
             super().__setattr__(attr, value)
         elif attr.startswith('dowhy__'):
-            setattr(self.dowhy_, attr[len('dowhy__'):], value)
+            setattr(self.dowhy_, attr[len('dowhy__') :], value)
         elif hasattr(self.estimate_._estimator_object, attr):
             if hasattr(self.dowhy_, attr):
-                warnings.warn("This call is ambiguous, "
-                              "we're defaulting to CATE estimator's attribute. "
-                              "Please add 'dowhy__' as prefix if you want to set dowhy attribute.", UserWarning)
+                warnings.warn(
+                    "This call is ambiguous, "
+                    "we're defaulting to CATE estimator's attribute. "
+                    "Please add 'dowhy__' as prefix if you want to set dowhy attribute.",
+                    UserWarning,
+                )
             setattr(self.estimate_._estimator_object, attr, value)
         else:
             setattr(self.dowhy_, attr, value)

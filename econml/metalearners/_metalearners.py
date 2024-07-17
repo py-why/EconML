@@ -15,8 +15,16 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                         one_hot_encoder, inverse_onehot, transpose, _deprecate_positional)
+from ..utilities import (
+    check_inputs,
+    check_models,
+    broadcast_unit_treatments,
+    reshape_treatmentwise_effects,
+    one_hot_encoder,
+    inverse_onehot,
+    transpose,
+    _deprecate_positional,
+)
 from .._shap import _shap_explain_model_cate
 
 
@@ -65,10 +73,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([0.58547..., 1.82860..., 0.78379...])
     """
 
-    def __init__(self, *,
-                 models,
-                 categories='auto',
-                 allow_missing=False):
+    def __init__(self, *, models, categories='auto', allow_missing=False):
         self.models = clone(models, safe=False)
         self.categories = categories
         self.allow_missing = allow_missing
@@ -104,8 +109,13 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
 
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
-                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, _ = check_inputs(
+            Y,
+            T,
+            X,
+            multi_output_T=False,
+            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
+        )
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -188,10 +198,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([0.23577..., 1.62784... , 0.45946...])
     """
 
-    def __init__(self, *,
-                 overall_model,
-                 categories='auto',
-                 allow_missing=False):
+    def __init__(self, *, overall_model, categories='auto', allow_missing=False):
         self.overall_model = clone(overall_model, safe=False)
         self.categories = categories
         self.allow_missing = allow_missing
@@ -227,14 +234,19 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # Check inputs
         if X is None:
             X = np.zeros((Y.shape[0], 1))
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
-                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, _ = check_inputs(
+            Y,
+            T,
+            X,
+            multi_output_T=False,
+            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
+        )
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self.transformer = one_hot_encoder(categories=categories, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
-        self._d_t = (T.shape[1], )
+        self._d_t = (T.shape[1],)
         # Note: unlike other Metalearners, we need the controls' encoded column for training
         # Thus, we append the controls column before the one-hot-encoded T
         # We might want to revisit, though, since it's linearly determined by the others
@@ -262,7 +274,13 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X = check_array(X)
         Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
-        prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
+        prediction = self.overall_model.predict(feat_arr).reshape(
+            (
+                -1,
+                self._d_t[0] + 1,
+            )
+            + self._d_y
+        )
         if self._d_y:
             prediction = transpose(prediction, (0, 2, 1))
             taus = (prediction - np.repeat(prediction[:, :, 0], self._d_t[0] + 1).reshape(prediction.shape))[:, :, 1:]
@@ -327,12 +345,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([0.58547..., 1.82860..., 0.78379...])
     """
 
-    def __init__(self, *,
-                 models,
-                 cate_models=None,
-                 propensity_model=LogisticRegression(),
-                 categories='auto',
-                 allow_missing=False):
+    def __init__(
+        self, *, models, cate_models=None, propensity_model=LogisticRegression(), categories='auto', allow_missing=False
+    ):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
@@ -368,8 +383,13 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
-                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, _ = check_inputs(
+            Y,
+            T,
+            X,
+            multi_output_T=False,
+            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
+        )
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
         categories = self.categories
@@ -423,8 +443,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         taus = []
         for ind in range(self._d_t[0]):
             propensity_scores = self.propensity_models[ind].predict_proba(X)[:, 1:]
-            tau_hat = propensity_scores * self.cate_controls_models[ind].predict(X).reshape(m, -1) \
-                + (1 - propensity_scores) * self.cate_treated_models[ind].predict(X).reshape(m, -1)
+            tau_hat = propensity_scores * self.cate_controls_models[ind].predict(X).reshape(m, -1) + (
+                1 - propensity_scores
+            ) * self.cate_treated_models[ind].predict(X).reshape(m, -1)
             taus.append(tau_hat)
         taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
@@ -491,12 +512,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([0.51238..., 1.99864..., 0.68553...])
     """
 
-    def __init__(self, *,
-                 models,
-                 final_models,
-                 propensity_model=LogisticRegression(),
-                 categories='auto',
-                 allow_missing=False):
+    def __init__(
+        self, *, models, final_models, propensity_model=LogisticRegression(), categories='auto', allow_missing=False
+    ):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
@@ -532,8 +550,13 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
-                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, _ = check_inputs(
+            Y,
+            T,
+            X,
+            multi_output_T=False,
+            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
+        )
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -558,13 +581,20 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             # Train model on controls. Assign higher weight to units resembling
             # treated units.
-            self._fit_weighted_pipeline(self.models_control[ind], X[T == 0], Y[T == 0],
-                                        sample_weight=pro_scores[T_concat == 0] / (1 - pro_scores[T_concat == 0]))
+            self._fit_weighted_pipeline(
+                self.models_control[ind],
+                X[T == 0],
+                Y[T == 0],
+                sample_weight=pro_scores[T_concat == 0] / (1 - pro_scores[T_concat == 0]),
+            )
             # Train model on the treated. Assign higher weight to units resembling
             # control units.
-            self._fit_weighted_pipeline(self.models_treated[ind], X[T == ind + 1], Y[T == ind + 1],
-                                        sample_weight=(1 - pro_scores[T_concat == ind + 1]) /
-                                        pro_scores[T_concat == ind + 1])
+            self._fit_weighted_pipeline(
+                self.models_treated[ind],
+                X[T == ind + 1],
+                Y[T == ind + 1],
+                sample_weight=(1 - pro_scores[T_concat == ind + 1]) / pro_scores[T_concat == ind + 1],
+            )
             imputed_effect_on_controls = self.models_treated[ind].predict(X[T == 0]) - Y[T == 0]
             imputed_effect_on_treated = Y[T == ind + 1] - self.models_control[ind].predict(X[T == ind + 1])
 
@@ -603,11 +633,18 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_model_cate(self.const_marginal_effect, self.final_models, X, self._d_t, self._d_y,
-                                        featurizer=None,
-                                        feature_names=feature_names,
-                                        treatment_names=treatment_names,
-                                        output_names=output_names,
-                                        input_names=self._input_names,
-                                        background_samples=background_samples)
+        return _shap_explain_model_cate(
+            self.const_marginal_effect,
+            self.final_models,
+            X,
+            self._d_t,
+            self._d_y,
+            featurizer=None,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            output_names=output_names,
+            input_names=self._input_names,
+            background_samples=background_samples,
+        )
+
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

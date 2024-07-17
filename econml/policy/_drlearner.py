@@ -13,9 +13,9 @@ from . import PolicyTree, PolicyForest
 
 
 class _PolicyModelFinal(_ModelFinal):
-
-    def fit(self, Y, T, X=None, W=None, *, nuisances,
-            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
+    def fit(
+        self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, freq_weight=None, sample_var=None, groups=None
+    ):
         if sample_var is not None:
             warn('Parameter `sample_var` is ignored by the final estimator')
             sample_var = None
@@ -44,13 +44,11 @@ class _PolicyModelFinal(_ModelFinal):
 
 
 class _DRLearnerWrapper(DRLearner):
-
     def _gen_ortho_learner_model_final(self):
         return _PolicyModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final)
 
 
 class _BaseDRPolicyLearner(PolicyLearner):
-
     def _gen_drpolicy_learner(self):
         pass
 
@@ -84,7 +82,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self
 
     def predict_value(self, X):
-        """ Get effect values for each non-baseline treatment and for each sample.
+        """Get effect values for each non-baseline treatment and for each sample.
 
         Parameters
         ----------
@@ -100,7 +98,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self.drlearner_.const_marginal_effect(X)
 
     def predict_proba(self, X):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment
 
         Parameters
         ----------
@@ -112,13 +110,13 @@ class _BaseDRPolicyLearner(PolicyLearner):
         treatment_proba : array_like of shape (n_samples, n_treatments)
             The probability of each treatment recommendation
         """
-        X, = check_input_arrays(X)
+        (X,) = check_input_arrays(X)
         if self.drlearner_.featurizer_ is not None:
             X = self.drlearner_.featurizer_.fit_transform(X)
         return self.policy_model_.predict_proba(X)
 
     def predict(self, X):
-        """ Get recommended treatment for each sample.
+        """Get recommended treatment for each sample.
 
         Parameters
         ----------
@@ -170,9 +168,11 @@ class _BaseDRPolicyLearner(PolicyLearner):
         """
         if treatment_names is not None:
             if len(treatment_names) != len(self.drlearner_.cate_treatment_names()) + 1:
-                raise ValueError('The variable `treatment_names` should have length equal to '
-                                 'n_treatments + 1, containing the value of the control/none/baseline treatment as '
-                                 'the first element and the names of all the treatments as subsequent elements.')
+                raise ValueError(
+                    'The variable `treatment_names` should have length equal to '
+                    'n_treatments + 1, containing the value of the control/none/baseline treatment as '
+                    'the first element and the names of all the treatments as subsequent elements.'
+                )
             return treatment_names
         return ['None'] + self.drlearner_.cate_treatment_names()
 
@@ -191,8 +191,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         feature_importances_ : ndarray of shape (n_features,)
             Normalized total parameter heterogeneity inducing importance of each feature
         """
-        return self.policy_model_.feature_importances(max_depth=max_depth,
-                                                      depth_decay_exponent=depth_decay_exponent)
+        return self.policy_model_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
 
     @property
     def feature_importances_(self):
@@ -200,8 +199,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
     @property
     def policy_model_(self):
-        """ The trained final stage policy model
-        """
+        """The trained final stage policy model"""
         return self.drlearner_.multitask_model_cate
 
 
@@ -380,24 +378,27 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *,
-                 model_regression="auto",
-                 model_propensity="auto",
-                 featurizer=None,
-                 min_propensity=1e-6,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 random_state=None):
+    def __init__(
+        self,
+        *,
+        model_regression="auto",
+        model_propensity="auto",
+        featurizer=None,
+        min_propensity=1e-6,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        min_balancedness_tol=0.45,
+        honest=True,
+        random_state=None,
+    ):
         self.model_regression = clone(model_regression, safe=False)
         self.model_propensity = clone(model_propensity, safe=False)
         self.featurizer = clone(featurizer, safe=False)
@@ -417,28 +418,43 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         self.random_state = random_state
 
     def _gen_drpolicy_learner(self):
-        return _DRLearnerWrapper(model_regression=self.model_regression,
-                                 model_propensity=self.model_propensity,
-                                 featurizer=self.featurizer,
-                                 min_propensity=self.min_propensity,
-                                 categories=self.categories,
-                                 cv=self.cv,
-                                 mc_iters=self.mc_iters,
-                                 mc_agg=self.mc_agg,
-                                 model_final=PolicyTree(max_depth=self.max_depth,
-                                                        min_samples_split=self.min_samples_split,
-                                                        min_samples_leaf=self.min_samples_leaf,
-                                                        min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                                        max_features=self.max_features,
-                                                        min_impurity_decrease=self.min_impurity_decrease,
-                                                        min_balancedness_tol=self.min_balancedness_tol,
-                                                        honest=self.honest,
-                                                        random_state=self.random_state),
-                                 multitask_model_final=True,
-                                 random_state=self.random_state)
+        return _DRLearnerWrapper(
+            model_regression=self.model_regression,
+            model_propensity=self.model_propensity,
+            featurizer=self.featurizer,
+            min_propensity=self.min_propensity,
+            categories=self.categories,
+            cv=self.cv,
+            mc_iters=self.mc_iters,
+            mc_agg=self.mc_agg,
+            model_final=PolicyTree(
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                max_features=self.max_features,
+                min_impurity_decrease=self.min_impurity_decrease,
+                min_balancedness_tol=self.min_balancedness_tol,
+                honest=self.honest,
+                random_state=self.random_state,
+            ),
+            multitask_model_final=True,
+            random_state=self.random_state,
+        )
 
-    def plot(self, *, feature_names=None, treatment_names=None, ax=None, title=None,
-             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
+    def plot(
+        self,
+        *,
+        feature_names=None,
+        treatment_names=None,
+        ax=None,
+        title=None,
+        max_depth=None,
+        filled=True,
+        rounded=True,
+        precision=3,
+        fontsize=None,
+    ):
         """
         Exports policy trees to matplotlib
 
@@ -475,20 +491,32 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         fontsize : int, optional
             Font size for text
         """
-        return self.policy_model_.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                       treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
-                                       ax=ax,
-                                       title=title,
-                                       max_depth=max_depth,
-                                       filled=filled,
-                                       rounded=rounded,
-                                       precision=precision,
-                                       fontsize=fontsize)
+        return self.policy_model_.plot(
+            feature_names=self.policy_feature_names(feature_names=feature_names),
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            ax=ax,
+            title=title,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )
 
-    def export_graphviz(self, *, out_file=None,
-                        feature_names=None, treatment_names=None,
-                        max_depth=None, filled=True, leaves_parallel=True,
-                        rotate=False, rounded=True, special_characters=False, precision=3):
+    def export_graphviz(
+        self,
+        *,
+        out_file=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Export a graphviz dot file representing the learned tree model
 
@@ -530,22 +558,35 @@ class DRPolicyTree(_BaseDRPolicyLearner):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-        return self.policy_model_.export_graphviz(out_file=out_file,
-                                                  feature_names=self.policy_feature_names(feature_names=feature_names),
-                                                  treatment_names=self.policy_treatment_names(
-                                                      treatment_names=treatment_names),
-                                                  max_depth=max_depth,
-                                                  filled=filled,
-                                                  leaves_parallel=leaves_parallel,
-                                                  rotate=rotate,
-                                                  rounded=rounded,
-                                                  special_characters=special_characters,
-                                                  precision=precision)
+        return self.policy_model_.export_graphviz(
+            out_file=out_file,
+            feature_names=self.policy_feature_names(feature_names=feature_names),
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
-    def render(self, out_file, *, format='pdf', view=True, feature_names=None,
-               treatment_names=None, max_depth=None,
-               filled=True, leaves_parallel=True, rotate=False, rounded=True,
-               special_characters=False, precision=3):
+    def render(
+        self,
+        out_file,
+        *,
+        format='pdf',
+        view=True,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Render the tree to a flie
 
@@ -591,18 +632,20 @@ class DRPolicyTree(_BaseDRPolicyLearner):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-        return self.policy_model_.render(out_file,
-                                         format=format,
-                                         view=view,
-                                         feature_names=self.policy_feature_names(feature_names=feature_names),
-                                         treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
-                                         max_depth=max_depth,
-                                         filled=filled,
-                                         leaves_parallel=leaves_parallel,
-                                         rotate=rotate,
-                                         rounded=rounded,
-                                         special_characters=special_characters,
-                                         precision=precision)
+        return self.policy_model_.render(
+            out_file,
+            format=format,
+            view=view,
+            feature_names=self.policy_feature_names(feature_names=feature_names),
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
 
 class DRPolicyForest(_BaseDRPolicyLearner):
@@ -801,28 +844,31 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *,
-                 model_regression="auto",
-                 model_propensity="auto",
-                 featurizer=None,
-                 min_propensity=1e-6,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 n_estimators=100,
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.5,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 n_jobs=-1,
-                 verbose=0,
-                 random_state=None):
+    def __init__(
+        self,
+        *,
+        model_regression="auto",
+        model_propensity="auto",
+        featurizer=None,
+        min_propensity=1e-6,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        n_estimators=100,
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.5,
+        min_balancedness_tol=0.45,
+        honest=True,
+        n_jobs=-1,
+        verbose=0,
+        random_state=None,
+    ):
         self.model_regression = clone(model_regression, safe=False)
         self.model_propensity = clone(model_propensity, safe=False)
         self.featurizer = clone(featurizer, safe=False)
@@ -846,33 +892,48 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         self.random_state = random_state
 
     def _gen_drpolicy_learner(self):
-        return _DRLearnerWrapper(model_regression=self.model_regression,
-                                 model_propensity=self.model_propensity,
-                                 featurizer=self.featurizer,
-                                 min_propensity=self.min_propensity,
-                                 categories=self.categories,
-                                 cv=self.cv,
-                                 mc_iters=self.mc_iters,
-                                 mc_agg=self.mc_agg,
-                                 model_final=PolicyForest(n_estimators=self.n_estimators,
-                                                          max_depth=self.max_depth,
-                                                          min_samples_split=self.min_samples_split,
-                                                          min_samples_leaf=self.min_samples_leaf,
-                                                          min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                                          max_features=self.max_features,
-                                                          min_impurity_decrease=self.min_impurity_decrease,
-                                                          max_samples=self.max_samples,
-                                                          min_balancedness_tol=self.min_balancedness_tol,
-                                                          honest=self.honest,
-                                                          n_jobs=self.n_jobs,
-                                                          verbose=self.verbose,
-                                                          random_state=self.random_state),
-                                 multitask_model_final=True,
-                                 random_state=self.random_state)
+        return _DRLearnerWrapper(
+            model_regression=self.model_regression,
+            model_propensity=self.model_propensity,
+            featurizer=self.featurizer,
+            min_propensity=self.min_propensity,
+            categories=self.categories,
+            cv=self.cv,
+            mc_iters=self.mc_iters,
+            mc_agg=self.mc_agg,
+            model_final=PolicyForest(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                max_features=self.max_features,
+                min_impurity_decrease=self.min_impurity_decrease,
+                max_samples=self.max_samples,
+                min_balancedness_tol=self.min_balancedness_tol,
+                honest=self.honest,
+                n_jobs=self.n_jobs,
+                verbose=self.verbose,
+                random_state=self.random_state,
+            ),
+            multitask_model_final=True,
+            random_state=self.random_state,
+        )
 
-    def plot(self, tree_id, *, feature_names=None, treatment_names=None,
-             ax=None, title=None,
-             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
+    def plot(
+        self,
+        tree_id,
+        *,
+        feature_names=None,
+        treatment_names=None,
+        ax=None,
+        title=None,
+        max_depth=None,
+        filled=True,
+        rounded=True,
+        precision=3,
+        fontsize=None,
+    ):
         """
         Exports policy trees to matplotlib
 
@@ -913,21 +974,33 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         fontsize : int, optional
             Font size for text
         """
-        return self.policy_model_[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                                treatment_names=self.policy_treatment_names(
-                                                    treatment_names=treatment_names),
-                                                ax=ax,
-                                                title=title,
-                                                max_depth=max_depth,
-                                                filled=filled,
-                                                rounded=rounded,
-                                                precision=precision,
-                                                fontsize=fontsize)
+        return self.policy_model_[tree_id].plot(
+            feature_names=self.policy_feature_names(feature_names=feature_names),
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            ax=ax,
+            title=title,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )
 
-    def export_graphviz(self, tree_id, *, out_file=None, feature_names=None, treatment_names=None,
-                        max_depth=None,
-                        filled=True, leaves_parallel=True,
-                        rotate=False, rounded=True, special_characters=False, precision=3):
+    def export_graphviz(
+        self,
+        tree_id,
+        *,
+        out_file=None,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Export a graphviz dot file representing the learned tree model
 
@@ -974,24 +1047,36 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
-        return self.policy_model_[tree_id].export_graphviz(out_file=out_file,
-                                                           feature_names=feature_names,
-                                                           treatment_names=self.policy_treatment_names(
-                                                               treatment_names=treatment_names),
-                                                           max_depth=max_depth,
-                                                           filled=filled,
-                                                           leaves_parallel=leaves_parallel,
-                                                           rotate=rotate,
-                                                           rounded=rounded,
-                                                           special_characters=special_characters,
-                                                           precision=precision)
+        return self.policy_model_[tree_id].export_graphviz(
+            out_file=out_file,
+            feature_names=feature_names,
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
-    def render(self, tree_id, out_file, *, format='pdf', view=True,
-               feature_names=None,
-               treatment_names=None,
-               max_depth=None,
-               filled=True, leaves_parallel=True, rotate=False, rounded=True,
-               special_characters=False, precision=3):
+    def render(
+        self,
+        tree_id,
+        out_file,
+        *,
+        format='pdf',
+        view=True,
+        feature_names=None,
+        treatment_names=None,
+        max_depth=None,
+        filled=True,
+        leaves_parallel=True,
+        rotate=False,
+        rounded=True,
+        special_characters=False,
+        precision=3,
+    ):
         """
         Render the tree to a flie
 
@@ -1042,16 +1127,17 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
-        return self.policy_model_[tree_id].render(out_file,
-                                                  feature_names=feature_names,
-                                                  treatment_names=self.policy_treatment_names(
-                                                      treatment_names=treatment_names),
-                                                  format=format,
-                                                  view=view,
-                                                  max_depth=max_depth,
-                                                  filled=filled,
-                                                  leaves_parallel=leaves_parallel,
-                                                  rotate=rotate,
-                                                  rounded=rounded,
-                                                  special_characters=special_characters,
-                                                  precision=precision)
+        return self.policy_model_[tree_id].render(
+            out_file,
+            feature_names=feature_names,
+            treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
+            format=format,
+            view=view,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )

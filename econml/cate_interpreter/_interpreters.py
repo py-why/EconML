@@ -8,13 +8,16 @@ import sklearn
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.utils import check_array
 from ..policy import PolicyTree
-from .._tree_exporter import (_SingleTreeExporterMixin,
-                              _CateTreeDOTExporter, _CateTreeMPLExporter,
-                              _PolicyTreeDOTExporter, _PolicyTreeMPLExporter)
+from .._tree_exporter import (
+    _SingleTreeExporterMixin,
+    _CateTreeDOTExporter,
+    _CateTreeMPLExporter,
+    _PolicyTreeDOTExporter,
+    _PolicyTreeMPLExporter,
+)
 
 
 class _SingleTreeInterpreter(_SingleTreeExporterMixin, metaclass=abc.ABCMeta):
-
     @abc.abstractmethod
     def interpret(self, cate_estimator, X):
         """
@@ -124,8 +127,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -134,19 +136,22 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         if ``sample_weight`` is passed.
     """
 
-    def __init__(self, *,
-                 include_model_uncertainty=False,
-                 uncertainty_level=0.05,
-                 uncertainty_only_on_leaves=True,
-                 splitter="best",
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features=None,
-                 random_state=None,
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.):
+    def __init__(
+        self,
+        *,
+        include_model_uncertainty=False,
+        uncertainty_level=0.05,
+        uncertainty_only_on_leaves=True,
+        splitter="best",
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        min_weight_fraction_leaf=0.0,
+        max_features=None,
+        random_state=None,
+        max_leaf_nodes=None,
+        min_impurity_decrease=0.0,
+    ):
         self.include_uncertainty = include_model_uncertainty
         self.uncertainty_level = uncertainty_level
         self.uncertainty_only_on_leaves = uncertainty_only_on_leaves
@@ -179,16 +184,18 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         -------
         self: object instance
         """
-        self.tree_model_ = DecisionTreeRegressor(criterion=self.criterion,
-                                                 splitter=self.splitter,
-                                                 max_depth=self.max_depth,
-                                                 min_samples_split=self.min_samples_split,
-                                                 min_samples_leaf=self.min_samples_leaf,
-                                                 min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                                 max_features=self.max_features,
-                                                 random_state=self.random_state,
-                                                 max_leaf_nodes=self.max_leaf_nodes,
-                                                 min_impurity_decrease=self.min_impurity_decrease)
+        self.tree_model_ = DecisionTreeRegressor(
+            criterion=self.criterion,
+            splitter=self.splitter,
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            min_samples_leaf=self.min_samples_leaf,
+            min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+            max_features=self.max_features,
+            random_state=self.random_state,
+            max_leaf_nodes=self.max_leaf_nodes,
+            min_impurity_decrease=self.min_impurity_decrease,
+        )
         y_pred = cate_estimator.const_marginal_effect(X)
 
         self.tree_model_.fit(X, y_pred.reshape((y_pred.shape[0], -1)))
@@ -197,40 +204,65 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         for node_id in range(paths.shape[1]):
             mask = paths.getcol(node_id).toarray().flatten().astype(bool)
             Xsub = X[mask]
-            if (self.include_uncertainty and
-                    ((not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0))):
+            if self.include_uncertainty and (
+                (not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0)
+            ):
                 res = cate_estimator.const_marginal_ate_inference(Xsub)
-                node_dict[node_id] = {'mean': res.mean_point,
-                                      'std': res.std_point,
-                                      'ci': res.conf_int_mean(alpha=self.uncertainty_level)}
+                node_dict[node_id] = {
+                    'mean': res.mean_point,
+                    'std': res.std_point,
+                    'ci': res.conf_int_mean(alpha=self.uncertainty_level),
+                }
             else:
                 cate_node = y_pred[mask]
-                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0),
-                                      'std': np.std(cate_node, axis=0)}
+                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0), 'std': np.std(cate_node, axis=0)}
         self.node_dict_ = node_dict
         return self
 
-    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
-                           leaves_parallel, rotate, rounded,
-                           special_characters, precision):
-        return _CateTreeDOTExporter(self.include_uncertainty, self.uncertainty_level,
-                                    out_file=out_file, feature_names=feature_names,
-                                    treatment_names=treatment_names,
-                                    max_depth=max_depth,
-                                    filled=filled,
-                                    leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
-                                    special_characters=special_characters, precision=precision)
+    def _make_dot_exporter(
+        self,
+        *,
+        out_file,
+        feature_names,
+        treatment_names,
+        max_depth,
+        filled,
+        leaves_parallel,
+        rotate,
+        rounded,
+        special_characters,
+        precision,
+    ):
+        return _CateTreeDOTExporter(
+            self.include_uncertainty,
+            self.uncertainty_level,
+            out_file=out_file,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
-    def _make_mpl_exporter(self, *, title, feature_names, treatment_names, max_depth,
-                           filled,
-                           rounded, precision, fontsize):
-        return _CateTreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
-                                    title=title, feature_names=feature_names,
-                                    treatment_names=treatment_names,
-                                    max_depth=max_depth,
-                                    filled=filled,
-                                    rounded=rounded,
-                                    precision=precision, fontsize=fontsize)
+    def _make_mpl_exporter(
+        self, *, title, feature_names, treatment_names, max_depth, filled, rounded, precision, fontsize
+    ):
+        return _CateTreeMPLExporter(
+            self.include_uncertainty,
+            self.uncertainty_level,
+            title=title,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )
 
 
 class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
@@ -327,8 +359,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -353,20 +384,23 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         The value of the policy that always treats all units, applied to the sample used with :meth:`interpret`
     """
 
-    def __init__(self, *,
-                 include_model_uncertainty=False,
-                 uncertainty_level=0.05,
-                 uncertainty_only_on_leaves=True,
-                 risk_level=None,
-                 risk_seeking=False,
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features=None,
-                 min_balancedness_tol=.45,
-                 min_impurity_decrease=0.,
-                 random_state=None):
+    def __init__(
+        self,
+        *,
+        include_model_uncertainty=False,
+        uncertainty_level=0.05,
+        uncertainty_only_on_leaves=True,
+        risk_level=None,
+        risk_seeking=False,
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        min_weight_fraction_leaf=0.0,
+        max_features=None,
+        min_balancedness_tol=0.45,
+        min_impurity_decrease=0.0,
+        random_state=None,
+    ):
         self.include_uncertainty = include_model_uncertainty
         self.uncertainty_level = uncertainty_level
         self.uncertainty_only_on_leaves = uncertainty_only_on_leaves
@@ -410,17 +444,19 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             X = np.empty(shape=(1, 0))
             X_in = None
 
-        self.tree_model_ = PolicyTree(criterion='neg_welfare',
-                                      splitter='best',
-                                      max_depth=self.max_depth,
-                                      min_samples_split=self.min_samples_split,
-                                      min_samples_leaf=self.min_samples_leaf,
-                                      min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                      max_features=self.max_features,
-                                      min_impurity_decrease=self.min_impurity_decrease,
-                                      min_balancedness_tol=self.min_balancedness_tol,
-                                      honest=False,
-                                      random_state=self.random_state)
+        self.tree_model_ = PolicyTree(
+            criterion='neg_welfare',
+            splitter='best',
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            min_samples_leaf=self.min_samples_leaf,
+            min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+            max_features=self.max_features,
+            min_impurity_decrease=self.min_impurity_decrease,
+            min_balancedness_tol=self.min_balancedness_tol,
+            honest=False,
+            random_state=self.random_state,
+        )
 
         if self.risk_level is None:
             y_pred = cate_estimator.const_marginal_effect(X_in)
@@ -448,8 +484,10 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                 if sample_treatment_costs.shape == y_pred.shape:
                     y_pred -= sample_treatment_costs
                 else:
-                    raise ValueError("`sample_treatment_costs` should be a double scalar "
-                                     "or have dimension (n_samples, n_treatments) or (n_samples,) if T is a vector")
+                    raise ValueError(
+                        "`sample_treatment_costs` should be a double scalar "
+                        "or have dimension (n_samples, n_treatments) or (n_samples,) if T is a vector"
+                    )
 
         # get index of best treatment
         all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), np.atleast_1d(y_pred)])
@@ -463,16 +501,18 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         for node_id in range(paths.shape[1]):
             mask = paths.getcol(node_id).toarray().flatten().astype(bool)
             Xsub = X_in[mask] if X_in is not None else None
-            if (self.include_uncertainty and
-                    ((not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0))):
+            if self.include_uncertainty and (
+                (not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0)
+            ):
                 res = cate_estimator.const_marginal_ate_inference(Xsub)
-                node_dict[node_id] = {'mean': res.mean_point,
-                                      'std': res.std_point,
-                                      'ci': res.conf_int_mean(alpha=self.uncertainty_level)}
+                node_dict[node_id] = {
+                    'mean': res.mean_point,
+                    'std': res.std_point,
+                    'ci': res.conf_int_mean(alpha=self.uncertainty_level),
+                }
             else:
                 cate_node = y_pred[mask]
-                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0),
-                                      'std': np.std(cate_node, axis=0)}
+                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0), 'std': np.std(cate_node, axis=0)}
         self.node_dict_ = node_dict
 
         return self
@@ -496,30 +536,53 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         assert self.tree_model_ is not None, "Interpret must be called prior to trying to assign treatment."
         return self.tree_model_.predict(X)
 
-    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
-                           leaves_parallel, rotate, rounded,
-                           special_characters, precision):
+    def _make_dot_exporter(
+        self,
+        *,
+        out_file,
+        feature_names,
+        treatment_names,
+        max_depth,
+        filled,
+        leaves_parallel,
+        rotate,
+        rounded,
+        special_characters,
+        precision,
+    ):
         title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
-            np.around(self.policy_value_ - self.always_treat_value_, precision))
-        return _PolicyTreeDOTExporter(out_file=out_file, title=title,
-                                      treatment_names=treatment_names,
-                                      feature_names=feature_names,
-                                      max_depth=max_depth,
-                                      filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
-                                      rounded=rounded, special_characters=special_characters,
-                                      precision=precision)
+            np.around(self.policy_value_ - self.always_treat_value_, precision)
+        )
+        return _PolicyTreeDOTExporter(
+            out_file=out_file,
+            title=title,
+            treatment_names=treatment_names,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
-    def _make_mpl_exporter(self, *, title, feature_names, treatment_names, max_depth, filled,
-                           rounded, precision, fontsize):
+    def _make_mpl_exporter(
+        self, *, title, feature_names, treatment_names, max_depth, filled, rounded, precision, fontsize
+    ):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
-            np.around(self.policy_value_ - self.always_treat_value_, precision))
-        return _PolicyTreeMPLExporter(treatment_names=treatment_names,
-                                      title=title,
-                                      feature_names=feature_names,
-                                      max_depth=max_depth,
-                                      filled=filled,
-                                      rounded=rounded,
-                                      precision=precision, fontsize=fontsize)
+            np.around(self.policy_value_ - self.always_treat_value_, precision)
+        )
+        return _PolicyTreeMPLExporter(
+            treatment_names=treatment_names,
+            title=title,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )

@@ -107,9 +107,14 @@ class TestDMLIV(unittest.TestCase):
                                     est_list = est_list[:-1]
 
                                 for est in est_list:
-                                    with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
-                                                      featurizer=featurizer, est=est):
-
+                                    with self.subTest(
+                                        d_w=d_w,
+                                        d_x=d_x,
+                                        binary_T=binary_T,
+                                        binary_Z=binary_Z,
+                                        featurizer=featurizer,
+                                        est=est,
+                                    ):
                                         # ensure we can serialize unfit estimator
                                         pickle.dumps(est)
 
@@ -136,8 +141,9 @@ class TestDMLIV(unittest.TestCase):
                                             const_marg_eff_int = est.const_marginal_effect_interval(X)
                                             marg_eff_int = est.marginal_effect_interval(T, X)
                                             eff_int = est.effect_interval(X, T0=0, T1=1)
-                                            self.assertEqual(shape(const_marg_eff_int), (2,) +
-                                                             const_marginal_effect_shape)
+                                            self.assertEqual(
+                                                shape(const_marg_eff_int), (2,) + const_marginal_effect_shape
+                                            )
                                             self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
                                             self.assertEqual(shape(eff_int), (2,) + effect_shape)
 
@@ -150,8 +156,9 @@ class TestDMLIV(unittest.TestCase):
 
                                         if X is not None:
                                             # test cate_feature_names
-                                            expect_feat_len = featurizer.fit(
-                                                X).n_output_features_ if featurizer else d_x
+                                            expect_feat_len = (
+                                                featurizer.fit(X).n_output_features_ if featurizer else d_x
+                                            )
                                             self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
 
                                             # test can run shap values
@@ -164,6 +171,7 @@ class TestDMLIV(unittest.TestCase):
         def dgp(n, p, true_fn):
             def epsilon_sample(n):
                 return np.random.normal(-3, 3, size=(n,))
+
             X = np.random.normal(0, 1, size=(n, p))
             beta_z = np.random.uniform(3, 5, size=(p,))
             Z = np.dot(X, beta_z) + epsilon_sample(n)
@@ -195,6 +203,7 @@ class TestDMLIV(unittest.TestCase):
 
         def true_fn(X):
             return true_ate
+
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):

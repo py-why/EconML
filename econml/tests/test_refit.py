@@ -5,21 +5,24 @@ from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso, El
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
-from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML)
-from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.iv.dml import (OrthoIV, DMLIV, NonParamDMLIV)
-from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
-from econml.sklearn_extensions.linear_model import (DebiasedLasso, WeightedLasso,
-                                                    StatsModelsRLM, StatsModelsLinearRegression)
+from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML
+from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
+from econml.iv.dr import LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV
+from econml.sklearn_extensions.linear_model import (
+    DebiasedLasso,
+    WeightedLasso,
+    StatsModelsRLM,
+    StatsModelsLinearRegression,
+)
 from econml.inference import NormalInferenceResults, BootstrapInference
 
 
 class TestRefit(unittest.TestCase):
-
     def _get_data(self):
         X = np.random.choice(np.arange(5), size=(500, 3))
         y = np.random.normal(size=(500,))
-        T = np.random.binomial(1, .5, size=(500,))
+        T = np.random.binomial(1, 0.5, size=(500,))
         W = np.random.normal(size=(500, 2))
         return y, T, X, W
 
@@ -27,10 +30,12 @@ class TestRefit(unittest.TestCase):
         """Test setting attributes and refitting"""
         y, T, X, W = self._get_data()
 
-        dml = DML(model_y=LinearRegression(),
-                  model_t=LinearRegression(),
-                  model_final=StatsModelsLinearRegression(fit_intercept=False),
-                  random_state=123)
+        dml = DML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=StatsModelsLinearRegression(fit_intercept=False),
+            random_state=123,
+        )
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
             dml.refit_final()
@@ -66,8 +71,8 @@ class TestRefit(unittest.TestCase):
         dml.fit_cate_intercept = True
         dml.refit_final()
         assert isinstance(dml.featurizer_, Pipeline)
-        np.testing.assert_array_equal(dml.coef_.shape, (X.shape[1]**2))
-        np.testing.assert_array_equal(dml.coef__interval()[0].shape, (X.shape[1]**2))
+        np.testing.assert_array_equal(dml.coef_.shape, (X.shape[1] ** 2))
+        np.testing.assert_array_equal(dml.coef__interval()[0].shape, (X.shape[1] ** 2))
         coefpre = dml.coef_
         coefpreint = dml.coef__interval()
         dml.fit(y, T, X=X, W=W)
@@ -77,23 +82,23 @@ class TestRefit(unittest.TestCase):
         dml.featurizer = None
         dml.model_t = LogisticRegression(random_state=123)
         dml.fit(y, T, X=X, W=W)
-        newdml = DML(model_y=LinearRegression(),
-                     model_t=LogisticRegression(random_state=123),
-                     model_final=StatsModelsLinearRegression(fit_intercept=False),
-                     discrete_treatment=True,
-                     random_state=123).fit(y, T, X=X, W=W)
+        newdml = DML(
+            model_y=LinearRegression(),
+            model_t=LogisticRegression(random_state=123),
+            model_final=StatsModelsLinearRegression(fit_intercept=False),
+            discrete_treatment=True,
+            random_state=123,
+        ).fit(y, T, X=X, W=W)
         np.testing.assert_array_equal(dml.coef_, newdml.coef_)
         np.testing.assert_array_equal(dml.coef__interval()[0], newdml.coef__interval()[0])
 
-        ldml = LinearDML(model_y=LinearRegression(),
-                         model_t=LinearRegression())
+        ldml = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
         ldml.fit(y, T, X=X, W=W, cache_values=True)
         # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
         with pytest.raises(ValueError):
             ldml.model_final = StatsModelsRLM()
 
-        ldml = SparseLinearDML(model_y=LinearRegression(),
-                               model_t=LinearRegression())
+        ldml = SparseLinearDML(model_y=LinearRegression(), model_t=LinearRegression())
         ldml.fit(y, T, X=X, W=W, cache_values=True)
         # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
         with pytest.raises(ValueError):
@@ -109,10 +114,12 @@ class TestRefit(unittest.TestCase):
     def test_nonparam_dml(self):
         y, T, X, W = self._get_data()
 
-        dml = NonParamDML(model_y=LinearRegression(),
-                          model_t=LinearRegression(),
-                          model_final=WeightedLasso(random_state=123),
-                          random_state=123)
+        dml = NonParamDML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=WeightedLasso(random_state=123),
+            random_state=123,
+        )
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
             dml.refit_final()
@@ -130,19 +137,20 @@ class TestRefit(unittest.TestCase):
         dml.model_t = LogisticRegression(random_state=123)
         dml.model_final = DebiasedLasso(random_state=123)
         dml.fit(y, T, X=X, W=W)
-        newdml = NonParamDML(model_y=LinearRegression(),
-                             model_t=LogisticRegression(random_state=123),
-                             model_final=DebiasedLasso(random_state=123),
-                             discrete_treatment=True,
-                             random_state=123).fit(y, T, X=X, W=W)
+        newdml = NonParamDML(
+            model_y=LinearRegression(),
+            model_t=LogisticRegression(random_state=123),
+            model_final=DebiasedLasso(random_state=123),
+            discrete_treatment=True,
+            random_state=123,
+        ).fit(y, T, X=X, W=W)
         np.testing.assert_array_equal(dml.effect(X[:1]), newdml.effect(X[:1]))
         np.testing.assert_array_equal(dml.effect_interval(X[:1])[0], newdml.effect_interval(X[:1])[0])
 
     def test_drlearner(self):
         y, T, X, W = self._get_data()
 
-        for est in [LinearDRLearner(random_state=123),
-                    SparseLinearDRLearner(random_state=123)]:
+        for est in [LinearDRLearner(random_state=123), SparseLinearDRLearner(random_state=123)]:
             est.fit(y, T, X=X, W=W, cache_values=True)
             np.testing.assert_equal(est.model_regression, 'auto')
             est.model_regression = LinearRegression()
@@ -153,7 +161,7 @@ class TestRefit(unittest.TestCase):
                 est.multitask_model_final = True
             with pytest.raises(ValueError):
                 est.model_final = LinearRegression()
-            est.min_propensity = .1
+            est.min_propensity = 0.1
             est.mc_iters = 2
             est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
             est.refit_final()
@@ -172,10 +180,9 @@ class TestRefit(unittest.TestCase):
     def test_orthoiv(self):
         y, T, X, W = self._get_data()
         Z = T.copy()
-        est = OrthoIV(model_y_xw=LinearRegression(),
-                      model_t_xw=LinearRegression(),
-                      model_z_xw=LinearRegression(),
-                      mc_iters=2)
+        est = OrthoIV(
+            model_y_xw=LinearRegression(), model_t_xw=LinearRegression(), model_z_xw=LinearRegression(), mc_iters=2
+        )
         est.fit(y, T, Z=Z, W=W, cache_values=True)
         est.refit_final()
         est.model_y_xw = Lasso()
@@ -186,11 +193,13 @@ class TestRefit(unittest.TestCase):
         assert isinstance(est.models_t_xw[0][0], ElasticNet)
         assert isinstance(est.models_z_xw[0][0], WeightedLasso)
 
-        est = DMLIV(model_y_xw=LinearRegression(),
-                    model_t_xw=LinearRegression(),
-                    model_t_xwz=LinearRegression(),
-                    model_final=LinearRegression(fit_intercept=False),
-                    mc_iters=2)
+        est = DMLIV(
+            model_y_xw=LinearRegression(),
+            model_t_xw=LinearRegression(),
+            model_t_xwz=LinearRegression(),
+            model_final=LinearRegression(fit_intercept=False),
+            mc_iters=2,
+        )
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.model_y_xw = Lasso()
         est.model_t_xw = ElasticNet()
@@ -200,11 +209,13 @@ class TestRefit(unittest.TestCase):
         assert isinstance(est.models_t_xw[0][0], ElasticNet)
         assert isinstance(est.models_t_xwz[0][0], WeightedLasso)
 
-        est = NonParamDMLIV(model_y_xw=LinearRegression(),
-                            model_t_xw=LinearRegression(),
-                            model_t_xwz=LinearRegression(),
-                            model_final=LinearRegression(fit_intercept=True),
-                            mc_iters=2)
+        est = NonParamDMLIV(
+            model_y_xw=LinearRegression(),
+            model_t_xw=LinearRegression(),
+            model_t_xwz=LinearRegression(),
+            model_final=LinearRegression(fit_intercept=True),
+            mc_iters=2,
+        )
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
         est.model_final = WeightedLasso()
@@ -212,8 +223,9 @@ class TestRefit(unittest.TestCase):
         assert isinstance(est.model_cate, WeightedLasso)
         assert isinstance(est.featurizer_, PolynomialFeatures)
 
-        est = IntentToTreatDRIV(model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(),
-                                flexible_model_effect=LinearRegression())
+        est = IntentToTreatDRIV(
+            model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(), flexible_model_effect=LinearRegression()
+        )
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         assert est.model_final is None
         assert isinstance(est.model_final_, LinearRegression)
@@ -229,8 +241,9 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, Lasso)
 
-        est = LinearIntentToTreatDRIV(model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(),
-                                      flexible_model_effect=LinearRegression())
+        est = LinearIntentToTreatDRIV(
+            model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(), flexible_model_effect=LinearRegression()
+        )
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.fit_cate_intercept = False
         est.intercept_
@@ -251,10 +264,12 @@ class TestRefit(unittest.TestCase):
         y = np.random.normal(size=(500,))
         T = np.random.choice(np.arange(3), size=(500, 1))
         W = np.random.normal(size=(500, 2))
-        est = LinearDML(model_y=RandomForestRegressor(),
-                        model_t=RandomForestClassifier(min_samples_leaf=10),
-                        discrete_treatment=True,
-                        cv=3)
+        est = LinearDML(
+            model_y=RandomForestRegressor(),
+            model_t=RandomForestClassifier(min_samples_leaf=10),
+            discrete_treatment=True,
+            cv=3,
+        )
         est.fit(y, T, X=X, W=W)
         est.effect(X)
         est.discrete_treatment = False
@@ -280,11 +295,13 @@ class TestRefit(unittest.TestCase):
     def test_rlearner_residuals(self):
         y, T, X, W = self._get_data()
 
-        dml = DML(model_y=LinearRegression(),
-                  model_t=LinearRegression(),
-                  cv=1,
-                  model_final=StatsModelsLinearRegression(fit_intercept=False),
-                  random_state=123)
+        dml = DML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            cv=1,
+            model_final=StatsModelsLinearRegression(fit_intercept=False),
+            random_state=123,
+        )
         with pytest.raises(AttributeError):
             y_res, T_res, X_res, W_res = dml.residuals_
         dml.fit(y, T, X=X, W=W)

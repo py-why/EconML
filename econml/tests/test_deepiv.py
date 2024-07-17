@@ -11,6 +11,7 @@ from sklearn.preprocessing import OneHotEncoder
 try:
     import keras
     import keras.backend as K
+
     keras_installed = True
 except ImportError:
     keras_installed = False
@@ -64,12 +65,16 @@ class TestDeepIV(unittest.TestCase):
             # so the input shape is (d_z + d_x,)
             # The exact shape of the final layer is not critical because the Deep IV framework will
             # add extra layers on top for the mixture density network
-            treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(d_z + d_x,)),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(64, activation='relu'),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(32, activation='relu'),
-                                                keras.layers.Dropout(0.17)])
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(d_z + d_x,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                ]
+            )
 
             # Define the response model neural network architecture
             # This will take the concatenation of one-dimensional values t and x as input,
@@ -78,27 +83,32 @@ class TestDeepIV(unittest.TestCase):
             # NOTE: For the response model, it is important to define the model *outside*
             #       of the lambda passed to the DeepIvEstimator, as we do here,
             #       so that the same weights will be reused in each instantiation
-            response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(d_t + d_x,)),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(64, activation='relu'),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(32, activation='relu'),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(d_y)])
+            response_model = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(d_t + d_x,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(d_y),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=10,  # number of gaussians in our mixture density network
-                            m=lambda z, x: treatment_model(
-                                keras.layers.concatenate([z, x])),  # treatment model
-                            h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
-                            n_samples=1,  # number of samples to use to estimate the response
-                            use_upper_bound_loss=False,  # whether to use an approximation to the true loss
-                            # number of samples to use in second estimate of the response
-                            # (to make loss estimate unbiased)
-                            n_gradient_samples=1,
-                            # Keras optimizer to use for training - see https://keras.io/optimizers/
-                            optimizer='adam',
-                            first_stage_options=fit_opts,
-                            second_stage_options=fit_opts)
+            deepIv = DeepIV(
+                n_components=10,  # number of gaussians in our mixture density network
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # treatment model
+                h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
+                n_samples=1,  # number of samples to use to estimate the response
+                use_upper_bound_loss=False,  # whether to use an approximation to the true loss
+                # number of samples to use in second estimate of the response
+                # (to make loss estimate unbiased)
+                n_gradient_samples=1,
+                # Keras optimizer to use for training - see https://keras.io/optimizers/
+                optimizer='adam',
+                first_stage_options=fit_opts,
+                second_stage_options=fit_opts,
+            )
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -124,12 +134,16 @@ class TestDeepIV(unittest.TestCase):
             # so the input shape is (d_z + d_x,)
             # The exact shape of the final layer is not critical because the Deep IV framework will
             # add extra layers on top for the mixture density network
-            treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(d_z + d_x,)),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(64, activation='relu'),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(32, activation='relu'),
-                                                keras.layers.Dropout(0.17)])
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(d_z + d_x,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                ]
+            )
 
             # Define the response model neural network architecture
             # This will take the concatenation of one-dimensional values t and x as input,
@@ -138,32 +152,37 @@ class TestDeepIV(unittest.TestCase):
             # NOTE: For the response model, it is important to define the model *outside*
             #       of the lambda passed to the DeepIvEstimator, as we do here,
             #       so that the same weights will be reused in each instantiation
-            response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(1 + d_x,)),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(64, activation='relu'),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(32, activation='relu'),
-                                               keras.layers.Dropout(0.17),
-                                               keras.layers.Dense(1)])
+            response_model = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(1 + d_x,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(1),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=10,  # number of gaussians in our mixture density network
-                            m=lambda z, x: treatment_model(
-                                keras.layers.concatenate([z, x])),  # treatment model
-                            h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
-                            n_samples=1,  # number of samples to use to estimate the response
-                            use_upper_bound_loss=False,  # whether to use an approximation to the true loss
-                            # number of samples to use in second estimate of the response
-                            # (to make loss estimate unbiased)
-                            n_gradient_samples=1,
-                            # Keras optimizer to use for training - see https://keras.io/optimizers/
-                            optimizer='adam',
-                            first_stage_options=fit_opts,
-                            second_stage_options=fit_opts)
+            deepIv = DeepIV(
+                n_components=10,  # number of gaussians in our mixture density network
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # treatment model
+                h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
+                n_samples=1,  # number of samples to use to estimate the response
+                use_upper_bound_loss=False,  # whether to use an approximation to the true loss
+                # number of samples to use in second estimate of the response
+                # (to make loss estimate unbiased)
+                n_gradient_samples=1,
+                # Keras optimizer to use for training - see https://keras.io/optimizers/
+                optimizer='adam',
+                first_stage_options=fit_opts,
+                second_stage_options=fit_opts,
+            )
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
             deepIv.predict(T=t, X=x)
-            assert (deepIv.effect(x).shape == (n,))
+            assert deepIv.effect(x).shape == (n,)
 
     # Doesn't work with CNTK backend as of 2018-07-17 - see https://github.com/keras-team/keras/issues/10715
 
@@ -186,20 +205,33 @@ class TestDeepIV(unittest.TestCase):
         p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, 1))
         y_fresh = p_fresh * x_fresh + e_fresh
 
-        for (n1, u, n2) in [(2, False, None), (2, True, None), (1, False, 1)]:
-            treatment_model = keras.Sequential([keras.layers.Dense(10, activation='relu', input_shape=(2,)),
-                                                keras.layers.Dense(10, activation='relu'),
-                                                keras.layers.Dense(10, activation='relu')])
+        for n1, u, n2 in [(2, False, None), (2, True, None), (1, False, 1)]:
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(10, activation='relu', input_shape=(2,)),
+                    keras.layers.Dense(10, activation='relu'),
+                    keras.layers.Dense(10, activation='relu'),
+                ]
+            )
 
-            hmodel = keras.Sequential([keras.layers.Dense(10, activation='relu', input_shape=(2,)),
-                                       keras.layers.Dense(10, activation='relu'),
-                                       keras.layers.Dense(1)])
+            hmodel = keras.Sequential(
+                [
+                    keras.layers.Dense(10, activation='relu', input_shape=(2,)),
+                    keras.layers.Dense(10, activation='relu'),
+                    keras.layers.Dense(1),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=10,
-                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(
+                n_components=10,
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                n_samples=n1,
+                use_upper_bound_loss=u,
+                n_gradient_samples=n2,
+                first_stage_options={'epochs': epochs},
+                second_stage_options={'epochs': epochs},
+            )
             deepIv.fit(y, p, X=x, Z=z)
 
             losses.append(np.mean(np.square(y_fresh - deepIv.predict(p_fresh, x_fresh))))
@@ -231,7 +263,7 @@ class TestDeepIV(unittest.TestCase):
                 y = g_true(x, z, t)
             y_true = y.flatten()
             y_hat = g_hat(x, z, t).flatten()
-            return ((y_hat - y_true)**2).mean()
+            return ((y_hat - y_true) ** 2).mean()
 
         def one_hot(col, **kwargs):
             z = col.reshape(-1, 1)
@@ -239,25 +271,25 @@ class TestDeepIV(unittest.TestCase):
             return enc.fit_transform(z)
 
         def sensf(x):
-            return 2.0 * ((x - 5)**4 / 600 + np.exp(-((x - 5) / 0.5)**2) + x / 10. - 2)
+            return 2.0 * ((x - 5) ** 4 / 600 + np.exp(-(((x - 5) / 0.5) ** 2)) + x / 10.0 - 2)
 
         def emocoef(emo):
-            emoc = (emo * np.array([1., 2., 3., 4., 5., 6., 7.])[None, :]).sum(axis=1)
+            emoc = (emo * np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])[None, :]).sum(axis=1)
             return emoc
 
         psd = 3.7
         pmu = 17.779
-        ysd = 158.  # 292.
+        ysd = 158.0  # 292.
         ymu = -292.1
 
         def storeg(x, price):
             emoc = emocoef(x[:, 1:])
             time = x[:, 0]
-            g = sensf(time) * emoc * 10. + (emoc * sensf(time) - 2.0) * (psd * price.flatten() + pmu)
+            g = sensf(time) * emoc * 10.0 + (emoc * sensf(time) - 2.0) * (psd * price.flatten() + pmu)
             y = (g - ymu) / ysd
             return y.reshape(-1, 1)
 
-        def demand(n, seed=1, ynoise=1., pnoise=1., ypcor=0.8, use_images=False, test=False):
+        def demand(n, seed=1, ynoise=1.0, pnoise=1.0, ypcor=0.8, use_images=False, test=False):
             rng = np.random.RandomState(seed)
 
             # covariates: time and emotion
@@ -280,7 +312,7 @@ class TestDeepIV(unittest.TestCase):
 
             # z -> price
             v = rng.randn(n) * pnoise
-            price = sensf(time) * (z + 3) + 25.
+            price = sensf(time) * (z + 3) + 25.0
             price = price + v
             price = (price - pmu) / psd
 
@@ -298,11 +330,7 @@ class TestDeepIV(unittest.TestCase):
             # response
             y = g(x_latent, None, price) + e
 
-            return (x,
-                    z.reshape((-1, 1)),
-                    price.reshape((-1, 1)),
-                    y.reshape((-1, 1)),
-                    g)
+            return (x, z.reshape((-1, 1)), price.reshape((-1, 1)), y.reshape((-1, 1)), g)
 
         def datafunction(n, s, images=False, test=False):
             return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
@@ -311,40 +339,55 @@ class TestDeepIV(unittest.TestCase):
         epochs = 50
         x, z, t, y, g_true = datafunction(n, 1)
 
-        print("Data shapes:\n\
+        print(
+            "Data shapes:\n\
 Features:{x},\n\
 Instruments:{z},\n\
 Treament:{t},\n\
-Response:{y}".format(**{'x': x.shape, 'z': z.shape,
-                        't': t.shape, 'y': y.shape}))
+Response:{y}".format(**{'x': x.shape, 'z': z.shape, 't': t.shape, 'y': y.shape})
+        )
 
         losses = []
 
-        for (n1, u, n2) in [(2, False, None), (2, True, None), (1, False, 1)]:
-            treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(9,)),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(64, activation='relu'),
-                                                keras.layers.Dropout(0.17),
-                                                keras.layers.Dense(32, activation='relu'),
-                                                keras.layers.Dropout(0.17)])
+        for n1, u, n2 in [(2, False, None), (2, True, None), (1, False, 1)]:
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(9,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                ]
+            )
 
-            hmodel = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(9,)),
-                                       keras.layers.Dropout(0.17),
-                                       keras.layers.Dense(64, activation='relu'),
-                                       keras.layers.Dropout(0.17),
-                                       keras.layers.Dense(32, activation='relu'),
-                                       keras.layers.Dropout(0.17),
-                                       keras.layers.Dense(1)])
+            hmodel = keras.Sequential(
+                [
+                    keras.layers.Dense(128, activation='relu', input_shape=(9,)),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(64, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(32, activation='relu'),
+                    keras.layers.Dropout(0.17),
+                    keras.layers.Dense(1),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=10,
-                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(
+                n_components=10,
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                n_samples=n1,
+                use_upper_bound_loss=u,
+                n_gradient_samples=n2,
+                first_stage_options={'epochs': epochs},
+                second_stage_options={'epochs': epochs},
+            )
             deepIv.fit(y, t, X=x, Z=z)
 
-            losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
-                t, x), datafunction, has_latent=False, debug=False))
+            losses.append(
+                monte_carlo_error(lambda x, z, t: deepIv.predict(t, x), datafunction, has_latent=False, debug=False)
+            )
         print("losses: {}".format(losses))
 
     @pytest.mark.slow
@@ -371,7 +414,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                 y = g_true(x, z, t)
             y_true = y.flatten()
             y_hat = g_hat(x, z, t).flatten()
-            return ((y_hat - y_true)**2).mean()
+            return ((y_hat - y_true) ** 2).mean()
 
         def one_hot(col, **kwargs):
             z = col.reshape(-1, 1)
@@ -379,25 +422,25 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             return enc.fit_transform(z)
 
         def sensf(x):
-            return 2.0 * ((x - 5)**4 / 600 + np.exp(-((x - 5) / 0.5)**2) + x / 10. - 2)
+            return 2.0 * ((x - 5) ** 4 / 600 + np.exp(-(((x - 5) / 0.5) ** 2)) + x / 10.0 - 2)
 
         def emocoef(emo):
-            emoc = (emo * np.array([1., 2., 3., 4., 5., 6., 7.])[None, :]).sum(axis=1)
+            emoc = (emo * np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])[None, :]).sum(axis=1)
             return emoc
 
         psd = 3.7
         pmu = 17.779
-        ysd = 158.  # 292.
+        ysd = 158.0  # 292.
         ymu = -292.1
 
         def storeg(x, price):
             emoc = emocoef(x[:, 1:])
             time = x[:, 0]
-            g = sensf(time) * emoc * 10. + (6 * emoc * sensf(time) - 2.0) * (psd * price.flatten() + pmu)
+            g = sensf(time) * emoc * 10.0 + (6 * emoc * sensf(time) - 2.0) * (psd * price.flatten() + pmu)
             y = (g - ymu) / ysd
             return y.reshape(-1, 1)
 
-        def demand(n, seed=1, ynoise=1., pnoise=1., ypcor=0.8, use_images=False, test=False):
+        def demand(n, seed=1, ynoise=1.0, pnoise=1.0, ypcor=0.8, use_images=False, test=False):
             rng = np.random.RandomState(seed)
 
             # covariates: time and emotion
@@ -411,7 +454,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
             # z -> price
             v = rng.randn(n) * pnoise
-            price = sensf(time) * (z + 3) + 25.
+            price = sensf(time) * (z + 3) + 25.0
             price = price + v
             price = (price - pmu) / psd
 
@@ -429,11 +472,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             # response
             y = g(x_latent, None, price) + e
 
-            return (x,
-                    z.reshape((-1, 1)),
-                    price.reshape((-1, 1)),
-                    y.reshape((-1, 1)),
-                    g)
+            return (x, z.reshape((-1, 1)), price.reshape((-1, 1)), y.reshape((-1, 1)), g)
 
         def datafunction(n, s, images=False, test=False):
             return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
@@ -443,34 +482,49 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         x, z, t, y, g_true = datafunction(n, 1)
 
-        print("Data shapes:\n\
+        print(
+            "Data shapes:\n\
                 Features:{x},\n\
                 Instruments:{z},\n\
                 Treament:{t},\n\
-                Response:{y}".format(**{'x': x.shape, 'z': z.shape,
-                                        't': t.shape, 'y': y.shape}))
+                Response:{y}".format(**{'x': x.shape, 'z': z.shape, 't': t.shape, 'y': y.shape})
+        )
 
         losses = []
 
-        for (n1, u, n2) in [(2, False, None), (2, True, None), (1, False, 1)]:
-            treatment_model = keras.Sequential([keras.layers.Dense(50, activation='relu', input_shape=(9,)),
-                                                keras.layers.Dense(25, activation='relu'),
-                                                keras.layers.Dense(25, activation='relu')])
+        for n1, u, n2 in [(2, False, None), (2, True, None), (1, False, 1)]:
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(50, activation='relu', input_shape=(9,)),
+                    keras.layers.Dense(25, activation='relu'),
+                    keras.layers.Dense(25, activation='relu'),
+                ]
+            )
 
-            hmodel = keras.Sequential([keras.layers.Dense(50, activation='relu', input_shape=(9,)),
-                                       keras.layers.Dense(25, activation='relu'),
-                                       keras.layers.Dense(25, activation='relu'),
-                                       keras.layers.Dense(1)])
+            hmodel = keras.Sequential(
+                [
+                    keras.layers.Dense(50, activation='relu', input_shape=(9,)),
+                    keras.layers.Dense(25, activation='relu'),
+                    keras.layers.Dense(25, activation='relu'),
+                    keras.layers.Dense(1),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=10,
-                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(
+                n_components=10,
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                n_samples=n1,
+                use_upper_bound_loss=u,
+                n_gradient_samples=n2,
+                first_stage_options={'epochs': epochs},
+                second_stage_options={'epochs': epochs},
+            )
             deepIv.fit(y, t, X=x, Z=z)
 
-            losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
-                t, x), datafunction, has_latent=False, debug=False))
+            losses.append(
+                monte_carlo_error(lambda x, z, t: deepIv.predict(t, x), datafunction, has_latent=False, debug=False)
+            )
         print("losses: {}".format(losses))
 
     @pytest.mark.slow
@@ -515,7 +569,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         model3 = keras.engine.Model([x_input], [samp([pi, mu, sig])])
         model4 = keras.engine.Model([x_input], [samp2])
 
-        print("samp2: {}".format(model4.predict(np.array([[0., 0.]]))))
+        print("samp2: {}".format(model4.predict(np.array([[0.0, 0.0]]))))
 
         for x_i in [-10, -5, 0, 5, 10]:
             t = np.array([[np.sqrt(100 - x_i**2), -np.sqrt(100 - x_i**2)]])
@@ -537,6 +591,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         print(pi[0], mu[0], sig[0], x[0], t[0])
         import io
+
         with io.open("sampled_{}.csv".format(K.backend()), 'w') as f:
             for (x1, x2), (t1, t2) in zip(x, sampled_t):
                 f.write("{},{},{},{}\n".format(x1, t1, x2, t2))
@@ -552,9 +607,13 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         x = np.random.uniform(high=2, size=2000)
         t = np.array([sample(n) for n in x])
 
-        x_network = keras.Sequential([keras.layers.Dense(10, activation='relu'),
-                                      keras.layers.Dense(10, activation='relu'),
-                                      keras.layers.Dense(10, activation='relu')])
+        x_network = keras.Sequential(
+            [
+                keras.layers.Dense(10, activation='relu'),
+                keras.layers.Dense(10, activation='relu'),
+                keras.layers.Dense(10, activation='relu'),
+            ]
+        )
 
         x_input, t_input = [keras.layers.Input(shape=(d,)) for d in [1, 1]]
 
@@ -568,14 +627,17 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         model2 = keras.engine.Model([x_input], [pi, mu, sig])
         import matplotlib
+
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
+
         for x in [0, 1, 2]:
             pi, mu, sig = model2.predict(np.array([[x]]))
             mu = mu.reshape(-1)
 
             def f(t):
                 return np.sum(pi / (np.sqrt(2 * np.pi) * sig) * np.exp(-np.square((t - mu) / sig) / 2))
+
             ts = np.linspace(-0.1, x + 1.1, 100)
             plt.figure()
             plt.plot(ts, [f(t) for t in ts])
@@ -597,34 +659,58 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         x = np.random.uniform(size=(n, 1))
         z = np.random.uniform(size=(n, 1))
         alpha = (x * x + z * z) / 2  # in range [0,1]
-        t = np.array([np.random.multivariate_normal(m1 + alpha[i] * (m2 - m1),
-                                                    cov1 + alpha[i] * (cov2 - cov1)) for i in range(n)])
+        t = np.array(
+            [
+                np.random.multivariate_normal(m1 + alpha[i] * (m2 - m1), cov1 + alpha[i] * (cov2 - cov1))
+                for i in range(n)
+            ]
+        )
         y = np.expand_dims(np.einsum('nx,nx->n', t, t), -1) + x
         results = []
         s = 6
-        for (n1, u, n2) in [(2, False, None), (2, True, None), (1, False, 1)]:
-            treatment_model = keras.Sequential([keras.layers.Dense(90, activation='relu', input_shape=(2,)),
-                                                keras.layers.Dropout(0.2),
-                                                keras.layers.Dense(60, activation='relu'),
-                                                keras.layers.Dropout(0.2),
-                                                keras.layers.Dense(30, activation='relu')])
+        for n1, u, n2 in [(2, False, None), (2, True, None), (1, False, 1)]:
+            treatment_model = keras.Sequential(
+                [
+                    keras.layers.Dense(90, activation='relu', input_shape=(2,)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(60, activation='relu'),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(30, activation='relu'),
+                ]
+            )
 
-            hmodel = keras.Sequential([keras.layers.Dense(90, activation='relu', input_shape=(d + 1,)),
-                                       keras.layers.Dropout(0.2),
-                                       keras.layers.Dense(60, activation='relu'),
-                                       keras.layers.Dropout(0.2),
-                                       keras.layers.Dense(30, activation='relu'),
-                                       keras.layers.Dropout(0.2),
-                                       keras.layers.Dense(1)])
+            hmodel = keras.Sequential(
+                [
+                    keras.layers.Dense(90, activation='relu', input_shape=(d + 1,)),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(60, activation='relu'),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(30, activation='relu'),
+                    keras.layers.Dropout(0.2),
+                    keras.layers.Dense(1),
+                ]
+            )
 
-            deepIv = DeepIV(n_components=s,
-                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                            first_stage_options={'epochs': 20}, second_stage_options={'epochs': 20})
-            deepIv.fit(y[:n // 2], t[:n // 2], X=x[:n // 2], Z=z[:n // 2])
+            deepIv = DeepIV(
+                n_components=s,
+                m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                n_samples=n1,
+                use_upper_bound_loss=u,
+                n_gradient_samples=n2,
+                first_stage_options={'epochs': 20},
+                second_stage_options={'epochs': 20},
+            )
+            deepIv.fit(y[: n // 2], t[: n // 2], X=x[: n // 2], Z=z[: n // 2])
 
-            results.append({'s': s, 'n1': n1, 'u': u, 'n2': n2,
-                            'loss': np.mean(np.square(y[n // 2:] - deepIv.predict(t[n // 2:], x[n // 2:]))),
-                            'marg': deepIv.marginal_effect(np.array([[0.5] * d]), np.array([[1.0]]))})
+            results.append(
+                {
+                    's': s,
+                    'n1': n1,
+                    'u': u,
+                    'n2': n2,
+                    'loss': np.mean(np.square(y[n // 2 :] - deepIv.predict(t[n // 2 :], x[n // 2 :]))),
+                    'marg': deepIv.marginal_effect(np.array([[0.5] * d]), np.array([[1.0]])),
+                }
+            )
         print(results)

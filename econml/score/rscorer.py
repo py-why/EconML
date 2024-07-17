@@ -9,11 +9,11 @@ from .ensemble_cate import EnsembleCateEstimator
 
 
 class RScorer:
-    """ Scorer based on the RLearner loss. Fits residual models at fit time and calculates
+    """Scorer based on the RLearner loss. Fits residual models at fit time and calculates
     residuals of the evaluation data in a cross-fitting manner::
 
-        Yres = Y - E[Y|X, W]
-        Tres = T - E[T|X, W]
+        Yres = Y - E[Y | X, W]
+        Tres = T - E[T | X, W]
 
     Then for any given cate model calculates the loss::
 
@@ -97,15 +97,18 @@ class RScorer:
 
     """
 
-    def __init__(self, *,
-                 model_y,
-                 model_t,
-                 discrete_treatment=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None):
+    def __init__(
+        self,
+        *,
+        model_y,
+        model_t,
+        discrete_treatment=False,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+    ):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
@@ -142,16 +145,25 @@ class RScorer:
         if X is None:
             raise ValueError("X cannot be None for the RScorer!")
 
-        self.lineardml_ = LinearDML(model_y=self.model_y,
-                                    model_t=self.model_t,
-                                    cv=self.cv,
-                                    discrete_treatment=self.discrete_treatment,
-                                    categories=self.categories,
-                                    random_state=self.random_state,
-                                    mc_iters=self.mc_iters,
-                                    mc_agg=self.mc_agg)
-        self.lineardml_.fit(y, T, X=None, W=np.hstack([v for v in [X, W] if v is not None]),
-                            sample_weight=sample_weight, groups=groups, cache_values=True)
+        self.lineardml_ = LinearDML(
+            model_y=self.model_y,
+            model_t=self.model_t,
+            cv=self.cv,
+            discrete_treatment=self.discrete_treatment,
+            categories=self.categories,
+            random_state=self.random_state,
+            mc_iters=self.mc_iters,
+            mc_agg=self.mc_agg,
+        )
+        self.lineardml_.fit(
+            y,
+            T,
+            X=None,
+            W=np.hstack([v for v in [X, W] if v is not None]),
+            sample_weight=sample_weight,
+            groups=groups,
+            cache_values=True,
+        )
         self.base_score_ = self.lineardml_.score_
         self.dx_ = X.shape[1]
         return self
@@ -168,7 +180,7 @@ class RScorer:
             An analogue of the R-square loss for the causal setting.
         """
         Y_res, T_res = self.lineardml_._cached_values.nuisances
-        X = self.lineardml_._cached_values.W[:, :self.dx_]
+        X = self.lineardml_._cached_values.W[:, : self.dx_]
         sample_weight = self.lineardml_._cached_values.sample_weight
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -177,12 +189,12 @@ class RScorer:
         effects = cate_model.const_marginal_effect(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         if sample_weight is not None:
-            return 1 - np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0)) / self.base_score_
+            return 1 - np.mean(np.average((Y_res - Y_res_pred) ** 2, weights=sample_weight, axis=0)) / self.base_score_
         else:
             return 1 - np.mean((Y_res - Y_res_pred) ** 2) / self.base_score_
 
     def best_model(self, cate_models, return_scores=False):
-        """ Chooses the best among a list of models
+        """Chooses the best among a list of models
 
         Parameters
         ----------
@@ -206,7 +218,7 @@ class RScorer:
             return cate_models[best], rscores[best]
 
     def ensemble(self, cate_models, eta=1000.0, return_scores=False):
-        """ Ensembles a list of models based on their performance
+        """Ensembles a list of models based on their performance
 
         Parameters
         ----------

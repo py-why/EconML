@@ -26,6 +26,7 @@ from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, La
 from sklearn.linear_model._base import _preprocess_data
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
+
 # TODO: consider working around relying on sklearn implementation details
 from sklearn.model_selection._split import _CVIterableWrapper
 from sklearn.multioutput import MultiOutputRegressor
@@ -58,19 +59,21 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
     # local import to avoid circular imports
     from .model_selection import WeightedKFold, WeightedStratifiedKFold
+
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
-        if (classifier and (y is not None) and
-                (type_of_target(y) in ('binary', 'multiclass'))):
+        if classifier and (y is not None) and (type_of_target(y) in ('binary', 'multiclass')):
             return WeightedStratifiedKFold(cv, random_state=random_state)
         else:
             return WeightedKFold(cv, random_state=random_state)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
-            raise ValueError("Expected cv as an integer, cross-validation "
-                             "object (from sklearn.model_selection) "
-                             "or an iterable. Got %s." % cv)
+            raise ValueError(
+                "Expected cv as an integer, cross-validation "
+                "object (from sklearn.model_selection) "
+                "or an iterable. Got %s." % cv
+            )
         return _WeightedCVIterableWrapper(cv)
 
     return cv  # New style cv objects are passed without any modification
@@ -103,14 +106,19 @@ class WeightedModelMixin:
                 if sample_weight.shape[0] != X.shape[0]:
                     raise ValueError(
                         "Found array with {0} sample(s) while {1} samples were expected.".format(
-                            sample_weight.shape[0], X.shape[0])
+                            sample_weight.shape[0], X.shape[0]
+                        )
                     )
 
             # Normalize inputs
             X, y, X_offset, y_offset, X_scale = _preprocess_data(
-                X, y, fit_intercept=self.fit_intercept,
-                copy=self.copy_X, check_input=check_input if check_input is not None else True,
-                sample_weight=sample_weight)
+                X,
+                y,
+                fit_intercept=self.fit_intercept,
+                copy=self.copy_X,
+                check_input=check_input if check_input is not None else True,
+                sample_weight=sample_weight,
+            )
             # Weight inputs
             normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
             sqrt_weights = np.sqrt(normalized_weights)
@@ -206,16 +214,31 @@ class WeightedLasso(WeightedModelMixin, Lasso):
 
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True,
-                 precompute=False, copy_X=True, max_iter=1000,
-                 tol=1e-4, warm_start=False, positive=False,
-                 random_state=None, selection='cyclic'):
+    def __init__(
+        self,
+        alpha=1.0,
+        fit_intercept=True,
+        precompute=False,
+        copy_X=True,
+        max_iter=1000,
+        tol=1e-4,
+        warm_start=False,
+        positive=False,
+        random_state=None,
+        selection='cyclic',
+    ):
         super().__init__(
-            alpha=alpha, fit_intercept=fit_intercept,
-            precompute=precompute, copy_X=copy_X,
-            max_iter=max_iter, tol=tol, warm_start=warm_start,
-            positive=positive, random_state=random_state,
-            selection=selection)
+            alpha=alpha,
+            fit_intercept=fit_intercept,
+            precompute=precompute,
+            copy_X=copy_X,
+            max_iter=max_iter,
+            tol=tol,
+            warm_start=warm_start,
+            positive=positive,
+            random_state=random_state,
+            selection=selection,
+        )
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         """Fit model with coordinate descent.
@@ -302,13 +325,27 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
 
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True,
-                 copy_X=True, max_iter=1000, tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic'):
+    def __init__(
+        self,
+        alpha=1.0,
+        fit_intercept=True,
+        copy_X=True,
+        max_iter=1000,
+        tol=1e-4,
+        warm_start=False,
+        random_state=None,
+        selection='cyclic',
+    ):
         super().__init__(
-            alpha=alpha, fit_intercept=fit_intercept,
-            copy_X=copy_X, max_iter=max_iter, tol=tol, warm_start=warm_start,
-            random_state=random_state, selection=selection)
+            alpha=alpha,
+            fit_intercept=fit_intercept,
+            copy_X=copy_X,
+            max_iter=max_iter,
+            tol=tol,
+            warm_start=warm_start,
+            random_state=random_state,
+            selection=selection,
+        )
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -411,17 +448,39 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
 
     """
 
-    def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                 precompute='auto', max_iter=1000, tol=1e-4,
-                 copy_X=True, cv=None, verbose=False, n_jobs=None,
-                 positive=False, random_state=None, selection='cyclic'):
-
+    def __init__(
+        self,
+        eps=1e-3,
+        n_alphas=100,
+        alphas=None,
+        fit_intercept=True,
+        precompute='auto',
+        max_iter=1000,
+        tol=1e-4,
+        copy_X=True,
+        cv=None,
+        verbose=False,
+        n_jobs=None,
+        positive=False,
+        random_state=None,
+        selection='cyclic',
+    ):
         super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
+            eps=eps,
+            n_alphas=n_alphas,
+            alphas=alphas,
             fit_intercept=fit_intercept,
-            precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
-            cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
-            random_state=random_state, selection=selection)
+            precompute=precompute,
+            max_iter=max_iter,
+            tol=tol,
+            copy_X=copy_X,
+            cv=cv,
+            verbose=verbose,
+            n_jobs=n_jobs,
+            positive=positive,
+            random_state=random_state,
+            selection=selection,
+        )
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -522,17 +581,35 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
 
     """
 
-    def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                 max_iter=1000, tol=1e-4,
-                 copy_X=True, cv=None, verbose=False, n_jobs=None,
-                 random_state=None, selection='cyclic'):
-
+    def __init__(
+        self,
+        eps=1e-3,
+        n_alphas=100,
+        alphas=None,
+        fit_intercept=True,
+        max_iter=1000,
+        tol=1e-4,
+        copy_X=True,
+        cv=None,
+        verbose=False,
+        n_jobs=None,
+        random_state=None,
+        selection='cyclic',
+    ):
         super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
+            eps=eps,
+            n_alphas=n_alphas,
+            alphas=alphas,
             fit_intercept=fit_intercept,
-            max_iter=max_iter, tol=tol, copy_X=copy_X,
-            cv=cv, verbose=verbose, n_jobs=n_jobs,
-            random_state=random_state, selection=selection)
+            max_iter=max_iter,
+            tol=tol,
+            copy_X=copy_X,
+            cv=cv,
+            verbose=verbose,
+            n_jobs=n_jobs,
+            random_state=random_state,
+            selection=selection,
+        )
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -564,17 +641,19 @@ def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, ma
     X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
     # Call weighted lasso on reduced design matrix
     if alpha_cov == 'auto':
-        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
-                                       fit_intercept=False,
-                                       max_iter=max_iter,
-                                       tol=tol, n_jobs=1,
-                                       random_state=random_state)
+        local_wlasso = WeightedLassoCV(
+            cv=3,
+            n_alphas=n_alphas_cov,
+            fit_intercept=False,
+            max_iter=max_iter,
+            tol=tol,
+            n_jobs=1,
+            random_state=random_state,
+        )
     else:
-        local_wlasso = WeightedLasso(alpha=alpha_cov,
-                                     fit_intercept=False,
-                                     max_iter=max_iter,
-                                     tol=tol,
-                                     random_state=random_state)
+        local_wlasso = WeightedLasso(
+            alpha=alpha_cov, fit_intercept=False, max_iter=max_iter, tol=tol, random_state=random_state
+        )
     local_wlasso.fit(X_reduced, y, sample_weight=sample_weight)
     coefs = local_wlasso.coef_
     # Weighted tau
@@ -687,20 +766,38 @@ class DebiasedLasso(WeightedLasso):
 
     """
 
-    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
-                 fit_intercept=True, precompute=False, copy_X=True, max_iter=1000,
-                 tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic', n_jobs=None):
+    def __init__(
+        self,
+        alpha='auto',
+        n_alphas=100,
+        alpha_cov='auto',
+        n_alphas_cov=10,
+        fit_intercept=True,
+        precompute=False,
+        copy_X=True,
+        max_iter=1000,
+        tol=1e-4,
+        warm_start=False,
+        random_state=None,
+        selection='cyclic',
+        n_jobs=None,
+    ):
         self.n_jobs = n_jobs
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
         self.n_alphas_cov = n_alphas_cov
         super().__init__(
-            alpha=alpha, fit_intercept=fit_intercept,
-            precompute=precompute, copy_X=copy_X,
-            max_iter=max_iter, tol=tol, warm_start=warm_start,
-            positive=False, random_state=random_state,
-            selection=selection)
+            alpha=alpha,
+            fit_intercept=fit_intercept,
+            precompute=precompute,
+            copy_X=copy_X,
+            max_iter=max_iter,
+            tol=tol,
+            warm_start=warm_start,
+            positive=False,
+            random_state=random_state,
+            selection=selection,
+        )
 
     def fit(self, X, y, sample_weight=None, check_input=True):
         """Fit debiased lasso model.
@@ -728,8 +825,10 @@ class DebiasedLasso(WeightedLasso):
             self.selected_alpha_ = self.alpha
         else:
             # Warn about consistency
-            warnings.warn("Setting a suboptimal alpha can lead to miscalibrated confidence intervals. "
-                          "We recommend setting alpha='auto' for optimality.")
+            warnings.warn(
+                "Setting a suboptimal alpha can lead to miscalibrated confidence intervals. "
+                "We recommend setting alpha='auto' for optimality."
+            )
 
         # Convert X, y into numpy arrays
         X, y = check_X_y(X, y, y_numeric=True, multi_output=False)
@@ -737,8 +836,13 @@ class DebiasedLasso(WeightedLasso):
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
         X, y, X_offset, y_offset, X_scale = _preprocess_data(
-            X, y, fit_intercept=self.fit_intercept,
-            copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
+            X,
+            y,
+            fit_intercept=self.fit_intercept,
+            copy=self.copy_X,
+            check_input=check_input,
+            sample_weight=sample_weight,
+        )
 
         # Calculate quantities that will be used later on. Account for centered data
         y_pred = self.predict(X) - self.intercept_
@@ -747,23 +851,21 @@ class DebiasedLasso(WeightedLasso):
 
         # Calculate coefficient and error variance
         num_nonzero_coefs = np.count_nonzero(self.coef_)
-        self._error_variance = np.average((y - y_pred)**2, weights=sample_weight) / \
-            (1 - num_nonzero_coefs / X.shape[0])
+        self._error_variance = np.average((y - y_pred) ** 2, weights=sample_weight) / (
+            1 - num_nonzero_coefs / X.shape[0]
+        )
         self._mean_error_variance = self._error_variance / X.shape[0]
-        self._coef_variance = self._get_unscaled_coef_var(
-            X, self._theta_hat, sample_weight) * self._error_variance
+        self._coef_variance = self._get_unscaled_coef_var(X, self._theta_hat, sample_weight) * self._error_variance
 
         # Add coefficient correction
-        coef_correction = self._get_coef_correction(
-            X, y, y_pred, sample_weight, self._theta_hat)
+        coef_correction = self._get_coef_correction(X, y, y_pred, sample_weight, self._theta_hat)
         self.coef_ += coef_correction
 
         # Set coefficients and intercept standard errors
         self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
             self.intercept_stderr_ = np.sqrt(
-                self._X_offset @ self._coef_variance @ self._X_offset +
-                self._mean_error_variance
+                self._X_offset @ self._coef_variance @ self._X_offset + self._mean_error_variance
             )
         else:
             self.intercept_stderr_ = 0
@@ -820,12 +922,8 @@ class DebiasedLasso(WeightedLasso):
         y_pred = self.predict(X)
         # Calculate prediction confidence intervals
         sd_pred = self.prediction_stderr(X)
-        y_lower = y_pred + \
-            np.apply_along_axis(lambda s: norm.ppf(
-                lower, scale=s), 0, sd_pred)
-        y_upper = y_pred + \
-            np.apply_along_axis(lambda s: norm.ppf(
-                upper, scale=s), 0, sd_pred)
+        y_lower = y_pred + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, sd_pred)
+        y_upper = y_pred + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, sd_pred)
         return y_lower, y_upper
 
     def coef__interval(self, alpha=0.05):
@@ -844,8 +942,9 @@ class DebiasedLasso(WeightedLasso):
         """
         lower = alpha / 2
         upper = 1 - alpha / 2
-        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_stderr_), \
-            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_stderr_)
+        return self.coef_ + np.apply_along_axis(
+            lambda s: norm.ppf(lower, scale=s), 0, self.coef_stderr_
+        ), self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_stderr_)
 
     def intercept__interval(self, alpha=0.05):
         """Get a confidence interval bounding the fitted intercept.
@@ -864,8 +963,10 @@ class DebiasedLasso(WeightedLasso):
         lower = alpha / 2
         upper = 1 - alpha / 2
         if self.fit_intercept:
-            return self.intercept_ + norm.ppf(lower, scale=self.intercept_stderr_), self.intercept_ + \
-                norm.ppf(upper, scale=self.intercept_stderr_),
+            return (
+                self.intercept_ + norm.ppf(lower, scale=self.intercept_stderr_),
+                self.intercept_ + norm.ppf(upper, scale=self.intercept_stderr_),
+            )
         else:
             return 0.0, 0.0
 
@@ -878,18 +979,23 @@ class DebiasedLasso(WeightedLasso):
             y_res_scaled = y_res * sample_weight / np.sum(sample_weight)
         else:
             y_res_scaled = y_res / n_samples
-        delta_coef = np.matmul(
-            theta_hat, np.matmul(X.T, y_res_scaled))
+        delta_coef = np.matmul(theta_hat, np.matmul(X.T, y_res_scaled))
         return delta_coef
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, fit_intercept=self.fit_intercept,
-                                       precompute=self.precompute, copy_X=True,
-                                       max_iter=self.max_iter, tol=self.tol,
-                                       random_state=self.random_state,
-                                       selection=self.selection,
-                                       n_jobs=self.n_jobs)
+        cv_estimator = WeightedLassoCV(
+            cv=5,
+            n_alphas=self.n_alphas,
+            fit_intercept=self.fit_intercept,
+            precompute=self.precompute,
+            copy_X=True,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            random_state=self.random_state,
+            selection=self.selection,
+            n_jobs=self.n_jobs,
+        )
         cv_estimator.fit(X, y.flatten(), sample_weight=sample_weight)
         return cv_estimator.alpha_
 
@@ -903,10 +1009,11 @@ class DebiasedLasso(WeightedLasso):
             return np.diag(1 / tausq) @ C_hat
         # Compute Lasso coefficients for the columns of the design matrix
         results = Parallel(n_jobs=self.n_jobs)(
-            delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight,
-                                                 self.alpha_cov, self.n_alphas_cov,
-                                                 self.max_iter, self.tol, self.random_state)
-            for i in range(n_features))
+            delayed(_get_theta_coefs_and_tau_sq)(
+                i, X, sample_weight, self.alpha_cov, self.n_alphas_cov, self.max_iter, self.tol, self.random_state
+            )
+            for i in range(n_features)
+        )
         coefs, tausq = zip(*results)
         coefs = np.array(coefs)
         tausq = np.array(tausq)
@@ -915,7 +1022,7 @@ class DebiasedLasso(WeightedLasso):
         C_hat[0][1:] = -coefs[0]
         for i in range(1, n_features):
             C_hat[i][:i] = -coefs[i][:i]
-            C_hat[i][i + 1:] = -coefs[i][i:]
+            C_hat[i][i + 1 :] = -coefs[i][i:]
         # Compute theta_hat
         theta_hat = np.diag(1 / tausq) @ C_hat
         return theta_hat
@@ -926,8 +1033,7 @@ class DebiasedLasso(WeightedLasso):
             sigma = X.T @ (norm_weights.reshape(-1, 1) * X)
         else:
             sigma = np.matmul(X.T, X) / X.shape[0]
-        _unscaled_coef_var = np.matmul(
-            np.matmul(theta_hat, sigma), theta_hat.T) / X.shape[0]
+        _unscaled_coef_var = np.matmul(np.matmul(theta_hat, sigma), theta_hat.T) / X.shape[0]
         return _unscaled_coef_var
 
 
@@ -1023,17 +1129,37 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     """
 
-    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
-                 fit_intercept=True,
-                 precompute=False, copy_X=True, max_iter=1000,
-                 tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic', n_jobs=None):
-        self.estimator = DebiasedLasso(alpha=alpha, n_alphas=n_alphas, alpha_cov=alpha_cov, n_alphas_cov=n_alphas_cov,
-                                       fit_intercept=fit_intercept,
-                                       precompute=precompute, copy_X=copy_X, max_iter=max_iter,
-                                       tol=tol, warm_start=warm_start,
-                                       random_state=random_state, selection=selection,
-                                       n_jobs=n_jobs)
+    def __init__(
+        self,
+        alpha='auto',
+        n_alphas=100,
+        alpha_cov='auto',
+        n_alphas_cov=10,
+        fit_intercept=True,
+        precompute=False,
+        copy_X=True,
+        max_iter=1000,
+        tol=1e-4,
+        warm_start=False,
+        random_state=None,
+        selection='cyclic',
+        n_jobs=None,
+    ):
+        self.estimator = DebiasedLasso(
+            alpha=alpha,
+            n_alphas=n_alphas,
+            alpha_cov=alpha_cov,
+            n_alphas_cov=n_alphas_cov,
+            fit_intercept=fit_intercept,
+            precompute=precompute,
+            copy_X=copy_X,
+            max_iter=max_iter,
+            tol=tol,
+            warm_start=warm_start,
+            random_state=random_state,
+            selection=selection,
+            n_jobs=n_jobs,
+        )
         super().__init__(estimator=self.estimator, n_jobs=n_jobs)
 
     def fit(self, X, y, sample_weight=None):
@@ -1061,12 +1187,9 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         # Set coef_ attribute
         self._set_attribute("coef_")
         # Set intercept_ attribute
-        self._set_attribute("intercept_",
-                            condition=self.estimators_[0].fit_intercept,
-                            default=0.0)
+        self._set_attribute("intercept_", condition=self.estimators_[0].fit_intercept, default=0.0)
         # Set selected_alpha_ attribute
-        self._set_attribute("selected_alpha_",
-                            condition=(self.estimators_[0].alpha == 'auto'))
+        self._set_attribute("selected_alpha_", condition=(self.estimators_[0].alpha == 'auto'))
         # Set coef_stderr_
         self._set_attribute("coef_stderr_")
         # intercept_stderr_
@@ -1222,9 +1345,7 @@ class _PairedEstimatorWrapper:
 
     def fit(self, X, y, sample_weight=None):
         self._needs_unravel = False
-        params = {key: value
-                  for (key, value) in self.get_params().items()
-                  if key in self._known_params}
+        params = {key: value for (key, value) in self.get_params().items() if key in self._known_params}
         if ndim(y) == 2 and shape(y)[1] > 1:
             self.model = self._MultiEst(**params)
         else:
@@ -1273,11 +1394,27 @@ class WeightedLassoCVWrapper(_PairedEstimatorWrapper):
 
     # whitelist known params because full set is not necessarily identical between LassoCV and MultiTaskLassoCV
     # (e.g. former has 'positive' and 'precompute' while latter does not)
-    _known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
-                         'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
+    _known_params = set(
+        [
+            'eps',
+            'n_alphas',
+            'alphas',
+            'fit_intercept',
+            'normalize',
+            'max_iter',
+            'tol',
+            'copy_X',
+            'cv',
+            'verbose',
+            'n_jobs',
+            'random_state',
+            'selection',
+        ]
+    )
 
-    _post_fit_attrs = set(['alpha_', 'alphas_', 'coef_', 'dual_gap_',
-                           'intercept_', 'n_iter_', 'n_features_in_', 'mse_path_'])
+    _post_fit_attrs = set(
+        ['alpha_', 'alphas_', 'coef_', 'dual_gap_', 'intercept_', 'n_iter_', 'n_features_in_', 'mse_path_']
+    )
 
 
 class WeightedLassoWrapper(_PairedEstimatorWrapper):
@@ -1285,8 +1422,7 @@ class WeightedLassoWrapper(_PairedEstimatorWrapper):
 
     _SingleEst = WeightedLasso
     _MultiEst = WeightedMultiTaskLasso
-    _known_params = set(['alpha', 'fit_intercept', 'copy_X', 'max_iter', 'tol',
-                         'random_state', 'selection'])
+    _known_params = set(['alpha', 'fit_intercept', 'copy_X', 'max_iter', 'tol', 'random_state', 'selection'])
     _post_fit_attrs = set(['coef_', 'dual_gap_', 'intercept_', 'n_iter_', 'n_features_in_'])
 
 
@@ -1380,10 +1516,12 @@ class SelectiveRegularization:
         X1 = X[:, self._unpenalized_inds]
         X2 = X[:, self._penalized_inds]
 
-        X2_res = X2 - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, X2,
-                                                                              sample_weight=sample_weight).predict(X1)
-        y_res = y - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, y,
-                                                                            sample_weight=sample_weight).predict(X1)
+        X2_res = X2 - LinearRegression(fit_intercept=self._fit_intercept).fit(
+            X1, X2, sample_weight=sample_weight
+        ).predict(X1)
+        y_res = y - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, y, sample_weight=sample_weight).predict(
+            X1
+        )
 
         if sample_weight is not None:
             self.penalized_model.fit(X2_res, y_res, sample_weight=sample_weight)
@@ -1395,11 +1533,13 @@ class SelectiveRegularization:
         # as (M X) beta + c, so the learned coef and intercept will be wrong
         intercept = self.penalized_model.predict(np.zeros_like(X2[0:1]))
         if not np.allclose(intercept, 0):
-            raise AttributeError("The penalized model has a non-zero intercept; to fit an intercept "
-                                 "you should instead either set fit_intercept to True when initializing the "
-                                 "SelectiveRegression instance (for an unpenalized intercept) or "
-                                 "explicitly add a column of ones to the data being fit and include that "
-                                 "column in the penalized indices.")
+            raise AttributeError(
+                "The penalized model has a non-zero intercept; to fit an intercept "
+                "you should instead either set fit_intercept to True when initializing the "
+                "SelectiveRegression instance (for an unpenalized intercept) or "
+                "explicitly add a column of ones to the data being fit and include that "
+                "column in the penalized indices."
+            )
 
         # now regress X1 on y - X2 * beta2 to learn beta1
         self._model_X1 = LinearRegression(fit_intercept=self._fit_intercept)
@@ -1454,8 +1594,17 @@ class SelectiveRegularization:
         X, y = check_X_y(X, y, multi_output=True, estimator=self)
         return r2_score(y, self.predict(X))
 
-    known_params = {'known_params', 'coef_', 'intercept_', 'penalized_model',
-                    '_unpenalized_inds_expr', '_fit_intercept', '_unpenalized_inds', '_penalized_inds', '_model_X1'}
+    known_params = {
+        'known_params',
+        'coef_',
+        'intercept_',
+        'penalized_model',
+        '_unpenalized_inds_expr',
+        '_fit_intercept',
+        '_unpenalized_inds',
+        '_penalized_inds',
+        '_model_X1',
+    }
 
     def __getattr__(self, key):
         # don't proxy special methods
@@ -1480,7 +1629,7 @@ class SelectiveRegularization:
 
 
 class _StatsModelsWrapper(BaseEstimator):
-    """ Parent class for statsmodels linear models. At init time each children class should set the
+    """Parent class for statsmodels linear models. At init time each children class should set the
     boolean flag property fit_intercept. At fit time, each children class must calculate and set the
     following properties:
 
@@ -1609,8 +1758,9 @@ class _StatsModelsWrapper(BaseEstimator):
         if self._n_out == 0:
             return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
         else:
-            return np.array([np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf))
-                             for v in self._param_var]).T
+            return np.array(
+                [np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf)) for v in self._param_var]
+            ).T
 
     def coef__interval(self, alpha=0.05):
         """
@@ -1627,8 +1777,10 @@ class _StatsModelsWrapper(BaseEstimator):
         coef__interval : {tuple ((p, d) array, (p,d) array), tuple ((d,) array, (d,) array)}
             The lower and upper bounds of the confidence interval of the coefficients
         """
-        return (_safe_norm_ppf(alpha / 2, loc=self.coef_, scale=self.coef_stderr_),
-                _safe_norm_ppf(1 - alpha / 2, loc=self.coef_, scale=self.coef_stderr_))
+        return (
+            _safe_norm_ppf(alpha / 2, loc=self.coef_, scale=self.coef_stderr_),
+            _safe_norm_ppf(1 - alpha / 2, loc=self.coef_, scale=self.coef_stderr_),
+        )
 
     def intercept__interval(self, alpha=0.05):
         """
@@ -1646,11 +1798,14 @@ class _StatsModelsWrapper(BaseEstimator):
             The lower and upper bounds of the confidence interval of the intercept(s)
         """
         if not self.fit_intercept:
-            return (0 if self._n_out == 0 else np.zeros(self._n_out)), \
-                (0 if self._n_out == 0 else np.zeros(self._n_out))
+            return (0 if self._n_out == 0 else np.zeros(self._n_out)), (
+                0 if self._n_out == 0 else np.zeros(self._n_out)
+            )
 
-        return (_safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),
-                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_))
+        return (
+            _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),
+            _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),
+        )
 
     def predict_interval(self, X, alpha=0.05):
         """
@@ -1673,8 +1828,10 @@ class _StatsModelsWrapper(BaseEstimator):
         pred = self.predict(X)
         pred_stderr = self.prediction_stderr(X)
 
-        return (_safe_norm_ppf(alpha / 2, loc=pred, scale=pred_stderr),
-                _safe_norm_ppf(1 - alpha / 2, loc=pred, scale=pred_stderr))
+        return (
+            _safe_norm_ppf(alpha / 2, loc=pred, scale=pred_stderr),
+            _safe_norm_ppf(1 - alpha / 2, loc=pred, scale=pred_stderr),
+        )
 
 
 class StatsModelsLinearRegression(_StatsModelsWrapper):
@@ -1704,7 +1861,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         """Check dimensions and other assertions."""
 
         X, y, sample_weight, freq_weight, sample_var = check_input_arrays(
-            X, y, sample_weight, freq_weight, sample_var, dtype='numeric')
+            X, y, sample_weight, freq_weight, sample_var, dtype='numeric'
+        )
         if X is None:
             X = np.empty((y.shape[0], 0))
         if self.fit_intercept:
@@ -1727,34 +1885,39 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                     "Variance was set to non-zero for an observation with freq_weight=1! "
                     "sample_var represents the variance of the original observations that are "
                     "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                    "one observations was summarized. Inference will be invalid!")
+                    "one observations was summarized. Inference will be invalid!"
+                )
             elif np.any(np.not_equal(freq_weight, 1) & np.equal(sample_var, 0)):
                 warnings.warn(
                     "Variance was set to zero for an observation with freq_weight>1! "
                     "sample_var represents the variance of the original observations that are "
                     "summarized in this sample. If it's zero, please use sample_wegiht instead "
-                    "to reflect the weight for each individual sample!")
+                    "to reflect the weight for each individual sample!"
+                )
         else:
             if np.any(np.equal(freq_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
                     "Variance was set to non-zero for an observation with freq_weight=1! "
                     "sample_var represents the variance of the original observations that are "
                     "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                    "one observations was summarized. Inference will be invalid!")
+                    "one observations was summarized. Inference will be invalid!"
+                )
             elif np.any(np.not_equal(freq_weight, 1) & np.equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
                     "Variance was set to zero for an observation with freq_weight>1! "
                     "sample_var represents the variance of the original observations that are "
                     "summarized in this sample. If it's zero, please use sample_wegiht instead "
-                    "to reflect the weight for each individual sample!")
+                    "to reflect the weight for each individual sample!"
+                )
 
         # check array shape
-        assert (X.shape[0] == y.shape[0] == sample_weight.shape[0] ==
-                freq_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
+        assert (
+            X.shape[0] == y.shape[0] == sample_weight.shape[0] == freq_weight.shape[0] == sample_var.shape[0]
+        ), "Input lengths not compatible!"
         if y.ndim >= 2:
-            assert (y.ndim == sample_var.ndim and
-                    y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
-                y.shape, sample_var.shape)
+            assert (
+                y.ndim == sample_var.ndim and y.shape[1] == sample_var.shape[1]
+            ), "Input shapes not compatible: {}, {}!".format(y.shape, sample_var.shape)
 
         # weight X and y and sample_var
         weighted_X = X * np.sqrt(sample_weight).reshape(-1, 1)
@@ -1815,7 +1978,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
             correction = 1
         else:
-            correction = (n_obs / (n_obs - df))
+            correction = n_obs / (n_obs - df)
 
         # For aggregation calculations, always treat wy as an array so that einsum expressions don't need to change
         # We'll collapse results back down afterwards if necessary
@@ -1826,7 +1989,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         if self.enable_federation:
             # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
-            if (self.cov_type in ['HC0', 'HC1']):
+            if self.cov_type in ['HC0', 'HC1']:
                 # y dimension is always first in the output when present so that broadcasting works correctly
                 self.XXyy = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
                 self.XXXy = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
@@ -1840,7 +2003,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         sigma_inv = np.linalg.pinv(self.XX)
 
-        var_i = sample_var + (y - np.matmul(X, param))**2
+        var_i = sample_var + (y - np.matmul(X, param)) ** 2
 
         self._param = param
 
@@ -1850,7 +2013,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             else:
                 vars = correction * np.average(var_i, weights=freq_weight, axis=0)
                 self._var = [v * sigma_inv for v in vars]
-        elif (self.cov_type == 'HC0'):
+        elif self.cov_type == 'HC0':
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1859,7 +2022,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
-        elif (self.cov_type == 'HC1'):
+        elif self.cov_type == 'HC1':
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1925,11 +2088,15 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         elif agg_model.cov_type == 'HC0':
             correction = 1
         else:  # both HC1 and nonrobust use the same correction factor
-            correction = (n_obs / (n_obs - df))
+            correction = n_obs / (n_obs - df)
 
         if agg_model.cov_type in ['HC0', 'HC1']:
-            weighted_sigma = XXyy - 2 * np.einsum('yvwx,vy->ywx', XXXy, param) + \
-                np.einsum('uvwx,uy,vy->ywx', XXXX, param, param) + sample_var
+            weighted_sigma = (
+                XXyy
+                - 2 * np.einsum('yvwx,vy->ywx', XXXy, param)
+                + np.einsum('uvwx,uy,vy->ywx', XXXX, param, param)
+                + sample_var
+            )
             if agg_model._n_out == 0:
                 agg_model._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma.squeeze(0), sigma_inv))
             else:
@@ -1946,8 +2113,15 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         agg_model._param_var = np.array(agg_model._var)
 
-        (agg_model.XX, agg_model.Xy, agg_model.XXyy, agg_model.XXXy, agg_model.XXXX,
-         agg_model.sample_var, agg_model._n_obs) = XX, Xy, XXyy, XXXy, XXXX, sample_var, n_obs
+        (
+            agg_model.XX,
+            agg_model.Xy,
+            agg_model.XXyy,
+            agg_model.XXXy,
+            agg_model.XXXX,
+            agg_model.sample_var,
+            agg_model._n_obs,
+        ) = XX, Xy, XXyy, XXXy, XXXX, sample_var, n_obs
 
         return agg_model
 
@@ -1971,11 +2145,7 @@ class StatsModelsRLM(_StatsModelsWrapper):
         for more information.
     """
 
-    def __init__(self, t=1.345,
-                 maxiter=50,
-                 tol=1e-08,
-                 fit_intercept=True,
-                 cov_type='H1'):
+    def __init__(self, t=1.345, maxiter=50, tol=1e-08, fit_intercept=True, cov_type='H1'):
         self.t = t
         self.maxiter = maxiter
         self.tol = tol
@@ -1988,7 +2158,7 @@ class StatsModelsRLM(_StatsModelsWrapper):
         if X is None:
             X = np.empty((y.shape[0], 0))
 
-        assert (X.shape[0] == y.shape[0]), "Input lengths not compatible!"
+        assert X.shape[0] == y.shape[0], "Input lengths not compatible!"
 
         return X, y
 
@@ -2014,11 +2184,10 @@ class StatsModelsRLM(_StatsModelsWrapper):
         self._n_out = 0 if len(y.shape) == 1 else (y.shape[1],)
 
         def model_gen(y):
-            return RLM(endog=y,
-                       exog=X,
-                       M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
-                                                                        maxiter=self.maxiter,
-                                                                        tol=self.tol)
+            return RLM(endog=y, exog=X, M=statsmodels.robust.norms.HuberT(t=self.t)).fit(
+                cov=self.cov_type, maxiter=self.maxiter, tol=self.tol
+            )
+
         if y.ndim < 2:
             self.model = model_gen(y)
             self._param = self.model.params
@@ -2054,15 +2223,17 @@ class StatsModels2SLS(_StatsModelsWrapper):
             sample_weight = np.ones(y.shape[0])
 
         # check array shape
-        assert (T.shape[0] == Z.shape[0] == y.shape[0] == sample_weight.shape[0]), "Input lengths not compatible!"
+        assert T.shape[0] == Z.shape[0] == y.shape[0] == sample_weight.shape[0], "Input lengths not compatible!"
 
         # check dimension of instruments is more than dimension of treatments
         if Z.shape[1] < T.shape[1]:
-            raise AssertionError("The number of treatments couldn't be larger than the number of instruments!" +
-                                 " If you are using a treatment featurizer, make sure the number of featurized" +
-                                 " treatments is less than or equal to the number of instruments. You can either" +
-                                 " featurize the instrument yourself, or consider using projection = True" +
-                                 " along with a flexible model_t_xwz.")
+            raise AssertionError(
+                "The number of treatments couldn't be larger than the number of instruments!"
+                + " If you are using a treatment featurizer, make sure the number of featurized"
+                + " treatments is less than or equal to the number of instruments. You can either"
+                + " featurize the instrument yourself, or consider using projection = True"
+                + " along with a flexible model_t_xwz."
+            )
 
         # weight X and y
         weighted_Z = Z * np.sqrt(sample_weight).reshape(-1, 1)
@@ -2128,13 +2299,13 @@ class StatsModels2SLS(_StatsModelsWrapper):
             warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
             correction = 1
         else:
-            correction = (n_obs / (n_obs - df))
+            correction = n_obs / (n_obs - df)
 
         # learn cov(theta)
         # (T̂.T*T̂)^{-1}
         thatT_that_inv = np.linalg.inv(thatT_that)
         # sigma^2
-        var_i = (y - np.dot(T, param))**2
+        var_i = (y - np.dot(T, param)) ** 2
 
         # reference: http://www.hec.unil.ch/documents/seminars/deep/361.pdf
         if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
@@ -2143,7 +2314,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
             else:
                 sigma2 = correction * np.average(var_i, axis=0)
                 self._var = [s * thatT_that_inv for s in sigma2]
-        elif (self.cov_type == 'HC0'):
+        elif self.cov_type == 'HC0':
             if y.ndim < 2:
                 weighted_sigma = np.matmul(that.T, that * var_i.reshape(-1, 1))
                 self._var = np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv))
@@ -2152,7 +2323,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(that.T, that * var_i[:, [j]])
                     self._var.append(np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv)))
-        elif (self.cov_type == 'HC1'):
+        elif self.cov_type == 'HC1':
             if y.ndim < 2:
                 weighted_sigma = np.matmul(that.T, that * var_i.reshape(-1, 1))
                 self._var = correction * np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv))
@@ -2160,8 +2331,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
                 self._var = []
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(that.T, that * var_i[:, [j]])
-                    self._var.append(correction * np.matmul(thatT_that_inv,
-                                                            np.matmul(weighted_sigma, thatT_that_inv)))
+                    self._var.append(correction * np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv)))
         else:
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
 

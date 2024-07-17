@@ -15,6 +15,7 @@
 import os
 import sys
 import econml
+
 sys.path.insert(0, os.path.abspath('econml'))
 
 
@@ -47,11 +48,10 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.inheritance_diagram',
 ]
-inheritance_graph_attrs = dict(rankdir="TB", size='"7.0, 10.0"',
-                               fontsize=12, ratio='auto',
-                               bgcolor='"#ffffff"', center='true', style='solid')
-inheritance_node_attrs = dict(shape='ellipse', fontsize=12,
-                              fontname="monspace", height=0.75)
+inheritance_graph_attrs = dict(
+    rankdir="TB", size='"7.0, 10.0"', fontsize=12, ratio='auto', bgcolor='"#ffffff"', center='true', style='solid'
+)
+inheritance_node_attrs = dict(shape='ellipse', fontsize=12, fontname="monspace", height=0.75)
 
 napoleon_use_param = False
 # TODO: enable type aliases
@@ -65,10 +65,12 @@ napoleon_use_param = False
 # }
 
 autosummary_generate = True
-autodoc_default_options = {'members': None,
-                           'show-inheritance': None,
-                           'inherited-members': None,
-                           'member-order': 'groupwise'}
+autodoc_default_options = {
+    'members': None,
+    'show-inheritance': None,
+    'inherited-members': None,
+    'member-order': 'groupwise',
+}
 
 mathjax3_config = {
     'tex': {
@@ -78,7 +80,7 @@ mathjax3_config = {
             'E': r'\mathbb{E}',
             'T': r'\mathcal{T}',
             'argmin': r'\mathrm{argmin}',
-            'Var': r'\mathrm{Var}'
+            'Var': r'\mathrm{Var}',
         }
     }
 }
@@ -122,9 +124,7 @@ html_theme = 'sphinx_rtd_theme'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-html_theme_options = {
-    'collapse_navigation': False
-}
+html_theme_options = {'collapse_navigation': False}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -157,15 +157,12 @@ latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',
-
     # The font size ('10pt', '11pt' or '12pt').
     #
     # 'pointsize': '10pt',
-
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
-
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
@@ -175,8 +172,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (root_doc, 'econml.tex', 'econml Documentation',
-     'PyWhy contributors', 'manual'),
+    (root_doc, 'econml.tex', 'econml Documentation', 'PyWhy contributors', 'manual'),
 ]
 
 
@@ -184,10 +180,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (root_doc, 'econml', 'econml Documentation',
-     [author], 1)
-]
+man_pages = [(root_doc, 'econml', 'econml Documentation', [author], 1)]
 
 
 # -- Options for Texinfo output ----------------------------------------------
@@ -196,9 +189,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (root_doc, 'econml', 'econml Documentation',
-     author, 'econml', 'One line description of project.',
-     'Miscellaneous'),
+    (root_doc, 'econml', 'econml Documentation', author, 'econml', 'One line description of project.', 'Miscellaneous'),
 ]
 
 
@@ -225,13 +216,15 @@ epub_exclude_files = ['search.html']
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('https://numpy.org/doc/stable/', None),
-                       'sklearn': ('https://scikit-learn.org/stable/', None),
-                       'matplotlib': ('https://matplotlib.org/stable/', None),
-                       'shap': ('https://shap.readthedocs.io/en/stable/', None),
-                       'dowhy': ('https://www.pywhy.org/dowhy/v0.8/', None),
-                       'statsmodels': ('https://www.statsmodels.org/stable/', None)}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'sklearn': ('https://scikit-learn.org/stable/', None),
+    'matplotlib': ('https://matplotlib.org/stable/', None),
+    'shap': ('https://shap.readthedocs.io/en/stable/', None),
+    'dowhy': ('https://www.pywhy.org/dowhy/v0.8/', None),
+    'statsmodels': ('https://www.statsmodels.org/stable/', None),
+}
 
 
 # -- Options for todo extension ----------------------------------------------
@@ -241,10 +234,10 @@ todo_include_todos = False
 
 # -- Options for doctest extension -------------------------------------------
 import doctest
-doctest_default_flags = (doctest.DONT_ACCEPT_TRUE_FOR_1 |
-                         doctest.ELLIPSIS |
-                         doctest.IGNORE_EXCEPTION_DETAIL |
-                         doctest.NORMALIZE_WHITESPACE)
+
+doctest_default_flags = (
+    doctest.DONT_ACCEPT_TRUE_FOR_1 | doctest.ELLIPSIS | doctest.IGNORE_EXCEPTION_DETAIL | doctest.NORMALIZE_WHITESPACE
+)
 
 
 def exclude_entity(app, what, name, obj, skip, opts):

@@ -260,8 +260,10 @@ def tensordot(X1, X2, axes):
             Or, a list of axes to be summed over, first sequence applying to `X1`,
             second to `X2`. Both elements array_like must be of the same length.
     """
+
     def td(X1, X2):
         return sp.tensordot(X1, X2, axes) if iscoo(X1) else np.tensordot(X1, X2, axes)
+
     return _apply(td, X1, X2)
 
 
@@ -296,6 +298,7 @@ def cross_product(*XS):
         k = len(XS)
         XS = [reshape(XS[i], (n,) + (1,) * (k - i - 1) + (-1,) + (1,) * i) for i in range(k)]
         return reshape(reduce(np.multiply, XS), (n, -1))
+
     return _apply(cross, XS)
 
 
@@ -320,8 +323,10 @@ def stack(XS, axis=0):
         The stacked array, which has one more dimension than the input arrays.
         It will be sparse if the inputs are.
     """
+
     def st(*XS):
         return sp.stack(XS, axis=axis) if iscoo(XS[0]) else np.stack(XS, axis=axis)
+
     return _apply(st, *XS)
 
 
@@ -343,8 +348,10 @@ def concatenate(XS, axis=0):
     ndarray or SparseArray
         The concatenated array. It will be sparse if the inputs are.
     """
+
     def conc(*XS):
         return sp.concatenate(XS, axis=axis) if iscoo(XS[0]) else np.concatenate(XS, axis=axis)
+
     return _apply(conc, *XS)
 
 
@@ -409,11 +416,13 @@ def transpose(X, axes=None):
         `X` with its axes permuted. This will be sparse if `X` is.
 
     """
+
     def t(X):
         if iscoo(X):
             return X.transpose(axes)
         else:
             return np.transpose(X, axes)
+
     return _apply(t, X)
 
 
@@ -455,18 +464,19 @@ def reshape_Y_T(Y, T):
         Reshaped treatment policy.
 
     """
-    assert (len(Y) == len(T))
-    assert (Y.ndim <= 2)
+    assert len(Y) == len(T)
+    assert Y.ndim <= 2
     if Y.ndim == 2:
-        assert (Y.shape[1] == 1)
+        assert Y.shape[1] == 1
         Y = Y.flatten()
     if T.ndim == 1:
         T = T.reshape(-1, 1)
     return Y, T
 
 
-def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
-                 force_all_finite_X=True, force_all_finite_W=True):
+def check_inputs(
+    Y, T, X, W=None, multi_output_T=True, multi_output_Y=True, force_all_finite_X=True, force_all_finite_W=True
+):
     """
     Input validation for CATE estimators.
 
@@ -525,8 +535,9 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
         try:
             assert_all_finite(X)
         except ValueError:
-            warnings.warn("X contains NaN. Causal identification strategy can be erroneous"
-                          " in the presence of missing values.")
+            warnings.warn(
+                "X contains NaN. Causal identification strategy can be erroneous" " in the presence of missing values."
+            )
     _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_X)
     if W is not None:
         W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_W)
@@ -534,8 +545,10 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
             try:
                 assert_all_finite(W)
             except ValueError:
-                warnings.warn("W contains NaN. Causal identification strategy can be erroneous"
-                              " in the presence of missing values.")
+                warnings.warn(
+                    "W contains NaN. Causal identification strategy can be erroneous"
+                    " in the presence of missing values."
+                )
     return Y, T, X, W
 
 
@@ -575,28 +588,33 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
     args = list(args)
     for i, arg in enumerate(args):
         if np.ndim(arg) > 0:
-            new_arg = check_array(arg, dtype=dtype, ensure_2d=False, accept_sparse=True,
-                                  force_all_finite=force_all_finite)
+            new_arg = check_array(
+                arg, dtype=dtype, ensure_2d=False, accept_sparse=True, force_all_finite=force_all_finite
+            )
             if not force_all_finite:
                 # For when checking input values is disabled
                 try:
                     assert_all_finite(new_arg)
                 except ValueError:
-                    warnings.warn("Input contains NaN, infinity or a value too large for dtype('float64') "
-                                  "but input check is disabled. Check the inputs before proceeding.")
+                    warnings.warn(
+                        "Input contains NaN, infinity or a value too large for dtype('float64') "
+                        "but input check is disabled. Check the inputs before proceeding."
+                    )
             elif force_all_finite == 'allow-nan':
                 try:
                     assert_all_finite(new_arg)
                 except ValueError:
-                    warnings.warn("Input contains NaN. Causal identification strategy can be erroneous"
-                                  " in the presence of missing values.")
+                    warnings.warn(
+                        "Input contains NaN. Causal identification strategy can be erroneous"
+                        " in the presence of missing values."
+                    )
 
             if validate_len:
                 m = new_arg.shape[0]
                 if n is None:
                     n = m
                 else:
-                    assert (m == n), "Input arrays have incompatible lengths: {} and {}".format(n, m)
+                    assert m == n, "Input arrays have incompatible lengths: {} and {}".format(n, m)
             args[i] = new_arg
     return args
 
@@ -624,13 +642,9 @@ def get_input_columns(X, prefix="X"):
     if X is None:
         return None
     if np.ndim(X) == 0:
-        raise ValueError(
-            f"Expected array_like object for imput with prefix {prefix} but got '{X}' object instead.")
+        raise ValueError(f"Expected array_like object for imput with prefix {prefix} but got '{X}' object instead.")
     # Type to column extraction function
-    type_to_func = {
-        pd.DataFrame: lambda x: x.columns.tolist(),
-        pd.Series: lambda x: [x.name]
-    }
+    type_to_func = {pd.DataFrame: lambda x: x.columns.tolist(), pd.Series: lambda x: [x.name]}
     if type(X) in type_to_func:
         column_names = type_to_func[type(X)](X)
 
@@ -717,15 +731,18 @@ def check_models(models, n):
     """
     if isinstance(models, (tuple, list)):
         if n != len(models):
-            raise ValueError("The number of estimators doesn't equal to the number of treatments. "
-                             "Please provide either a tuple/list of estimators "
-                             "with same number of treatments or an unified estimator.")
+            raise ValueError(
+                "The number of estimators doesn't equal to the number of treatments. "
+                "Please provide either a tuple/list of estimators "
+                "with same number of treatments or an unified estimator."
+            )
     elif hasattr(models, 'fit'):
         models = [clone(models, safe=False) for i in range(n)]
     else:
         raise ValueError(
             "models must be either a tuple/list of estimators with same number of treatments "
-            "or an unified estimator.")
+            "or an unified estimator."
+        )
     return models
 
 
@@ -858,6 +875,7 @@ def einsum_sparse(subscripts, *arrs):
         def keyGetter(s):
             inds = [s.index(c) for c in keys]
             return lambda p: tuple(p[0][ind] for ind in inds)
+
         kg1 = keyGetter(s1)
         kg2 = keyGetter(s2)
         l1.sort(key=kg1)
@@ -878,8 +896,9 @@ def einsum_sparse(subscripts, *arrs):
                     j2 += 1
                 for c1, d1 in l1[i1:j1]:
                     for c2, d2 in l2[i2:j2]:
-                        outL.append((tuple(c1[charIdx] if inFirst else c2[charIdx] for inFirst, charIdx in outMap),
-                                     d1 * d2))
+                        outL.append(
+                            (tuple(c1[charIdx] if inFirst else c2[charIdx] for inFirst, charIdx in outMap), d1 * d2)
+                        )
                 i1 = j1
                 i2 = j2
         return outS, outL
@@ -890,17 +909,19 @@ def einsum_sparse(subscripts, *arrs):
         repeated = [(c, counts[c]) for c in counts if counts[c] > 1]
         if len(repeated) > 0:
             mask = np.full(len(data), True)
-            for (k, v) in repeated:
+            for k, v in repeated:
                 inds = [i for i in range(len(inputs[n])) if inputs[n][i] == k]
                 for i in range(1, v):
-                    mask &= (coords[:, inds[0]] == coords[:, inds[i]])
+                    mask &= coords[:, inds[0]] == coords[:, inds[i]]
             if not all(mask):
                 return coords[mask, :], data[mask]
         return coords, data
 
-    xs = [(s, list(zip(c, d)))
-          for n, (s, arr) in enumerate(zip(inputs, arrs))
-          for c, d in [filter_inds(arr.coords.T, arr.data, n)]]
+    xs = [
+        (s, list(zip(c, d)))
+        for n, (s, arr) in enumerate(zip(inputs, arrs))
+        for c, d in [filter_inds(arr.coords.T, arr.data, n)]
+    ]
 
     # TODO: would using einsum's paths to optimize the order of merging help?
     while len(xs) > 1:
@@ -908,15 +929,16 @@ def einsum_sparse(subscripts, *arrs):
 
     results = defaultdict(int)
 
-    for (s, l) in xs:
+    for s, l in xs:
         coordMap = [s.index(c) for c in outputs]
-        for (c, d) in l:
+        for c, d in l:
             results[tuple(c[i] for i in coordMap)] += d
 
-    return sp.COO(np.array(list(results.keys())).T if results else
-                  np.empty((len(outputs), 0)),
-                  np.array(list(results.values())),
-                  [arrs[indMap[c][0][0]].shape[indMap[c][0][1]] for c in outputs])
+    return sp.COO(
+        np.array(list(results.keys())).T if results else np.empty((len(outputs), 0)),
+        np.array(list(results.values())),
+        [arrs[indMap[c][0][0]].shape[indMap[c][0][1]] for c in outputs],
+    )
 
 
 def filter_none_kwargs(**kwargs):
@@ -960,8 +982,11 @@ class WeightedModelWrapper:
         if sample_type == "weighted":
             self.data_transform = self._weighted_inputs
         else:
-            warnings.warn("The model provided does not support sample weights. "
-                          "Manual weighted sampling may icrease the variance in the results.", UserWarning)
+            warnings.warn(
+                "The model provided does not support sample weights. "
+                "Manual weighted sampling may icrease the variance in the results.",
+                UserWarning,
+            )
             self.data_transform = self._sampled_inputs
 
     def fit(self, X, y, sample_weight=None):
@@ -1042,15 +1067,15 @@ class MultiModelWrapper:
         -------
         self: an instance of the class
         """
-        X = Xt[:, :-self.n_T]
-        t = Xt[:, -self.n_T:]
+        X = Xt[:, : -self.n_T]
+        t = Xt[:, -self.n_T :]
         if sample_weight is None:
             for i in range(self.n_T):
-                mask = (t[:, i] == 1)
+                mask = t[:, i] == 1
                 self.model_list[i].fit(X[mask], y[mask])
         else:
             for i in range(self.n_T):
-                mask = (t[:, i] == 1)
+                mask = t[:, i] == 1
                 self.model_list[i].fit(X[mask], y[mask], sample_weight[mask])
         return self
 
@@ -1067,8 +1092,8 @@ class MultiModelWrapper:
         C : array, shape (n_samples, )
             Returns predicted values.
         """
-        X = Xt[:, :-self.n_T]
-        t = Xt[:, -self.n_T:]
+        X = Xt[:, : -self.n_T]
+        t = Xt[:, -self.n_T :]
         predictions = [self.model_list[np.nonzero(t[i])[0][0]].predict(X[[i]]) for i in range(len(X))]
         return np.concatenate(predictions)
 
@@ -1207,15 +1232,15 @@ class SeparateModel:
         self.models = [clone(model) for model in models]
 
     def fit(self, XZ, T):
-        for (i, m) in enumerate(self.models):
-            inds = (XZ[:, -1] == i)
+        for i, m in enumerate(self.models):
+            inds = XZ[:, -1] == i
             m.fit(XZ[inds, :-1], T[inds])
         return self
 
     def predict(self, XZ):
         t_pred = np.zeros(XZ.shape[0])
-        for (i, m) in enumerate(self.models):
-            inds = (XZ[:, -1] == i)
+        for i, m in enumerate(self.models):
+            inds = XZ[:, -1] == i
             if np.any(inds):
                 t_pred[inds] = m.predict(XZ[inds, :-1])
         return t_pred
@@ -1236,8 +1261,8 @@ def deprecated(message, category=FutureWarning):
     category:  :class:`type`, default :class:`FutureWarning`
         The warning category to use
     """
-    def decorator(to_wrap):
 
+    def decorator(to_wrap):
         # if we're decorating a class, just update the __init__ method,
         # so that the result is still a class instead of a wrapper method
         if isinstance(to_wrap, type):
@@ -1252,11 +1277,14 @@ def deprecated(message, category=FutureWarning):
 
             return to_wrap
         else:
+
             @wraps(to_wrap)
             def m(*args, **kwargs):
                 warn(message, category, stacklevel=2)
                 return to_wrap(*args, **kwargs)
+
             return m
+
     return decorator
 
 
@@ -1273,6 +1301,7 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
     category:  :class:`type`, default :class:`FutureWarning`
         The warning category to use
     """
+
     def decorator(to_wrap):
         @wraps(to_wrap)
         def m(*args, **kwargs):
@@ -1287,7 +1316,9 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
             if wrong_args:
                 warn(message, category, stacklevel=2)
             return to_wrap(*args, **kwargs)
+
         return m
+
     return decorator
 
 
@@ -1427,7 +1458,7 @@ class _TransformerWrapper:
     def jac(self, X, epsilon=0.001):
         if hasattr(self.featurizer, 'jac'):
             return self.featurizer.jac(X)
-        elif (isinstance(self.featurizer, PolynomialFeatures)):
+        elif isinstance(self.featurizer, PolynomialFeatures):
             powers = self.featurizer.powers_
             result = np.zeros(X.shape + (self.featurizer.n_output_features_,))
             for i in range(X.shape[1]):
@@ -1479,8 +1510,8 @@ class _TransformerWrapper:
 
 def jacify_featurizer(featurizer):
     """
-       Function that takes a featurizer as input and returns a wrapper class that includes
-       a function for calculating the jacobian
+    Function that takes a featurizer as input and returns a wrapper class that includes
+    a function for calculating the jacobian
     """
     return _TransformerWrapper(featurizer)
 
@@ -1517,6 +1548,7 @@ def one_hot_encoder(sparse=False, **kwargs):
     between sklearn versions 1.1 and 1.2.
     """
     from packaging.version import parse
+
     if parse(sklearn.__version__) < parse("1.2"):
         return OneHotEncoder(sparse=sparse, **kwargs)
     else:

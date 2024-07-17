@@ -10,7 +10,6 @@ from econml.inference import BootstrapInference
 
 
 class TestATEInference(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         np.random.seed(123)
@@ -21,31 +20,33 @@ class TestATEInference(unittest.TestCase):
         # Generate data
         cls.X = np.random.uniform(0, 1, size=(cls.n, cls.d_x))
         cls.W = np.random.normal(0, 1, size=(cls.n, cls.d_w))
-        cls.T = np.random.binomial(1, .5, size=(cls.n, 2))
+        cls.T = np.random.binomial(1, 0.5, size=(cls.n, 2))
         cls.Y = np.random.normal(0, 1, size=(cls.n, 3))
 
     def test_ate_inference(self):
         """Tests the ate inference results."""
         Y, T, X, W = TestATEInference.Y, TestATEInference.T, TestATEInference.X, TestATEInference.W
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
-            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
-                                 featurizer=PolynomialFeatures(degree=2,
-                                                               include_bias=False))
+            cate_est = LinearDML(
+                model_t=LinearRegression(),
+                model_y=LinearRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
+            )
             cate_est.fit(Y, T, X=X, W=W, inference=inference)
             cate_est.ate(X)
             cate_est.ate_inference(X)
-            cate_est.ate_interval(X, alpha=.01)
+            cate_est.ate_interval(X, alpha=0.01)
             lb, _ = cate_est.ate_inference(X).conf_int_mean()
             np.testing.assert_array_equal(lb.shape, Y.shape[1:])
 
             cate_est.marginal_ate(T, X)
-            cate_est.marginal_ate_interval(T, X, alpha=.01)
+            cate_est.marginal_ate_interval(T, X, alpha=0.01)
             cate_est.marginal_ate_inference(T, X)
             lb, _ = cate_est.marginal_ate_inference(T, X).conf_int_mean()
             np.testing.assert_array_equal(lb.shape, Y.shape[1:] + T.shape[1:])
 
             cate_est.const_marginal_ate(X)
-            cate_est.const_marginal_ate_interval(X, alpha=.01)
+            cate_est.const_marginal_ate_interval(X, alpha=0.01)
             cate_est.const_marginal_ate_inference(X)
             lb, _ = cate_est.const_marginal_ate_inference(X).conf_int_mean()
             np.testing.assert_array_equal(lb.shape, Y.shape[1:] + T.shape[1:])
@@ -63,7 +64,8 @@ class TestATEInference(unittest.TestCase):
                 assert summary.tables[0].data[1 + i][4] < 1e-5
 
             summary = cate_est.marginal_ate_inference(T, X).summary(
-                value=np.mean(cate_est.marginal_effect(T, X), axis=0))
+                value=np.mean(cate_est.marginal_effect(T, X), axis=0)
+            )
             for i in range(Y.shape[1] * T.shape[1]):
                 np.testing.assert_almost_equal(summary.tables[0].data[1 + i][4], 1.0)
 
@@ -72,6 +74,7 @@ class TestATEInference(unittest.TestCase):
                 assert summary.tables[0].data[1 + i][4] < 1e-5
 
             summary = cate_est.const_marginal_ate_inference(X).summary(
-                value=np.mean(cate_est.const_marginal_effect(X), axis=0))
+                value=np.mean(cate_est.const_marginal_effect(X), axis=0)
+            )
             for i in range(Y.shape[1] * T.shape[1]):
                 np.testing.assert_almost_equal(summary.tables[0].data[1 + i][4], 1.0)

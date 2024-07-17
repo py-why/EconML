@@ -53,51 +53,46 @@ class Node:
 class CausalTree:
     """Base class for growing an OrthoForest.
 
-    Parameters
-    ----------
-    nuisance_estimator : method
-        Method that estimates the nuisances at each node.
-        Takes in (Y, T, X, W) and returns nuisance estimates.
+        Parameters
+        ----------
+        nuisance_estimator : method
+            Method that estimates the nuisances at each node.
+            Takes in (Y, T, X, W) and returns nuisance estimates.
 
-    parameter_estimator : method
-        Method that estimates the parameter of interest at each node.
-        Takes in (Y, T, nuisance_estimates) and returns the parameter estimate.
+        parameter_estimator : method
+            Method that estimates the parameter of interest at each node.
+            Takes in (Y, T, nuisance_estimates) and returns the parameter estimate.
 
-    moment_and_mean_gradient_estimator : method
-        Method that estimates the moments and mean moment gradient at each node.
-        Takes in (Y, T, X, W, nuisance_estimates, parameter_estimate) and returns
-        the moments and the mean moment gradient.
+        moment_and_mean_gradient_estimator : method
+            Method that estimates the moments and mean moment gradient at each node.
+            Takes in (Y, T, X, W, nuisance_estimates, parameter_estimate) and returns
+            the moments and the mean moment gradient.
 
-    min_leaf_size : int, default 10
-        The minimum number of samples in a leaf.
+        min_leaf_size : int, default 10
+            The minimum number of samples in a leaf.
 
-    max_depth : int, default 10
-        The maximum number of splits to be performed when expanding the tree.
+        max_depth : int, default 10
+            The maximum number of splits to be performed when expanding the tree.
 
-    n_proposals :  int, default 1000
-        Number of split proposals to be considered. A smaller number will improve
-        execution time, but might reduce accuracy of prediction.
+        n_proposals :  int, default 1000
+            Number of split proposals to be considered. A smaller number will improve
+            execution time, but might reduce accuracy of prediction.
 
-    balancedness_tol : float, default .3
-        Tolerance for balance between child nodes in a split. A smaller value
-        will result in an unbalanced tree prone to overfitting. Has to lie
-        between 0 and .5 as it is used to control both directions of imbalancedness.
-        With the default value we guarantee that each child of a split contains
-        at least 20% and at most 80% of the data of the parent node.
+        balancedness_tol : float, default .3
+            Tolerance for balance between child nodes in a split. A smaller value
+            will result in an unbalanced tree prone to overfitting. Has to lie
+            between 0 and .5 as it is used to control both directions of imbalancedness.
+            With the default value we guarantee that each child of a split contains
+            at least 20% and at most 80% of the data of the parent node.
 
-random_state : int, RandomState instance, or None, default None
-            If int, random_state is the seed used by the random number generator;
-        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
-        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by :mod:`np.random<numpy.random>`.
+    random_state : int, RandomState instance, or None, default None
+                If int, random_state is the seed used by the random number generator;
+            If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+            If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+            by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
-                 min_leaf_size=10,
-                 max_depth=10,
-                 n_proposals=1000,
-                 balancedness_tol=.3,
-                 random_state=None):
+    def __init__(self, min_leaf_size=10, max_depth=10, n_proposals=1000, balancedness_tol=0.3, random_state=None):
         # Causal tree parameters
         self.min_leaf_size = min_leaf_size
         self.max_depth = max_depth
@@ -107,8 +102,7 @@ random_state : int, RandomState instance, or None, default None
         # Tree structure
         self.tree = None
 
-    def create_splits(self, Y, T, X, W,
-                      nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator):
+    def create_splits(self, Y, T, X, W, nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator):
         """
         Recursively build a causal tree.
 
@@ -138,7 +132,6 @@ random_state : int, RandomState instance, or None, default None
 
             # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
             if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_depth:
-
                 # Create local sample set
                 node_X = X[node.split_sample_inds]
                 node_W = W[node.split_sample_inds] if W is not None else None
@@ -160,9 +153,8 @@ random_state : int, RandomState instance, or None, default None
                     continue
                 # Calculate moments and gradient of moments for current data
                 moments, mean_grad = moment_and_mean_gradient_estimator(
-                    node_Y, node_T, node_X, node_W,
-                    nuisance_estimates,
-                    node_estimate)
+                    node_Y, node_T, node_X, node_W, nuisance_estimates, node_estimate
+                )
                 # Calculate inverse gradient
                 try:
                     inverse_grad = np.linalg.inv(mean_grad)
@@ -199,16 +191,16 @@ random_state : int, RandomState instance, or None, default None
                 # find the upper and lower bound on the size of the left split for the split
                 # to be valid so as for the split to be balanced and leave at least min_leaf_size
                 # on each side.
-                lower_bound = max((.5 - self.balancedness_tol) * node_size_split, self.min_leaf_size)
-                upper_bound = min((.5 + self.balancedness_tol) * node_size_split, node_size_split - self.min_leaf_size)
-                valid_split = (lower_bound <= size_left)
-                valid_split &= (size_left <= upper_bound)
+                lower_bound = max((0.5 - self.balancedness_tol) * node_size_split, self.min_leaf_size)
+                upper_bound = min((0.5 + self.balancedness_tol) * node_size_split, node_size_split - self.min_leaf_size)
+                valid_split = lower_bound <= size_left
+                valid_split &= size_left <= upper_bound
 
                 # similarly for the estimation sample set
-                lower_bound_est = max((.5 - self.balancedness_tol) * node_size_est, self.min_leaf_size)
-                upper_bound_est = min((.5 + self.balancedness_tol) * node_size_est, node_size_est - self.min_leaf_size)
-                valid_split &= (lower_bound_est <= size_est_left)
-                valid_split &= (size_est_left <= upper_bound_est)
+                lower_bound_est = max((0.5 - self.balancedness_tol) * node_size_est, self.min_leaf_size)
+                upper_bound_est = min((0.5 + self.balancedness_tol) * node_size_est, node_size_est - self.min_leaf_size)
+                valid_split &= lower_bound_est <= size_est_left
+                valid_split &= size_est_left <= upper_bound_est
 
                 # if there is no valid split then don't create any children
                 if ~np.any(valid_split):

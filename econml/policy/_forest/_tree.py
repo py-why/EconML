@@ -40,7 +40,7 @@ CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseTree):
-    """ Welfare maximization policy tree. Trains a tree to maximize the objective:
+    """Welfare maximization policy tree. Trains a tree to maximize the objective:
     :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
     to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
     optimization problem.
@@ -116,8 +116,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -168,29 +167,34 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
     """
 
-    def __init__(self, *,
-                 criterion='neg_welfare',
-                 splitter="best",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features=None,
-                 random_state=None,
-                 min_impurity_decrease=0.,
-                 min_balancedness_tol=0.45,
-                 honest=True):
-        super().__init__(criterion=criterion,
-                         splitter=splitter,
-                         max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf,
-                         min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         max_features=max_features,
-                         random_state=random_state,
-                         min_impurity_decrease=min_impurity_decrease,
-                         min_balancedness_tol=min_balancedness_tol,
-                         honest=honest)
+    def __init__(
+        self,
+        *,
+        criterion='neg_welfare',
+        splitter="best",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features=None,
+        random_state=None,
+        min_impurity_decrease=0.0,
+        min_balancedness_tol=0.45,
+        honest=True,
+    ):
+        super().__init__(
+            criterion=criterion,
+            splitter=splitter,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_features=max_features,
+            random_state=random_state,
+            min_impurity_decrease=min_impurity_decrease,
+            min_balancedness_tol=min_balancedness_tol,
+            honest=honest,
+        )
 
     def _get_valid_criteria(self):
         return CRITERIA_POLICY
@@ -198,11 +202,13 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
     def _get_store_jac(self):
         return False
 
-    def init(self,):
+    def init(
+        self,
+    ):
         return self
 
     def fit(self, X, y, *, sample_weight=None, check_input=True):
-        """ Fit the tree from the data
+        """Fit the tree from the data
 
         Parameters
         ----------
@@ -230,8 +236,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         if check_input:
             X, y = check_X_y(X, y, multi_output=True, y_numeric=True, ensure_min_features=0)
         n_y = 1 if y.ndim == 1 else y.shape[1]
-        super().fit(X, y, n_y, n_y, n_y,
-                    sample_weight=sample_weight, check_input=check_input)
+        super().fit(X, y, n_y, n_y, n_y, sample_weight=sample_weight, check_input=check_input)
 
         # The values below are required and utilitized by methods in the _SingleTreeExporterMixin
         self.tree_model_ = self
@@ -240,7 +245,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def predict(self, X, check_input=True):
-        """ Predict the best treatment for each sample
+        """Predict the best treatment for each sample
 
         Parameters
         ----------
@@ -262,7 +267,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return np.argmax(pred, axis=1)
 
     def predict_proba(self, X, check_input=True):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment
 
         Parameters
         ----------
@@ -286,7 +291,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return proba
 
     def predict_value(self, X, check_input=True):
-        """ Predict the expected value of each treatment for each sample
+        """Predict the expected value of each treatment for each sample
 
         Parameters
         ----------
@@ -324,40 +329,68 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         """
         check_is_fitted(self)
 
-        return self.tree_.compute_feature_importances(normalize=True, max_depth=max_depth,
-                                                      depth_decay=depth_decay_exponent)
+        return self.tree_.compute_feature_importances(
+            normalize=True, max_depth=max_depth, depth_decay=depth_decay_exponent
+        )
 
     @property
     def feature_importances_(self):
         return self.feature_importances()
 
-    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
-                           leaves_parallel, rotate, rounded,
-                           special_characters, precision):
+    def _make_dot_exporter(
+        self,
+        *,
+        out_file,
+        feature_names,
+        treatment_names,
+        max_depth,
+        filled,
+        leaves_parallel,
+        rotate,
+        rounded,
+        special_characters,
+        precision,
+    ):
         title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
-            np.around(self.policy_value_ - self.always_treat_value_, precision))
-        return _PolicyTreeDOTExporter(out_file=out_file, title=title,
-                                      treatment_names=treatment_names, feature_names=feature_names,
-                                      max_depth=max_depth,
-                                      filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
-                                      rounded=rounded, special_characters=special_characters,
-                                      precision=precision)
+            np.around(self.policy_value_ - self.always_treat_value_, precision)
+        )
+        return _PolicyTreeDOTExporter(
+            out_file=out_file,
+            title=title,
+            treatment_names=treatment_names,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            leaves_parallel=leaves_parallel,
+            rotate=rotate,
+            rounded=rounded,
+            special_characters=special_characters,
+            precision=precision,
+        )
 
-    def _make_mpl_exporter(self, *, title, feature_names, treatment_names, max_depth, filled,
-                           rounded, precision, fontsize):
+    def _make_mpl_exporter(
+        self, *, title, feature_names, treatment_names, max_depth, filled, rounded, precision, fontsize
+    ):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
-            np.around(self.policy_value_ - self.always_treat_value_, precision))
-        return _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title,
-                                      feature_names=feature_names, max_depth=max_depth,
-                                      filled=filled,
-                                      rounded=rounded,
-                                      precision=precision, fontsize=fontsize)
+            np.around(self.policy_value_ - self.always_treat_value_, precision)
+        )
+        return _PolicyTreeMPLExporter(
+            treatment_names=treatment_names,
+            title=title,
+            feature_names=feature_names,
+            max_depth=max_depth,
+            filled=filled,
+            rounded=rounded,
+            precision=precision,
+            fontsize=fontsize,
+        )
 
 
 # HACK: sklearn 1.3 enforces that the input to plot_tree is a DecisionTreeClassifier or DecisionTreeRegressor
 #       This is a hack to get around that restriction by declaring that PolicyTree inherits from DecisionTreeClassifier
 from sklearn.tree import DecisionTreeClassifier
+
 DecisionTreeClassifier.register(PolicyTree)

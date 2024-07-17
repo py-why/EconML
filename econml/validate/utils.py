@@ -4,12 +4,7 @@ import numpy as np
 import pandas as pd
 
 
-def calculate_dr_outcomes(
-    D: np.array,
-    y: np.array,
-    reg_preds: np.array,
-    prop_preds: np.array
-) -> np.array:
+def calculate_dr_outcomes(D: np.array, y: np.array, reg_preds: np.array, prop_preds: np.array) -> np.array:
     """
     Calculates doubly-robust (DR) outcomes using predictions from nuisance models
 
@@ -36,11 +31,11 @@ def calculate_dr_outcomes(
     # with rows corresponding to units and columns corresponding to treatment statuses
     dr_vec = []
     d0_mask = np.where(D == 0, 1, 0)
-    y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], .01, np.inf)) * (y - reg_preds[:, 0])
+    y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], 0.01, np.inf)) * (y - reg_preds[:, 0])
     for k in np.sort(np.unique(D)):  # pick a treatment status
         if k > 0:  # make sure it is not control
             dk_mask = np.where(D == k, 1, 0)
-            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], .01, np.inf)) * (y - reg_preds[:, k])
+            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], 0.01, np.inf)) * (y - reg_preds[:, k])
             dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
             dr_vec.append(dr_k)
     dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
@@ -54,7 +49,7 @@ def calc_uplift(
     dr_val: np.array,
     percentiles: np.array,
     metric: str,
-    n_bootstrap: int = 1000
+    n_bootstrap: int = 1000,
 ) -> Tuple[float, float, pd.DataFrame]:
     """
     Helper function for uplift curve generation and coefficient calculation.
@@ -88,13 +83,15 @@ def calc_uplift(
     n = len(dr_val)
     ate = np.mean(dr_val)
     for it in range(len(qs)):
-        inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
+        inds = qs[it] <= cate_preds_val  # group with larger CATE prediction than the q-th quantile
         group_prob = np.sum(inds) / n  # fraction of population in this group
         if metric == 'qini':
             toc[it] = group_prob * (
-                np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+                np.mean(dr_val[inds]) - ate
+            )  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc_psi[it, :] = np.squeeze(
-                (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+                (dr_val - ate) * (inds - group_prob) - toc[it]
+            )  # influence function for the tau(q)
         elif metric == 'toc':
             toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
@@ -114,14 +111,16 @@ def calc_uplift(
 
     coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
     coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
-    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n)
+    coeff_stderr = np.sqrt(np.mean(coeff_psi**2) / n)
 
-    curve_df = pd.DataFrame({
-        'Percentage treated': 100 - percentiles,
-        'value': toc,
-        'err': toc_std,
-        'uniform_critical_value': uniform_critical_value,
-        'uniform_one_side_critical_value': uniform_one_side_critical_value
-    })
+    curve_df = pd.DataFrame(
+        {
+            'Percentage treated': 100 - percentiles,
+            'value': toc,
+            'err': toc_std,
+            'uniform_critical_value': uniform_critical_value,
+            'uniform_one_side_critical_value': uniform_one_side_critical_value,
+        }
+    )
 
     return coeff, coeff_stderr, curve_df

@@ -9,29 +9,32 @@ import warnings
 import numpy as np
 import sparse as sp
 import pytest
-from econml.utilities import (einsum_sparse, todense, tocoo, transpose,
-                              inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
-                              strata_from_discrete_arrays)
+from econml.utilities import (
+    einsum_sparse,
+    todense,
+    tocoo,
+    transpose,
+    inverse_onehot,
+    cross_product,
+    transpose_dictionary,
+    deprecated,
+    _deprecate_positional,
+    strata_from_discrete_arrays,
+)
 from sklearn.preprocessing import OneHotEncoder
 
 
 class TestUtilities(unittest.TestCase):
-
     def test_cross_product(self):
-        X = np.array([[1, 2],
-                      [3, 4]])
-        Y = np.array([[1, 2, 3],
-                      [4, 5, 6]])
-        Z = np.array([1,
-                      1])
+        X = np.array([[1, 2], [3, 4]])
+        Y = np.array([[1, 2, 3], [4, 5, 6]])
+        Z = np.array([1, 1])
 
         # make sure cross product varies more slowly with first array
         # and that vectors are okay as inputs
-        assert np.all(cross_product(Z, Y, X) == np.array([[1, 2, 3, 2, 4, 6],
-                                                          [12, 15, 18, 16, 20, 24]]))
+        assert np.all(cross_product(Z, Y, X) == np.array([[1, 2, 3, 2, 4, 6], [12, 15, 18, 16, 20, 24]]))
 
-        assert np.all(cross_product(X, Z, Y) == np.array([[1, 2, 2, 4, 3, 6],
-                                                          [12, 16, 15, 20, 18, 24]]))
+        assert np.all(cross_product(X, Z, Y) == np.array([[1, 2, 2, 4, 3, 6], [12, 16, 15, 20, 18, 24]]))
 
         ()
 
@@ -75,10 +78,17 @@ class TestUtilities(unittest.TestCase):
         arr1 = sp.random((20, 30, 40), 0.1)
         arr2 = sp.random((40, 30), 0.1)
         arr3 = sp.random((40, 20, 10), 0.1)
-        self.assertTrue(np.allclose(todense(einsum_sparse('abc,cb->a', arr1, arr2)),
-                                    todense(sp.tensordot(arr1, arr2, axes=([1, 2], [1, 0])))))
-        self.assertTrue(np.allclose(todense(einsum_sparse('ab,acd->bcd', arr2, arr3)),
-                                    todense(sp.tensordot(arr2, arr3, axes=(0, 0)))))
+        self.assertTrue(
+            np.allclose(
+                todense(einsum_sparse('abc,cb->a', arr1, arr2)),
+                todense(sp.tensordot(arr1, arr2, axes=([1, 2], [1, 0]))),
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                todense(einsum_sparse('ab,acd->bcd', arr2, arr3)), todense(sp.tensordot(arr2, arr3, axes=(0, 0)))
+            )
+        )
 
         # trace
         arr = sp.random((100, 100), 0.1)
@@ -125,8 +135,7 @@ class TestUtilities(unittest.TestCase):
                 end = time.perf_counter()
                 print(" sparse: {0}".format(mid - start))
                 print(" dense:  {0}".format(end - mid))
-                self.assertTrue(np.allclose(todense(spr),
-                                            der))
+                self.assertTrue(np.allclose(todense(spr), der))
 
     def test_transpose_dictionary(self):
         d1 = {1: {'a': '1a', 'b': '1b'}, 2: {'b': '2b', 'a': '2a', 'c': '2c'}}
@@ -135,7 +144,6 @@ class TestUtilities(unittest.TestCase):
         assert d2 == transpose_dictionary(d1)
 
     def test_deprecated(self):
-
         @deprecated("This class is deprecated")
         class Deprecated:
             def __init__(self, a, b=1):
@@ -162,7 +170,6 @@ class TestUtilities(unittest.TestCase):
             depr(1, 2, 3, y=4)
 
     def test_deprecate_positional(self):
-
         @_deprecate_positional("Don't pass b or c by position", ['b', 'c'])
         def m(a, b, c=1, *args, **kwargs):
             return a

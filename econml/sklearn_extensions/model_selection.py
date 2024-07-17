@@ -15,18 +15,41 @@ import scipy.sparse as sp
 import sklearn
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, clone, is_classifier
-from sklearn.ensemble import (GradientBoostingClassifier, GradientBoostingRegressor,
-                              RandomForestClassifier, RandomForestRegressor)
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.exceptions import FitFailedWarning
-from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, MultiTaskElasticNet, MultiTaskElasticNetCV,
-                                  MultiTaskLasso, MultiTaskLassoCV, Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
-                                  LogisticRegression, LogisticRegressionCV)
-from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFold, KFold,
-                                     RandomizedSearchCV, StratifiedKFold,
-                                     check_cv)
+from sklearn.linear_model import (
+    ElasticNet,
+    ElasticNetCV,
+    Lasso,
+    LassoCV,
+    MultiTaskElasticNet,
+    MultiTaskElasticNetCV,
+    MultiTaskLasso,
+    MultiTaskLassoCV,
+    Ridge,
+    RidgeCV,
+    RidgeClassifier,
+    RidgeClassifierCV,
+    LogisticRegression,
+    LogisticRegressionCV,
+)
+from sklearn.model_selection import (
+    BaseCrossValidator,
+    GridSearchCV,
+    GroupKFold,
+    KFold,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    check_cv,
+)
+
 # TODO: conisder working around relying on sklearn implementation details
-from sklearn.model_selection._validation import (_check_is_permutation,
-                                                 _fit_and_predict)
+from sklearn.model_selection._validation import _check_is_permutation, _fit_and_predict
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import LabelEncoder, PolynomialFeatures, StandardScaler
@@ -40,11 +63,9 @@ from .linear_model import WeightedLassoCVWrapper, WeightedLassoWrapper
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
     random_state = self.random_state if self.shuffle else None
     if is_stratified:
-        kfold_model = StratifiedKFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                                      random_state=random_state)
+        kfold_model = StratifiedKFold(n_splits=self.n_splits, shuffle=self.shuffle, random_state=random_state)
     else:
-        kfold_model = KFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                            random_state=random_state)
+        kfold_model = KFold(n_splits=self.n_splits, shuffle=self.shuffle, random_state=random_state)
 
     if sample_weight is None:
         return kfold_model.split(X, y)
@@ -59,7 +80,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
     for _ in range(self.n_trials + 1):
         splits = [test for (train, test) in list(kfold_model.split(X, y))]
         weight_fracs = np.array([np.sum(sample_weight[split]) / weights_sum for split in splits])
-        if np.all(weight_fracs > .95 / self.n_splits):
+        if np.all(weight_fracs > 0.95 / self.n_splits):
             # Found a good split, return.
             return self._get_folds_from_splits(splits, X.shape[0])
         # Record all splits in case the stratification by weight yeilds a worse partition
@@ -73,21 +94,25 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
             kfold_model.random_state = np.random.RandomState(kfold_model.random_state.randint(np.iinfo(np.int32).max))
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
-    warnings.warn("The KFold algorithm failed to find a weight-balanced partition after " +
-                  "{n_trials} trials. Falling back on a weight stratification algorithm.".format(
-                      n_trials=self.n_trials), UserWarning)
+    warnings.warn(
+        "The KFold algorithm failed to find a weight-balanced partition after "
+        + "{n_trials} trials. Falling back on a weight stratification algorithm.".format(n_trials=self.n_trials),
+        UserWarning,
+    )
     if is_stratified:
         stratified_weight_splits = [[]] * self.n_splits
         for y_unique in np.unique(y.flatten()):
             class_inds = np.argwhere(y == y_unique).flatten()
             class_splits = self._get_splits_from_weight_stratification(sample_weight[class_inds])
-            stratified_weight_splits = [split + list(class_inds[class_split]) for split, class_split in zip(
-                stratified_weight_splits, class_splits)]
+            stratified_weight_splits = [
+                split + list(class_inds[class_split])
+                for split, class_split in zip(stratified_weight_splits, class_splits)
+            ]
     else:
         stratified_weight_splits = self._get_splits_from_weight_stratification(sample_weight)
     weight_fracs = np.array([np.sum(sample_weight[split]) / weights_sum for split in stratified_weight_splits])
 
-    if np.all(weight_fracs > .95 / self.n_splits):
+    if np.all(weight_fracs > 0.95 / self.n_splits):
         # Found a good split, return.
         return self._get_folds_from_splits(stratified_weight_splits, X.shape[0])
     else:
@@ -392,14 +417,20 @@ class FixedModelSelector(SingleModelSelector):
             if self.score_during_selection:
                 # the score needs to be compared to another model's
                 # so we don't need to fit the model itself on all of the data, just get the out-of-sample score
-                assert hasattr(self.model, 'score'), (f"Can't select between a fixed {type(self.model)} model "
-                                                      "and others because it doesn't have a score method")
+                assert hasattr(self.model, 'score'), (
+                    f"Can't select between a fixed {type(self.model)} model "
+                    "and others because it doesn't have a score method"
+                )
                 scores = []
                 for train, test in folds:
                     # use _fit_with_groups instead of just fit to handle nested grouping
-                    _fit_with_groups(self.model, X[train], y[train],
-                                     groups=None if groups is None else groups[train],
-                                     **{key: val[train] for key, val in kwargs.items()})
+                    _fit_with_groups(
+                        self.model,
+                        X[train],
+                        y[train],
+                        groups=None if groups is None else groups[train],
+                        **{key: val[train] for key, val in kwargs.items()},
+                    )
                     scores.append(self.model.score(X[test], y[test]))
                 self._score = np.mean(scores)
         else:
@@ -436,11 +467,24 @@ def _convert_linear_model(model, new_cls):
 
 def _to_logisticRegression(model: LogisticRegressionCV):
     lr = _convert_linear_model(model, LogisticRegression)
-    _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
-                         "class_weight",
-                         "solver", "multi_class",
-                         "verbose", "n_jobs",
-                         "tol", "max_iter", "random_state", "n_iter_"])
+    _copy_to(
+        model,
+        lr,
+        [
+            "penalty",
+            "dual",
+            "intercept_scaling",
+            "class_weight",
+            "solver",
+            "multi_class",
+            "verbose",
+            "n_jobs",
+            "tol",
+            "max_iter",
+            "random_state",
+            "n_iter_",
+        ],
+    )
     _copy_to(model, lr, ["classes_"])
 
     _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next
@@ -467,9 +511,11 @@ def _to_elasticNet(model: ElasticNetCV, args, kwargs, is_lasso=False, cls=None, 
     # but we can calculate it ourselves from the MSE plus the variance of the target y
     y = signature(model.fit).bind(*args, **kwargs).arguments["y"]
     cls = cls or (Lasso if is_lasso else ElasticNet)
-    new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start', 'dual_gap_',
-                                                                      'tol', 'max_iter', 'random_state', 'n_iter_',
-                                                                      'copy_X'])
+    new_model = _convert_linear_regression(
+        model,
+        cls,
+        extra_attrs + ['selection', 'warm_start', 'dual_gap_', 'tol', 'max_iter', 'random_state', 'n_iter_', 'copy_X'],
+    )
     if not is_lasso:
         # l1 ratio doesn't apply to Lasso, only ElasticNet
         _copy_to(model, new_model, ["l1_ratio"], True)
@@ -505,22 +551,24 @@ class SklearnCVSelector(SingleModelSelector):
 
     @staticmethod
     def _model_mapping():
-        return {LogisticRegressionCV: lambda model, _args, _kwargs: _to_logisticRegression(model),
-                ElasticNetCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs),
-                LassoCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs, True, None, ["positive"]),
-                RidgeCV: lambda model, _args, _kwargs: _to_ridge(model),
-                RidgeClassifierCV: lambda model, _args, _kwargs: _to_ridge(model, RidgeClassifier,
-                                                                           ["positive", "class_weight",
-                                                                            "_label_binarizer"]),
-                MultiTaskElasticNetCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
-                                                                                  False, MultiTaskElasticNet,
-                                                                                  extra_attrs=[]),
-                MultiTaskLassoCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
-                                                                             True, MultiTaskLasso, extra_attrs=[]),
-                WeightedLassoCVWrapper: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs,
-                                                                                   True, WeightedLassoWrapper,
-                                                                                   extra_attrs=[]),
-                }
+        return {
+            LogisticRegressionCV: lambda model, _args, _kwargs: _to_logisticRegression(model),
+            ElasticNetCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs),
+            LassoCV: lambda model, args, kwargs: _to_elasticNet(model, args, kwargs, True, None, ["positive"]),
+            RidgeCV: lambda model, _args, _kwargs: _to_ridge(model),
+            RidgeClassifierCV: lambda model, _args, _kwargs: _to_ridge(
+                model, RidgeClassifier, ["positive", "class_weight", "_label_binarizer"]
+            ),
+            MultiTaskElasticNetCV: lambda model, args, kwargs: _to_elasticNet(
+                model, args, kwargs, False, MultiTaskElasticNet, extra_attrs=[]
+            ),
+            MultiTaskLassoCV: lambda model, args, kwargs: _to_elasticNet(
+                model, args, kwargs, True, MultiTaskLasso, extra_attrs=[]
+            ),
+            WeightedLassoCVWrapper: lambda model, args, kwargs: _to_elasticNet(
+                model, args, kwargs, True, WeightedLassoWrapper, extra_attrs=[]
+            ),
+        }
 
     @staticmethod
     def _convert_model(model, args, kwargs):
@@ -616,36 +664,71 @@ class ListSelector(SingleModelSelector):
 
 def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV, needs_scoring=False):
     named_models = {
-        'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
-        'poly': ([make_pipeline(PolynomialFeatures(d),
-                                (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv)))
-                  for d in range(1, 4)]),
-        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
-                                else RandomForestRegressor(random_state=random_state),
-                                param_grid={}, cv=cv)),
-        'gbf': (GridSearchCV(GradientBoostingClassifier(random_state=random_state) if is_discrete
-                             else GradientBoostingRegressor(random_state=random_state),
-                             param_grid={}, cv=cv)),
-        'nnet': (GridSearchCV(MLPClassifier(random_state=random_state) if is_discrete
-                              else MLPRegressor(random_state=random_state),
-                              param_grid={}, cv=cv)),
+        'linear': (
+            LogisticRegressionCV(random_state=random_state, cv=cv)
+            if is_discrete
+            else WeightedLassoCVWrapper(random_state=random_state, cv=cv)
+        ),
+        'poly': (
+            [
+                make_pipeline(
+                    PolynomialFeatures(d),
+                    (
+                        LogisticRegressionCV(random_state=random_state, cv=cv)
+                        if is_discrete
+                        else WeightedLassoCVWrapper(random_state=random_state, cv=cv)
+                    ),
+                )
+                for d in range(1, 4)
+            ]
+        ),
+        'forest': (
+            GridSearchCV(
+                RandomForestClassifier(random_state=random_state)
+                if is_discrete
+                else RandomForestRegressor(random_state=random_state),
+                param_grid={},
+                cv=cv,
+            )
+        ),
+        'gbf': (
+            GridSearchCV(
+                GradientBoostingClassifier(random_state=random_state)
+                if is_discrete
+                else GradientBoostingRegressor(random_state=random_state),
+                param_grid={},
+                cv=cv,
+            )
+        ),
+        'nnet': (
+            GridSearchCV(
+                MLPClassifier(random_state=random_state) if is_discrete else MLPRegressor(random_state=random_state),
+                param_grid={},
+                cv=cv,
+            )
+        ),
         'automl': ["poly", "forest", "gbf", "nnet"],
     }
     if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
         return input
     elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
-        models = [get_selector(model, is_discrete,
-                               random_state=random_state, cv=cv, wrapper=wrapper,
-                               needs_scoring=True)  # we need to score to compare outputs to each other
-                  for model in input]
+        models = [
+            get_selector(
+                model, is_discrete, random_state=random_state, cv=cv, wrapper=wrapper, needs_scoring=True
+            )  # we need to score to compare outputs to each other
+            for model in input
+        ]
         return ListSelector(models)
     elif isinstance(input, str):  # we've got a string; look it up
         if input in named_models:
-            return get_selector(named_models[input], is_discrete,
-                                random_state=random_state, cv=cv, wrapper=wrapper,
-                                needs_scoring=needs_scoring)
+            return get_selector(
+                named_models[input],
+                is_discrete,
+                random_state=random_state,
+                cv=cv,
+                wrapper=wrapper,
+                needs_scoring=needs_scoring,
+            )
         else:
             raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
     elif SklearnCVSelector.can_wrap(input):
@@ -655,7 +738,7 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
 
 
 class GridSearchCVList(BaseEstimator):
-    """ An extension of GridSearchCV that allows for passing a list of estimators each with their own
+    """An extension of GridSearchCV that allows for passing a list of estimators each with their own
     parameter grid and returns the best among all estimators in the list and hyperparameter in their
     corresponding grid. We are only changing the estimator parameter to estimator_list and the param_grid
     parameter to be a list of parameter grids. The rest of the parameters are the same as in
@@ -677,9 +760,19 @@ class GridSearchCVList(BaseEstimator):
         of parameter settings.
     """
 
-    def __init__(self, estimator_list, param_grid_list, scoring=None,
-                 n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score=np.nan, return_train_score=False):
+    def __init__(
+        self,
+        estimator_list,
+        param_grid_list,
+        scoring=None,
+        n_jobs=None,
+        refit=True,
+        cv=None,
+        verbose=0,
+        pre_dispatch='2*n_jobs',
+        error_score=np.nan,
+        return_train_score=False,
+    ):
         self.estimator_list = estimator_list
         self.param_grid_list = param_grid_list
         self.scoring = scoring
@@ -693,11 +786,21 @@ class GridSearchCVList(BaseEstimator):
         return
 
     def fit(self, X, y=None, **fit_params):
-        self._gcv_list = [GridSearchCV(estimator, param_grid, scoring=self.scoring,
-                                       n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
-                                       pre_dispatch=self.pre_dispatch, error_score=self.error_score,
-                                       return_train_score=self.return_train_score)
-                          for estimator, param_grid in zip(self.estimator_list, self.param_grid_list)]
+        self._gcv_list = [
+            GridSearchCV(
+                estimator,
+                param_grid,
+                scoring=self.scoring,
+                n_jobs=self.n_jobs,
+                refit=self.refit,
+                cv=self.cv,
+                verbose=self.verbose,
+                pre_dispatch=self.pre_dispatch,
+                error_score=self.error_score,
+                return_train_score=self.return_train_score,
+            )
+            for estimator, param_grid in zip(self.estimator_list, self.param_grid_list)
+        ]
         self.best_ind_ = np.argmax([gcv.fit(X, y, **fit_params).best_score_ for gcv in self._gcv_list])
         self.best_estimator_ = self._gcv_list[self.best_ind_].best_estimator_
         self.best_score_ = self._gcv_list[self.best_ind_].best_score_
@@ -711,9 +814,20 @@ class GridSearchCVList(BaseEstimator):
         return self.best_estimator_.predict_proba(X)
 
 
-def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
-                       n_jobs=None, verbose=0, fit_params=None,
-                       pre_dispatch='2*n_jobs', method='predict', safe=True):
+def _cross_val_predict(
+    estimator,
+    X,
+    y=None,
+    *,
+    groups=None,
+    cv=None,
+    n_jobs=None,
+    verbose=0,
+    fit_params=None,
+    pre_dispatch='2*n_jobs',
+    method='predict',
+    safe=True,
+):
     """This is a fork from :meth:`~sklearn.model_selection.cross_val_predict` to allow for
     non-safe cloning of the models for each fold.
 
@@ -807,8 +921,7 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
 
     # If classification methods produce multiple columns of output,
     # we need to manually encode classes to ensure consistent column ordering.
-    encode = method in ['decision_function', 'predict_proba',
-                        'predict_log_proba'] and y is not None
+    encode = method in ['decision_function', 'predict_proba', 'predict_log_proba'] and y is not None
     if encode:
         y = np.asarray(y)
         if y.ndim == 1:
@@ -822,19 +935,21 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
 
     # We clone the estimator to make sure that all the folds are
     # independent, and that it is pickle-able.
-    parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
-                        pre_dispatch=pre_dispatch)
+    parallel = Parallel(n_jobs=n_jobs, verbose=verbose, pre_dispatch=pre_dispatch)
 
     from packaging.version import parse
+
     # verbose was removed from sklearn's non-public _fit_and_predict method in 1.4
     if parse(sklearn.__version__) < parse("1.4"):
-        predictions = parallel(delayed(_fit_and_predict)(
-            clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
-            for train, test in splits)
+        predictions = parallel(
+            delayed(_fit_and_predict)(clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
+            for train, test in splits
+        )
     else:
-        predictions = parallel(delayed(_fit_and_predict)(
-            clone(estimator, safe=safe), X, y, train, test, fit_params, method)
-            for train, test in splits)
+        predictions = parallel(
+            delayed(_fit_and_predict)(clone(estimator, safe=safe), X, y, train, test, fit_params, method)
+            for train, test in splits
+        )
 
     inv_test_indices = np.empty(len(test_indices), dtype=int)
     inv_test_indices[test_indices] = np.arange(len(test_indices))

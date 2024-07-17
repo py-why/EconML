@@ -20,14 +20,17 @@ def assert_less_close(arr1, arr2):
 
 @pytest.mark.serial
 class TestCausalAnalysis(unittest.TestCase):
-
     def test_basic_array(self):
         for d_y in [(), (1,)]:
             for classification in [False, True]:
                 y = np.random.choice([0, 1], size=(500,) + d_y)
-                X = np.hstack((np.random.normal(size=(500, 2)),
-                               np.random.choice([0, 1], size=(500, 1)),
-                               np.random.choice([0, 1, 2], size=(500, 1))))
+                X = np.hstack(
+                    (
+                        np.random.normal(size=(500, 2)),
+                        np.random.choice([0, 1], size=(500, 1)),
+                        np.random.choice([0, 1, 2], size=(500, 1)),
+                    )
+                )
                 inds = [0, 1, 2, 3]
                 cats = [2, 3]
                 hinds = [0, 3]
@@ -71,7 +74,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
-                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                for idx, length in [(0, 1), (1, 1), (2, 1), (3, 2)]:
                     pto = ca._policy_tree_output(X, idx)
                     policy_val = pto.policy_value
                     always_trt = pto.always_treat
@@ -92,9 +95,11 @@ class TestCausalAnalysis(unittest.TestCase):
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
 
                 # global and cohort row-wise dicts have d_y * d_t entries
-                assert len(
-                    glo_dict2[_CausalInsightsConstants.RowData]) == len(
-                    coh_dict2[_CausalInsightsConstants.RowData]) == 5
+                assert (
+                    len(glo_dict2[_CausalInsightsConstants.RowData])
+                    == len(coh_dict2[_CausalInsightsConstants.RowData])
+                    == 5
+                )
                 # local dictionary is flattened to n_rows * d_y * d_t
                 assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
@@ -120,7 +125,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 badargs = [
                     (inds, cats, [4]),  # hinds out of range
-                    (inds, cats, ["test"])  # hinds out of range
+                    (inds, cats, ["test"]),  # hinds out of range
                 ]
 
                 for args in badargs:
@@ -132,10 +137,14 @@ class TestCausalAnalysis(unittest.TestCase):
         for classification in [False, True]:
             for category in [False, True]:
                 y = pd.Series(np.random.choice([0, 1], size=(500,)))
-                X = pd.DataFrame({'a': np.random.normal(size=500),
-                                  'b': np.random.normal(size=500),
-                                  'c': np.random.choice([0, 1], size=500),
-                                  'd': np.random.choice(['a', 'b', 'c'], size=500)})
+                X = pd.DataFrame(
+                    {
+                        'a': np.random.normal(size=500),
+                        'b': np.random.normal(size=500),
+                        'c': np.random.choice([0, 1], size=500),
+                        'd': np.random.choice(['a', 'b', 'c'], size=500),
+                    }
+                )
 
                 if category:
                     X['c'] = X['c'].astype('category')
@@ -147,7 +156,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 t_cats = ['c', 'd']
                 n_hinds = [0, 3]
                 t_hinds = ['a', 'd']
-                for (inds, cats, hinds) in [(n_inds, n_cats, n_hinds), (t_inds, t_cats, t_hinds)]:
+                for inds, cats, hinds in [(n_inds, n_cats, n_hinds), (t_inds, t_cats, t_hinds)]:
                     ca = CausalAnalysis(inds, cats, hinds, classification=classification)
                     ca.fit(X, y)
                     glo = ca.global_causal_effect()
@@ -187,9 +196,11 @@ class TestCausalAnalysis(unittest.TestCase):
                     assert loc_point_est.shape == (2,) + glo_point_est.shape
 
                     # global and cohort row-wise dicts have d_y * d_t entries
-                    assert len(
-                        glo_dict2[_CausalInsightsConstants.RowData]) == len(
-                        coh_dict2[_CausalInsightsConstants.RowData]) == 5
+                    assert (
+                        len(glo_dict2[_CausalInsightsConstants.RowData])
+                        == len(coh_dict2[_CausalInsightsConstants.RowData])
+                        == 5
+                    )
                     # local dictionary is flattened to n_rows * d_y * d_t
                     assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
@@ -206,7 +217,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
                     # Make sure we handle continuous, binary, and multi-class treatments
                     # For multiple discrete treatments, one "always treat" value per non-default treatment
-                    for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                    for idx, length in [(0, 1), (1, 1), (2, 1), (3, 2)]:
                         pto = ca._policy_tree_output(X, inds[idx])
                         policy_val = pto.policy_value
                         always_trt = pto.always_treat
@@ -238,7 +249,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 badargs = [
                     (n_inds, n_cats, [4]),  # hinds out of range
-                    (n_inds, n_cats, ["test"])  # hinds out of range
+                    (n_inds, n_cats, ["test"]),  # hinds out of range
                 ]
 
                 for args in badargs:
@@ -250,9 +261,13 @@ class TestCausalAnalysis(unittest.TestCase):
         d_y = (1,)
         for classification in [False, True]:
             y = np.random.choice([0, 1], size=(500,) + d_y)
-            X = np.hstack((np.random.normal(size=(500, 2)),
-                           np.random.choice([0, 1], size=(500, 1)),
-                           np.random.choice([0, 1, 2], size=(500, 1))))
+            X = np.hstack(
+                (
+                    np.random.normal(size=(500, 2)),
+                    np.random.choice([0, 1], size=(500, 1)),
+                    np.random.choice([0, 1, 2], size=(500, 1)),
+                )
+            )
             inds = [0, 1, 2, 3]
             cats = [2, 3]
             hinds = [0, 3]
@@ -290,7 +305,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
             # Make sure we handle continuous, binary, and multi-class treatments
             # For multiple discrete treatments, one "always treat" value per non-default treatment
-            for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+            for idx, length in [(0, 1), (1, 1), (2, 1), (3, 2)]:
                 pto = ca._policy_tree_output(X, idx)
                 policy_val = pto.policy_value
                 always_trt = pto.always_treat
@@ -311,9 +326,11 @@ class TestCausalAnalysis(unittest.TestCase):
             assert loc_point_est.shape == (2,) + glo_point_est.shape
 
             # global and cohort row-wise dicts have d_y * d_t entries
-            assert len(
-                glo_dict2[_CausalInsightsConstants.RowData]) == len(
-                coh_dict2[_CausalInsightsConstants.RowData]) == 5
+            assert (
+                len(glo_dict2[_CausalInsightsConstants.RowData])
+                == len(coh_dict2[_CausalInsightsConstants.RowData])
+                == 5
+            )
             # local dictionary is flattened to n_rows * d_y * d_t
             assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
@@ -339,7 +356,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
             badargs = [
                 (inds, cats, [4]),  # hinds out of range
-                (inds, cats, ["test"])  # hinds out of range
+                (inds, cats, ["test"]),  # hinds out of range
             ]
 
             for args in badargs:
@@ -350,10 +367,14 @@ class TestCausalAnalysis(unittest.TestCase):
     def test_one_feature(self):
         # make sure we don't run into problems dropping every index
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c'], size=500),
+            }
+        )
         inds = ['a']
         cats = ['c', 'd']
         hinds = ['a', 'd']
@@ -393,15 +414,15 @@ class TestCausalAnalysis(unittest.TestCase):
         glo2 = ca.global_causal_effect(keep_all_levels=True)
         coh2 = ca.cohort_causal_effect(X[:2], keep_all_levels=True)
         loc2 = ca.local_causal_effect(X[:2], keep_all_levels=True)
-        assert ({ind.name for ind in glo2.index.levels} ==
-                {ind.name for ind in coh2.index.levels} ==
-                {"outcome", "feature", "feature_value"})
+        assert (
+            {ind.name for ind in glo2.index.levels}
+            == {ind.name for ind in coh2.index.levels}
+            == {"outcome", "feature", "feature_value"}
+        )
         assert {ind.name for ind in loc2.index.levels} == {"sample", "outcome", "feature", "feature_value"}
 
         # global and cohort row-wise dicts have d_y * d_t entries
-        assert len(
-            glo_dict2[_CausalInsightsConstants.RowData]) == len(
-            coh_dict2[_CausalInsightsConstants.RowData]) == 1
+        assert len(glo_dict2[_CausalInsightsConstants.RowData]) == len(coh_dict2[_CausalInsightsConstants.RowData]) == 1
         # local dictionary is flattened to n_rows * d_y * d_t
         assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 2
 
@@ -411,9 +432,13 @@ class TestCausalAnalysis(unittest.TestCase):
     def test_final_models(self):
         d_y = (1,)
         y = np.random.choice([0, 1], size=(500,) + d_y)
-        X = np.hstack((np.random.normal(size=(500, 2)),
-                       np.random.choice([0, 1], size=(500, 1)),
-                       np.random.choice([0, 1, 2], size=(500, 1))))
+        X = np.hstack(
+            (
+                np.random.normal(size=(500, 2)),
+                np.random.choice([0, 1], size=(500, 1)),
+                np.random.choice([0, 1, 2], size=(500, 1)),
+            )
+        )
         inds = [0, 1, 2, 3]
         cats = [2, 3]
         hinds = [0, 3]
@@ -434,7 +459,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
-                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                for idx, length in [(0, 1), (1, 1), (2, 1), (3, 2)]:
                     pto = ca._policy_tree_output(X, idx)
                     policy_val = pto.policy_value
                     always_trt = pto.always_treat
@@ -467,10 +492,14 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_forest_with_pandas(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c'], size=500),
+            }
+        )
         inds = ['a', 'b', 'c', 'd']
         cats = ['c', 'd']
         hinds = ['a', 'd']
@@ -514,9 +543,7 @@ class TestCausalAnalysis(unittest.TestCase):
         assert loc_point_est.shape == (2,) + glo_point_est.shape
 
         # global and cohort row-wise dicts have d_y * d_t entries
-        assert len(
-            glo_dict2[_CausalInsightsConstants.RowData]) == len(
-            coh_dict2[_CausalInsightsConstants.RowData]) == 5
+        assert len(glo_dict2[_CausalInsightsConstants.RowData]) == len(coh_dict2[_CausalInsightsConstants.RowData]) == 5
         # local dictionary is flattened to n_rows * d_y * d_t
         assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
@@ -526,7 +553,7 @@ class TestCausalAnalysis(unittest.TestCase):
 
         # Make sure we handle continuous, binary, and multi-class treatments
         # For multiple discrete treatments, one "always treat" value per non-default treatment
-        for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+        for idx, length in [(0, 1), (1, 1), (2, 1), (3, 2)]:
             pto = ca._policy_tree_output(X, inds[idx])
             policy_val = pto.policy_value
             always_trt = pto.always_treat
@@ -549,16 +576,22 @@ class TestCausalAnalysis(unittest.TestCase):
             X2 = np.random.choice([0, 1], size=(500, 1))
             X3 = np.random.choice([0, 1, 2], size=(500, 1))
             X = np.hstack((X1, X2, X3))
-            X_df = pd.DataFrame(X, columns=[f"x{i} "for i in range(7)])
+            X_df = pd.DataFrame(X, columns=[f"x{i} " for i in range(7)])
             y = np.random.choice([0, 1], size=(500,))
             y_df = pd.Series(y)
             # model
             hetero_inds = [0, 1, 2]
             feat_inds = [1, 3, 5]
             categorical = [5, 6]
-            ca = CausalAnalysis(feat_inds, categorical, heterogeneity_inds=hetero_inds,
-                                classification=classification,
-                                nuisance_models='linear', heterogeneity_model="linear", n_jobs=-1)
+            ca = CausalAnalysis(
+                feat_inds,
+                categorical,
+                heterogeneity_inds=hetero_inds,
+                classification=classification,
+                nuisance_models='linear',
+                heterogeneity_model="linear",
+                n_jobs=-1,
+            )
             ca.fit(X_df, y)
             eff = ca.global_causal_effect(alpha=0.05)
             eff = ca.local_causal_effect(X_df, alpha=0.05)
@@ -575,16 +608,22 @@ class TestCausalAnalysis(unittest.TestCase):
                 X2 = np.random.choice([0, 1], size=(500, 1))
                 X3 = np.random.choice([0, 1, 2], size=(500, 1))
                 X = np.hstack((X1, X2, X3))
-                X_df = pd.DataFrame(X, columns=[f"x{i} "for i in range(7)])
+                X_df = pd.DataFrame(X, columns=[f"x{i} " for i in range(7)])
                 y = np.random.choice([0, 1], size=(500,))
                 y_df = pd.Series(y)
                 # model
                 hetero_inds = [[], [], []]
                 feat_inds = [1, 3, 5]
                 categorical = [5, 6]
-                ca = CausalAnalysis(feat_inds, categorical, heterogeneity_inds=hetero_inds,
-                                    classification=classification,
-                                    nuisance_models='linear', heterogeneity_model=h_model, n_jobs=-1)
+                ca = CausalAnalysis(
+                    feat_inds,
+                    categorical,
+                    heterogeneity_inds=hetero_inds,
+                    classification=classification,
+                    nuisance_models='linear',
+                    heterogeneity_model=h_model,
+                    n_jobs=-1,
+                )
                 ca.fit(X_df, y)
                 eff = ca.global_causal_effect(alpha=0.05)
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
@@ -594,11 +633,16 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_can_serialize(self):
         import pickle
+
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c'], size=500),
+            }
+        )
         inds = ['a', 'b', 'c', 'd']
         cats = ['c', 'd']
         hinds = ['a', 'd']
@@ -611,14 +655,18 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_over_cat_limit(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c', 'd'], size=500),
-                          'e': np.random.choice([7, 8, 9, 10, 11], size=500),
-                          'f': np.random.choice(['x', 'y'], size=500),
-                          'g': np.random.choice([0, 1], size=500),
-                          'h': np.random.choice(['q', 'r', 's'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c', 'd'], size=500),
+                'e': np.random.choice([7, 8, 9, 10, 11], size=500),
+                'f': np.random.choice(['x', 'y'], size=500),
+                'g': np.random.choice([0, 1], size=500),
+                'h': np.random.choice(['q', 'r', 's'], size=500),
+            }
+        )
         inds = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
         cats = ['c', 'd', 'e', 'f', 'g', 'h']
         hinds = ['a', 'd']
@@ -651,10 +699,14 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_individualized_policy(self):
         y_arr = np.random.choice([0, 1], size=(500,))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c'], size=500),
+            }
+        )
         inds = ['a', 'b', 'c', 'd']
         cats = ['c', 'd']
         hinds = ['a', 'd']
@@ -683,25 +735,41 @@ class TestCausalAnalysis(unittest.TestCase):
     def test_random_state(self):
         # verify that using the same state returns the same results each time
         y = np.random.choice([0, 1], size=(500,))
-        X = np.hstack((np.random.normal(size=(500, 2)),
-                       np.random.choice([0, 1], size=(500, 1)),
-                       np.random.choice([0, 1, 2], size=(500, 1))))
+        X = np.hstack(
+            (
+                np.random.normal(size=(500, 2)),
+                np.random.choice([0, 1], size=(500, 1)),
+                np.random.choice([0, 1, 2], size=(500, 1)),
+            )
+        )
         inds = [0, 1, 2, 3]
         cats = [2, 3]
         hinds = [0, 3]
 
-        for n_model, h_model, classification in\
-            itertools.product(['linear', 'automl'],
-                              ['linear', 'forest'],
-                              [True, False]):
-
-            ca = CausalAnalysis(inds, cats, hinds, classification=classification,
-                                nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+        for n_model, h_model, classification in itertools.product(
+            ['linear', 'automl'], ['linear', 'forest'], [True, False]
+        ):
+            ca = CausalAnalysis(
+                inds,
+                cats,
+                hinds,
+                classification=classification,
+                nuisance_models=n_model,
+                heterogeneity_model=h_model,
+                random_state=123,
+            )
             ca.fit(X, y)
             glo = ca.global_causal_effect()
 
-            ca2 = CausalAnalysis(inds, cats, hinds, classification=classification,
-                                 nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+            ca2 = CausalAnalysis(
+                inds,
+                cats,
+                hinds,
+                classification=classification,
+                nuisance_models=n_model,
+                heterogeneity_model=h_model,
+                random_state=123,
+            )
             ca2.fit(X, y)
             glo2 = ca.global_causal_effect()
 
@@ -710,10 +778,14 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_can_set_categories(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
-        X = pd.DataFrame({'a': np.random.normal(size=500),
-                          'b': np.random.normal(size=500),
-                          'c': np.random.choice([0, 1], size=500),
-                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        X = pd.DataFrame(
+            {
+                'a': np.random.normal(size=500),
+                'b': np.random.normal(size=500),
+                'c': np.random.choice([0, 1], size=500),
+                'd': np.random.choice(['a', 'b', 'c'], size=500),
+            }
+        )
         inds = ['a', 'b', 'c', 'd']
         cats = ['c', 'd']
         hinds = ['a', 'd']
@@ -768,26 +840,32 @@ class TestCausalAnalysis(unittest.TestCase):
         for n in ['linear', 'automl']:
             for h in ['linear', 'forest']:
                 for warm_start in [True, False]:
-                    ca = CausalAnalysis(col_names, col_names, col_names, verbose=1,
-                                        nuisance_models=n, heterogeneity_model=h)
+                    ca = CausalAnalysis(
+                        col_names, col_names, col_names, verbose=1, nuisance_models=n, heterogeneity_model=h
+                    )
                     ca.fit(X, y)
 
                     self.assertEqual(ca.trained_feature_indices_, [0])  # only first column okay
-                    self.assertEqual(ca.untrained_feature_indices_, [(1, 'upper_bound_on_cat_expansion'),
-                                                                     (2, 'cat_limit'),
-                                                                     (3, 'cat_limit'),
-                                                                     (4, 'cat_limit'),
-                                                                     (5, 'cat_limit')])
+                    self.assertEqual(
+                        ca.untrained_feature_indices_,
+                        [
+                            (1, 'upper_bound_on_cat_expansion'),
+                            (2, 'cat_limit'),
+                            (3, 'cat_limit'),
+                            (4, 'cat_limit'),
+                            (5, 'cat_limit'),
+                        ],
+                    )
 
                     # increase bound on cat expansion
                     ca.upper_bound_on_cat_expansion = 6
                     ca.fit(X, y, warm_start=warm_start)
 
                     self.assertEqual(ca.trained_feature_indices_, [0, 1])  # second column okay also
-                    self.assertEqual(ca.untrained_feature_indices_, [(2, 'cat_limit'),
-                                                                     (3, 'cat_limit'),
-                                                                     (4, 'cat_limit'),
-                                                                     (5, 'cat_limit')])
+                    self.assertEqual(
+                        ca.untrained_feature_indices_,
+                        [(2, 'cat_limit'), (3, 'cat_limit'), (4, 'cat_limit'), (5, 'cat_limit')],
+                    )
 
                     # skip checks (reducing folds accordingly)
                     ca.skip_cat_limit_checks = True
@@ -798,8 +876,7 @@ class TestCausalAnalysis(unittest.TestCase):
                         self.assertEqual(ca.untrained_feature_indices_, [(5, 'cat_limit')])
                     else:
                         self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
-                        self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
-                                                                         (5, 'cat_limit')])
+                        self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'), (5, 'cat_limit')])
 
     # Add tests that guarantee that the reliance on DML feature order is not broken, such as
     # Creare a transformer that zeros out all variables after the first n_x variables, so it zeros out W
@@ -853,13 +930,15 @@ class TestCausalAnalysis(unittest.TestCase):
             ca.fit(arr1, Y)
             eff1 = ca.global_causal_effect()
             loc1 = ca.local_causal_effect(
-                np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))]))
+                np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))])
+            )
             ca.fit(arr2, Y)
             eff2 = ca.global_causal_effect()
             loc2 = ca.local_causal_effect(
                 # scale by 1000 to match the input to this model:
                 # the scale of X does matter for the final model, which keeps results in user-denominated units
-                1000 * np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))]))
+                1000 * np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))])
+            )
 
             # rescaling X still shouldn't affect the first stage models
             np.testing.assert_allclose(eff1.point.values, eff2.point.values, rtol=1e-5)

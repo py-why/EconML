@@ -11,14 +11,17 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from econml.dml import LinearDML, DML, NonParamDML
 from econml.dr import LinearDRLearner, DRLearner
-from econml.inference import (BootstrapInference, NormalInferenceResults,
-                              EmpiricalInferenceResults, PopulationSummaryResults)
+from econml.inference import (
+    BootstrapInference,
+    NormalInferenceResults,
+    EmpiricalInferenceResults,
+    PopulationSummaryResults,
+)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
 from econml.utilities import get_feature_names_or_default, get_input_columns
 
 
 class TestInference(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         np.random.seed(123)
@@ -29,73 +32,51 @@ class TestInference(unittest.TestCase):
         # Generate data
         cls.X = np.random.uniform(0, 1, size=(cls.n, cls.d_x))
         cls.W = np.random.normal(0, 1, size=(cls.n, cls.d_w))
-        cls.T = np.random.binomial(1, .5, size=(cls.n,))
-        cls.Y = np.random.normal(0, 1, size=(cls.n, ))
+        cls.T = np.random.binomial(1, 0.5, size=(cls.n,))
+        cls.Y = np.random.normal(0, 1, size=(cls.n,))
 
     def test_summary(self):
         """Tests the inference results summary for continuous treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
-            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
-                                 featurizer=PolynomialFeatures(degree=2,
-                                                               include_bias=False)
-                                 )
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDML(
+                model_t=LinearRegression(),
+                model_y=LinearRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
             )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = cate_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             default_names = get_input_columns(TestInference.X)
-            fnames = get_feature_names_or_default(PolynomialFeatures(degree=2,
-                                                                     include_bias=False).fit(TestInference.X),
-                                                  default_names)
+            fnames = get_feature_names_or_default(
+                PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X), default_names
+            )
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
 
-            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
-                                 featurizer=PolynomialFeatures(degree=2,
-                                                               include_bias=False)
-                                 )
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDML(
+                model_t=LinearRegression(),
+                model_y=LinearRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
             )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = cate_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = get_feature_names_or_default(PolynomialFeatures(degree=2,
-                                                                     include_bias=False).fit(TestInference.X),
-                                                  fnames)
+            fnames = get_feature_names_or_default(
+                PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X), fnames
+            )
             np.testing.assert_array_equal(coef_rows, fnames)
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
-            )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = cate_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
-            )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = cate_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
@@ -103,26 +84,14 @@ class TestInference(unittest.TestCase):
 
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             wrapped_est = self._NoFeatNamesEst(cate_est)
-            wrapped_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
-            )
+            wrapped_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = wrapped_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             wrapped_est = self._NoFeatNamesEst(cate_est)
-            wrapped_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
-            )
+            wrapped_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = wrapped_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
@@ -133,97 +102,66 @@ class TestInference(unittest.TestCase):
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
-            cate_est = LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
-                                       featurizer=PolynomialFeatures(degree=2,
-                                                                     include_bias=False)
-                                       )
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(),
+                model_propensity=LogisticRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
             )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = cate_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             default_names = get_input_columns(TestInference.X)
-            fnames = get_feature_names_or_default(PolynomialFeatures(degree=2,
-                                                                     include_bias=False).fit(TestInference.X),
-                                                  default_names)
+            fnames = get_feature_names_or_default(
+                PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X), default_names
+            )
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
 
-            cate_est = LinearDRLearner(model_regression=LinearRegression(),
-                                       model_propensity=LogisticRegression(),
-                                       featurizer=PolynomialFeatures(degree=2,
-                                                                     include_bias=False)
-                                       )
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(),
+                model_propensity=LogisticRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
             )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = cate_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = get_feature_names_or_default(PolynomialFeatures(degree=2,
-                                                                     include_bias=False).fit(TestInference.X),
-                                                  fnames)
-            np.testing.assert_array_equal(coef_rows, fnames)
-            cate_est = LinearDRLearner(model_regression=LinearRegression(),
-                                       model_propensity=LogisticRegression(), featurizer=None)
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            fnames = get_feature_names_or_default(
+                PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X), fnames
             )
+            np.testing.assert_array_equal(coef_rows, fnames)
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(), model_propensity=LogisticRegression(), featurizer=None
+            )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = cate_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
-            cate_est = LinearDRLearner(model_regression=LinearRegression(),
-                                       model_propensity=LogisticRegression(), featurizer=None)
-            cate_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(), model_propensity=LogisticRegression(), featurizer=None
             )
+            cate_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = cate_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
-            cate_est = LinearDRLearner(model_regression=LinearRegression(),
-                                       model_propensity=LogisticRegression(), featurizer=None)
-            wrapped_est = self._NoFeatNamesEst(cate_est)
-            wrapped_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(), model_propensity=LogisticRegression(), featurizer=None
             )
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             summary_results = wrapped_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
-            cate_est = LinearDRLearner(model_regression=LinearRegression(),
-                                       model_propensity=LogisticRegression(), featurizer=None)
-            wrapped_est = self._NoFeatNamesEst(cate_est)
-            wrapped_est.fit(
-                TestInference.Y,
-                TestInference.T,
-                X=TestInference.X,
-                W=TestInference.W,
-                inference=inference
+            cate_est = LinearDRLearner(
+                model_regression=LinearRegression(), model_propensity=LogisticRegression(), featurizer=None
             )
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W, inference=inference)
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
             summary_results = wrapped_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
@@ -232,13 +170,19 @@ class TestInference(unittest.TestCase):
     def test_degenerate_cases(self):
         """Test that we return the correct values when our distribution doesn't vary"""
         predictions = np.array([[1, 0], [1, 1]])  # first component is always 1
-        for inf in [EmpiricalInferenceResults(d_t=1, d_y=2,
-                                              pred=np.mean(predictions, axis=0), pred_dist=predictions,
-                                              inf_type='coefficient'),
-                    NormalInferenceResults(d_t=1, d_y=2,
-                                           pred=np.mean(predictions, axis=0), pred_stderr=np.std(predictions, axis=0),
-                                           mean_pred_stderr=None,
-                                           inf_type='coefficient')]:
+        for inf in [
+            EmpiricalInferenceResults(
+                d_t=1, d_y=2, pred=np.mean(predictions, axis=0), pred_dist=predictions, inf_type='coefficient'
+            ),
+            NormalInferenceResults(
+                d_t=1,
+                d_y=2,
+                pred=np.mean(predictions, axis=0),
+                pred_stderr=np.std(predictions, axis=0),
+                mean_pred_stderr=None,
+                inf_type='coefficient',
+            ),
+        ]:
             zs = inf.zstat()
             pv = inf.pvalue()
             # test value 0 is less than estimate of 1 and variance is 0, so z score should be inf
@@ -270,26 +214,29 @@ class TestInference(unittest.TestCase):
             # pvalue is also nan when variance is 0 and the point tested is equal to the point tested
             assert pv[0] == 0  # pvalue should be zero when test value is greater or less than all samples
 
-            pop = PopulationSummaryResults(np.mean(predictions, axis=0).reshape(1, 2), np.std(
-                predictions, axis=0).reshape(1, 2), None, d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
+            pop = PopulationSummaryResults(
+                np.mean(predictions, axis=0).reshape(1, 2),
+                np.std(predictions, axis=0).reshape(1, 2),
+                None,
+                d_t=1,
+                d_y=2,
+                alpha=0.05,
+                value=0,
+                decimals=3,
+                tol=0.001,
+            )
             pop._print()  # verify that we can access all attributes even in degenerate case
             pop.summary()
 
     def test_can_summarize(self):
         LinearDML(model_t=LinearRegression(), model_y=LinearRegression()).fit(
-            TestInference.Y,
-            TestInference.T,
-            X=TestInference.X,
-            W=TestInference.W
+            TestInference.Y, TestInference.T, X=TestInference.X, W=TestInference.W
         ).summary()
 
-        LinearDRLearner(model_regression=LinearRegression(),
-                        model_propensity=LogisticRegression(), fit_cate_intercept=False).fit(
-            TestInference.Y,
-            TestInference.T > 0,
-            X=TestInference.X,
-            W=TestInference.W,
-            inference=BootstrapInference(5)
+        LinearDRLearner(
+            model_regression=LinearRegression(), model_propensity=LogisticRegression(), fit_cate_intercept=False
+        ).fit(
+            TestInference.Y, TestInference.T > 0, X=TestInference.X, W=TestInference.W, inference=BootstrapInference(5)
         ).summary(1)
 
     def test_alpha(self):
@@ -306,11 +253,13 @@ class TestInference(unittest.TestCase):
 
     def test_inference_with_none_stderr(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
-        est = DML(model_y=LinearRegression(),
-                  model_t=LinearRegression(),
-                  model_final=Lasso(alpha=0.1, fit_intercept=False),
-                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                  random_state=123)
+        est = DML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=Lasso(alpha=0.1, fit_intercept=False),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            random_state=123,
+        )
         est.fit(Y, T, X=X, W=W)
         est.summary()
         est.coef__inference().summary_frame()
@@ -320,20 +269,22 @@ class TestInference(unittest.TestCase):
         est.const_marginal_effect_inference(X).summary_frame()
         est.marginal_effect_inference(T, X).summary_frame()
 
-        est = NonParamDML(model_y=LinearRegression(),
-                          model_t=LinearRegression(),
-                          model_final=LinearRegression(fit_intercept=False),
-                          featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                          random_state=123)
+        est = NonParamDML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=LinearRegression(fit_intercept=False),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            random_state=123,
+        )
         est.fit(Y, T, X=X, W=W)
         est.effect_inference(X).summary_frame()
         est.effect_inference(X).population_summary()
         est.const_marginal_effect_inference(X).summary_frame()
         est.marginal_effect_inference(T, X).summary_frame()
 
-        est = DRLearner(model_regression=LinearRegression(),
-                        model_propensity=LogisticRegression(),
-                        model_final=LinearRegression())
+        est = DRLearner(
+            model_regression=LinearRegression(), model_propensity=LogisticRegression(), model_final=LinearRegression()
+        )
         est.fit(Y, T, X=X, W=W)
         est.effect_inference(X).summary_frame()
         est.effect_inference(X).population_summary()
@@ -342,26 +293,32 @@ class TestInference(unittest.TestCase):
 
     def test_auto_inference(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
-        est = DRLearner(model_regression=LinearRegression(),
-                        model_propensity=LogisticRegression(),
-                        model_final=StatsModelsLinearRegression())
+        est = DRLearner(
+            model_regression=LinearRegression(),
+            model_propensity=LogisticRegression(),
+            model_final=StatsModelsLinearRegression(),
+        )
         est.fit(Y, T, X=X, W=W)
         est.effect_inference(X).summary_frame()
         est.effect_inference(X).population_summary()
         est.const_marginal_effect_inference(X).summary_frame()
         est.marginal_effect_inference(T, X).summary_frame()
-        est = DRLearner(model_regression=LinearRegression(),
-                        model_propensity=LogisticRegression(),
-                        model_final=LinearRegression(),
-                        multitask_model_final=True)
+        est = DRLearner(
+            model_regression=LinearRegression(),
+            model_propensity=LogisticRegression(),
+            model_final=LinearRegression(),
+            multitask_model_final=True,
+        )
         est.fit(Y, T, X=X, W=W)
         with pytest.raises(AttributeError):
             est.effect_inference(X)
 
-        est = DML(model_y=LinearRegression(),
-                  model_t=LinearRegression(),
-                  model_final=StatsModelsLinearRegression(fit_intercept=False),
-                  random_state=123)
+        est = DML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=StatsModelsLinearRegression(fit_intercept=False),
+            random_state=123,
+        )
         est.fit(Y, T, X=X, W=W)
         est.summary()
         est.coef__inference().summary_frame()
@@ -376,10 +333,9 @@ class TestInference(unittest.TestCase):
         est.marginal_effect_inference(T, X).summary_frame()
         assert est.marginal_effect_inference(T, X).stderr is not None
 
-        est = NonParamDML(model_y=LinearRegression(),
-                          model_t=LinearRegression(),
-                          model_final=DebiasedLasso(),
-                          random_state=123)
+        est = NonParamDML(
+            model_y=LinearRegression(), model_t=LinearRegression(), model_final=DebiasedLasso(), random_state=123
+        )
         est.fit(Y, T, X=X, W=W)
         est.effect_inference(X).summary_frame()
         assert est.effect_inference(X).stderr is not None
@@ -391,11 +347,13 @@ class TestInference(unittest.TestCase):
 
     def test_pickle_inferenceresult(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
-        est = DML(model_y=LinearRegression(),
-                  model_t=LinearRegression(),
-                  model_final=Lasso(alpha=0.1, fit_intercept=False),
-                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
-                  random_state=123)
+        est = DML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            model_final=Lasso(alpha=0.1, fit_intercept=False),
+            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+            random_state=123,
+        )
         est.fit(Y, T, X=X, W=W)
         effect_inf = est.effect_inference(X)
         s = pickle.dumps(effect_inf)
@@ -403,14 +361,18 @@ class TestInference(unittest.TestCase):
     def test_mean_pred_stderr(self):
         """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
-        ests = [LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
-                          featurizer=PolynomialFeatures(degree=2,
-                                                        include_bias=False)
-                          ),
-                LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
-                                featurizer=PolynomialFeatures(degree=2,
-                                                              include_bias=False)
-                                )]
+        ests = [
+            LinearDML(
+                model_t=LinearRegression(),
+                model_y=LinearRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
+            ),
+            LinearDRLearner(
+                model_regression=LinearRegression(),
+                model_propensity=LogisticRegression(),
+                featurizer=PolynomialFeatures(degree=2, include_bias=False),
+            ),
+        ]
         for est in ests:
             est.fit(Y, T, X=X, W=W)
             assert est.const_marginal_effect_inference(X).population_summary().mean_pred_stderr is not None
@@ -426,7 +388,7 @@ class TestInference(unittest.TestCase):
         est = LinearDML().fit(Y, T, X=X, W=W)
         coef = est.coef_
         inf = est.coef__inference()
-        inf.pred[0] = .5
+        inf.pred[0] = 0.5
         new_coef = est.coef_
         np.testing.assert_array_equal(coef, new_coef)
 

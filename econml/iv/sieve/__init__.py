@@ -3,6 +3,4 @@
 
 from ._tsls import HermiteFeatures, DPolynomialFeatures, SieveTSLS
 
-__all__ = ["HermiteFeatures",
-           "DPolynomialFeatures",
-           "SieveTSLS"]
+__all__ = ["HermiteFeatures", "DPolynomialFeatures", "SieveTSLS"]

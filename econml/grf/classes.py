@@ -9,10 +9,7 @@ from ..utilities import check_inputs
 from sklearn.base import BaseEstimator, clone
 from sklearn.utils import check_X_y
 
-__all__ = ["MultiOutputGRF",
-           "CausalForest",
-           "CausalIVForest",
-           "RegressionForest"]
+__all__ = ["MultiOutputGRF", "CausalForest", "CausalIVForest", "RegressionForest"]
 
 # =============================================================================
 # A MultOutputWrapper for GRF classes
@@ -20,7 +17,7 @@ __all__ = ["MultiOutputGRF",
 
 
 class MultiOutputGRF(BaseEstimator):
-    """ Simple wrapper estimator that enables multiple outcome labels for all the
+    """Simple wrapper estimator that enables multiple outcome labels for all the
     grf estimators that only accept a single outcome. Similar to MultiOutputRegressor.
     """
 
@@ -33,14 +30,17 @@ class MultiOutputGRF(BaseEstimator):
         if y.ndim == 1:
             y = np.reshape(y, (-1, 1))
         self.estimators_ = [clone(self.estimator) for _ in range(y.shape[1])]
-        [estimator.fit(X, T, y[:, [it]], sample_weight=sample_weight, **kwargs)
-         for it, estimator in enumerate(self.estimators_)]
+        [
+            estimator.fit(X, T, y[:, [it]], sample_weight=sample_weight, **kwargs)
+            for it, estimator in enumerate(self.estimators_)
+        ]
         return self
 
     def predict(self, X, interval=False, alpha=0.05):
         if interval:
-            pred, lb, ub = zip(*[estimator.predict(X, interval=interval, alpha=alpha)
-                                 for estimator in self.estimators_])
+            pred, lb, ub = zip(
+                *[estimator.predict(X, interval=interval, alpha=alpha) for estimator in self.estimators_]
+            )
             return np.moveaxis(np.array(pred), 0, 1), np.moveaxis(np.array(lb), 0, 1), np.moveaxis(np.array(ub), 0, 1)
         else:
             pred = [estimator.predict(X, interval=interval, alpha=alpha) for estimator in self.estimators_]
@@ -59,8 +59,10 @@ class MultiOutputGRF(BaseEstimator):
         return np.moveaxis(np.array(pred), 0, 1)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        res = [estimator.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
-               for estimator in self.estimators_]
+        res = [
+            estimator.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+            for estimator in self.estimators_
+        ]
         return np.array(res)
 
     @property
@@ -78,6 +80,7 @@ class MultiOutputGRF(BaseEstimator):
     def __iter__(self):
         """Return iterator over tuples of estimators for each target y in the ensemble."""
         return iter(zip(*self.estimators_))
+
 
 # =============================================================================
 # Instantiations of Generalized Random Forest
@@ -237,8 +240,7 @@ class CausalForest(BaseGRF):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -336,36 +338,52 @@ class CausalForest(BaseGRF):
 
     """
 
-    def __init__(self,
-                 n_estimators=100, *,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 min_var_fraction_leaf=None,
-                 min_var_leaf_on_val=False,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 fit_intercept=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
-        super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         min_var_fraction_leaf=min_var_fraction_leaf, min_var_leaf_on_val=min_var_leaf_on_val,
-                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
-                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                         honest=honest, inference=inference, fit_intercept=fit_intercept,
-                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
-                         warm_start=warm_start)
+    def __init__(
+        self,
+        n_estimators=100,
+        *,
+        criterion="mse",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        min_var_fraction_leaf=None,
+        min_var_leaf_on_val=False,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        inference=True,
+        fit_intercept=True,
+        subforest_size=4,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
+        super().__init__(
+            n_estimators=n_estimators,
+            criterion=criterion,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            min_var_fraction_leaf=min_var_fraction_leaf,
+            min_var_leaf_on_val=min_var_leaf_on_val,
+            max_features=max_features,
+            min_impurity_decrease=min_impurity_decrease,
+            max_samples=max_samples,
+            min_balancedness_tol=min_balancedness_tol,
+            honest=honest,
+            inference=inference,
+            fit_intercept=fit_intercept,
+            subforest_size=subforest_size,
+            n_jobs=n_jobs,
+            random_state=random_state,
+            verbose=verbose,
+            warm_start=warm_start,
+        )
 
     def fit(self, X, T, y, *, sample_weight=None):
         """
@@ -567,8 +585,7 @@ class CausalIVForest(BaseGRF):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -666,36 +683,52 @@ class CausalIVForest(BaseGRF):
 
     """
 
-    def __init__(self,
-                 n_estimators=100, *,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 min_var_fraction_leaf=None,
-                 min_var_leaf_on_val=False,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 fit_intercept=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
-        super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         min_var_fraction_leaf=min_var_fraction_leaf, min_var_leaf_on_val=min_var_leaf_on_val,
-                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
-                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                         honest=honest, inference=inference, fit_intercept=fit_intercept,
-                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
-                         warm_start=warm_start)
+    def __init__(
+        self,
+        n_estimators=100,
+        *,
+        criterion="mse",
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        min_var_fraction_leaf=None,
+        min_var_leaf_on_val=False,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        inference=True,
+        fit_intercept=True,
+        subforest_size=4,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
+        super().__init__(
+            n_estimators=n_estimators,
+            criterion=criterion,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            min_var_fraction_leaf=min_var_fraction_leaf,
+            min_var_leaf_on_val=min_var_leaf_on_val,
+            max_features=max_features,
+            min_impurity_decrease=min_impurity_decrease,
+            max_samples=max_samples,
+            min_balancedness_tol=min_balancedness_tol,
+            honest=honest,
+            inference=inference,
+            fit_intercept=fit_intercept,
+            subforest_size=subforest_size,
+            n_jobs=n_jobs,
+            random_state=random_state,
+            verbose=verbose,
+            warm_start=warm_start,
+        )
 
     def fit(self, X, T, y, *, Z, sample_weight=None):
         """
@@ -735,9 +768,11 @@ class CausalIVForest(BaseGRF):
             Z = np.reshape(Z, (-1, 1))
 
         if not Z.shape[1] == T.shape[1]:
-            raise ValueError("The dimension of the instrument should match the dimension of the treatment. "
-                             "This method handles only exactly identified instrumental variable regression. "
-                             "Preprocess your instrument by projecting it to the treatment space.")
+            raise ValueError(
+                "The dimension of the instrument should match the dimension of the treatment. "
+                "This method handles only exactly identified instrumental variable regression. "
+                "Preprocess your instrument by projecting it to the treatment space."
+            )
 
         if self.fit_intercept:
             T = np.hstack([T, np.ones((T.shape[0], 1))])
@@ -846,8 +881,7 @@ class RegressionForest(BaseGRF):
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
@@ -952,7 +986,7 @@ class RegressionForest(BaseGRF):
     RegressionForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
     array([0.88..., 0.11..., 0.00..., 0.00...])
-    >>> regr.predict(np.ones((1, 4)), interval=True, alpha=.05)
+    >>> regr.predict(np.ones((1, 4)), interval=True, alpha=0.05)
     (array([[121.0...]]), array([[103.6...]]), array([[138.3...]]))
 
     References
@@ -968,32 +1002,48 @@ class RegressionForest(BaseGRF):
 
     """
 
-    def __init__(self,
-                 n_estimators=100, *,
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
-        super().__init__(n_estimators=n_estimators, criterion='het', max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         min_var_fraction_leaf=None, min_var_leaf_on_val=False,
-                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
-                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                         honest=honest, inference=inference, fit_intercept=False,
-                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
-                         warm_start=warm_start)
+    def __init__(
+        self,
+        n_estimators=100,
+        *,
+        max_depth=None,
+        min_samples_split=10,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        inference=True,
+        subforest_size=4,
+        n_jobs=-1,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
+        super().__init__(
+            n_estimators=n_estimators,
+            criterion='het',
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            min_var_fraction_leaf=None,
+            min_var_leaf_on_val=False,
+            max_features=max_features,
+            min_impurity_decrease=min_impurity_decrease,
+            max_samples=max_samples,
+            min_balancedness_tol=min_balancedness_tol,
+            honest=honest,
+            inference=inference,
+            fit_intercept=False,
+            subforest_size=subforest_size,
+            n_jobs=n_jobs,
+            random_state=random_state,
+            verbose=verbose,
+            warm_start=warm_start,
+        )
 
     def fit(self, X, y, *, sample_weight=None):
         """

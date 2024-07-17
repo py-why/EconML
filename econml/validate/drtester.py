@@ -118,14 +118,7 @@ class DRTester:
     Direct Marketing Analytics Journal (2007), pages 14–21.
     """
 
-    def __init__(
-        self,
-        *,
-        model_regression,
-        model_propensity,
-        cate,
-        cv: Union[int, List] = 5
-    ):
+    def __init__(self, *, model_regression, model_propensity, cate, cv: Union[int, List] = 5):
         self.model_regression = model_regression
         self.model_propensity = model_propensity
         self.cate = cate
@@ -248,11 +241,7 @@ class DRTester:
         return self
 
     def fit_nuisance_train(
-        self,
-        Xtrain: np.array,
-        Dtrain: np.array,
-        ytrain: np.array,
-        Xval: np.array
+        self, Xtrain: np.array, Dtrain: np.array, ytrain: np.array, Xval: np.array
     ) -> Tuple[np.array, np.array]:
         """
         Fits nuisance models in training sample and applies to generate predictions in validation sample.
@@ -286,17 +275,13 @@ class DRTester:
         reg_preds = np.zeros((n, self.n_treat + 1))
         for i in range(self.n_treat + 1):
             model_regression_fitted = self.model_regression.fit(
-                Xtrain[Dtrain == self.treatments[i]], ytrain[Dtrain == self.treatments[i]])
+                Xtrain[Dtrain == self.treatments[i]], ytrain[Dtrain == self.treatments[i]]
+            )
             reg_preds[:, i] = model_regression_fitted.predict(Xval)
 
         return reg_preds, prop_preds
 
-    def fit_nuisance_cv(
-        self,
-        X: np.array,
-        D: np.array,
-        y: np.array
-    ) -> Tuple[np.array, np.array]:
+    def fit_nuisance_cv(self, X: np.array, D: np.array, y: np.array) -> Tuple[np.array, np.array]:
         """
         Generates nuisance function predictions using k-folds cross validation.
 
@@ -326,17 +311,14 @@ class DRTester:
         reg_preds = np.zeros((N, self.n_treat + 1))
         for k in range(self.n_treat + 1):
             for train, test in splits:
-                model_regression_fitted = self.model_regression.fit(X[train][D[train] == self.treatments[k]],
-                                                                    y[train][D[train] == self.treatments[k]])
+                model_regression_fitted = self.model_regression.fit(
+                    X[train][D[train] == self.treatments[k]], y[train][D[train] == self.treatments[k]]
+                )
                 reg_preds[test, k] = model_regression_fitted.predict(X[test])
 
         return reg_preds, prop_preds
 
-    def get_cate_preds(
-        self,
-        Xval: np.array,
-        Xtrain: np.array = None
-    ):
+    def get_cate_preds(self, Xval: np.array, Xtrain: np.array = None):
         """
         Generates predictions from fitted CATE model. If Xtrain is None, then the predictions are generated using
         k-folds cross-validation on the validation set. If Xtrain is specified, then the CATE is assumed to have
@@ -364,10 +346,7 @@ class DRTester:
             self.cate_preds_train_ = np.stack(trains).T
 
     def evaluate_cal(
-        self,
-        Xval: np.array = None,
-        Xtrain: np.array = None,
-        n_groups: int = 4
+        self, Xval: np.array = None, Xtrain: np.array = None, n_groups: int = 4
     ) -> CalibrationEvaluationResults:
         """
         Implements calibration test as in [Dwivedi2020]
@@ -424,29 +403,25 @@ class DRTester:
             # Calculate R-square calibration score
             cal_r_squared[k] = 1 - (cal_score_g / cal_score_o)
 
-            df_plot = pd.DataFrame({
-                'ind': np.array(range(n_groups)),
-                'gate': gate,
-                'se_gate': se_gate,
-                'g_cate': g_cate,
-                'se_g_cate': se_g_cate
-            })
+            df_plot = pd.DataFrame(
+                {
+                    'ind': np.array(range(n_groups)),
+                    'gate': gate,
+                    'se_gate': se_gate,
+                    'g_cate': g_cate,
+                    'se_g_cate': se_g_cate,
+                }
+            )
 
             plot_data_dict[self.treatments[k + 1]] = df_plot
 
         self.cal_res = CalibrationEvaluationResults(
-            cal_r_squared=cal_r_squared,
-            plot_data_dict=plot_data_dict,
-            treatments=self.treatments
+            cal_r_squared=cal_r_squared, plot_data_dict=plot_data_dict, treatments=self.treatments
         )
 
         return self.cal_res
 
-    def evaluate_blp(
-        self,
-        Xval: np.array = None,
-        Xtrain: np.array = None
-    ) -> BLPEvaluationResults:
+    def evaluate_blp(self, Xval: np.array = None, Xtrain: np.array = None) -> BLPEvaluationResults:
         """
         Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance` method must already
         be implemented.
@@ -490,12 +465,7 @@ class DRTester:
                 errs.append(reg.bse[1])
                 pvals.append(reg.pvalues[1])
 
-        self.blp_res = BLPEvaluationResults(
-            params=params,
-            errs=errs,
-            pvals=pvals,
-            treatments=self.treatments
-        )
+        self.blp_res = BLPEvaluationResults(params=params, errs=errs, pvals=pvals, treatments=self.treatments)
 
         return self.blp_res
 
@@ -505,7 +475,7 @@ class DRTester:
         Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50),
         metric: str = 'qini',
-        n_bootstrap: int = 1000
+        n_bootstrap: int = 1000,
     ) -> UpliftEvaluationResults:
         """
         Calculates uplift curves and coefficients for the given model, where units are ordered by predicted
@@ -546,12 +516,7 @@ class DRTester:
         curve_data_dict = dict()
         if self.n_treat == 1:
             coeff, err, curve_df = calc_uplift(
-                self.cate_preds_train_,
-                self.cate_preds_val_,
-                self.dr_val_,
-                percentiles,
-                metric,
-                n_bootstrap
+                self.cate_preds_train_, self.cate_preds_val_, self.dr_val_, percentiles, metric, n_bootstrap
             )
             coeffs = [coeff]
             errs = [err]
@@ -566,7 +531,7 @@ class DRTester:
                     self.dr_val_[:, k],
                     percentiles,
                     metric,
-                    n_bootstrap
+                    n_bootstrap,
                 )
                 coeffs.append(coeff)
                 errs.append(err)
@@ -575,21 +540,13 @@ class DRTester:
         pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
         self.uplift_res = UpliftEvaluationResults(
-            params=coeffs,
-            errs=errs,
-            pvals=pvals,
-            treatments=self.treatments,
-            curve_data_dict=curve_data_dict
+            params=coeffs, errs=errs, pvals=pvals, treatments=self.treatments, curve_data_dict=curve_data_dict
         )
 
         return self.uplift_res
 
     def evaluate_all(
-        self,
-        Xval: np.array = None,
-        Xtrain: np.array = None,
-        n_groups: int = 4,
-        n_bootstrap: int = 1000
+        self, Xval: np.array = None, Xtrain: np.array = None, n_groups: int = 4, n_bootstrap: int = 1000
     ) -> EvaluationResults:
         """
         Implements the best linear prediction (`evaluate_blp`), calibration (`evaluate_cal`), uplift curve
@@ -623,17 +580,14 @@ class DRTester:
         qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap)
         toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap)
 
-        self.res = EvaluationResults(
-            blp_res=blp_res,
-            cal_res=cal_res,
-            qini_res=qini_res,
-            toc_res=toc_res
-        )
+        self.res = EvaluationResults(blp_res=blp_res, cal_res=cal_res, qini_res=qini_res, toc_res=toc_res)
 
         return self.res
 
 
-@deprecated("DRtester has been renamed 'DRTester' and the old name has been deprecated and will be removed "
-            "in a future release. Please use 'DRTester' instead.")
+@deprecated(
+    "DRtester has been renamed 'DRTester' and the old name has been deprecated and will be removed "
+    "in a future release. Please use 'DRTester' instead."
+)
 class DRtester(DRTester):
     pass

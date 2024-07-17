@@ -7,19 +7,30 @@ from warnings import warn
 from sklearn.base import clone
 from sklearn.model_selection import GroupKFold
 from scipy.stats import norm
-from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from sklearn.linear_model import ElasticNetCV, LassoCV, LogisticRegressionCV
+from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
 from ...sklearn_extensions.model_selection import ModelSelector, WeightedStratifiedKFold
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ..._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
 from ..._ortho_learner import _OrthoLearner
-from ...utilities import (_deprecate_positional, add_intercept,
-                          broadcast_unit_treatments, check_high_dimensional,
-                          cross_product, deprecated,
-                          hstack, inverse_onehot, ndim, reshape,
-                          reshape_treatmentwise_effects, shape, transpose,
-                          get_feature_names_or_default, check_input_arrays,
-                          filter_none_kwargs)
+from ...utilities import (
+    _deprecate_positional,
+    add_intercept,
+    broadcast_unit_treatments,
+    check_high_dimensional,
+    cross_product,
+    deprecated,
+    hstack,
+    inverse_onehot,
+    ndim,
+    reshape,
+    reshape_treatmentwise_effects,
+    shape,
+    transpose,
+    get_feature_names_or_default,
+    check_input_arrays,
+    filter_none_kwargs,
+)
 
 
 def _get_groups_period_filter(groups, n_periods):
@@ -47,15 +58,15 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
     def train(self, is_selecting, folds, Y, T, X=None, W=None, sample_weight=None, groups=None):
         """Fit a series of nuisance models for each period or period pairs."""
-        assert Y.shape[0] % self.n_periods == 0, \
-            "Length of training data should be an integer multiple of time periods."
+        assert (
+            Y.shape[0] % self.n_periods == 0
+        ), "Length of training data should be an integer multiple of time periods."
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         if not hasattr(self, '_model_y_trained'):  # create the per-period y and t models
-            self._model_y_trained = {t: clone(self._model_y, safe=False)
-                                     for t in np.arange(self.n_periods)}
-            self._model_t_trained = {j: {t: clone(self._model_t, safe=False)
-                                         for t in np.arange(j + 1)}
-                                     for j in np.arange(self.n_periods)}
+            self._model_y_trained = {t: clone(self._model_y, safe=False) for t in np.arange(self.n_periods)}
+            self._model_t_trained = {
+                j: {t: clone(self._model_t, safe=False) for t in np.arange(j + 1)} for j in np.arange(self.n_periods)
+            }
 
         # we have to filter the folds because they contain the indices in the original data not
         # the indices in the period-filtered data
@@ -77,7 +88,7 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
         if folds is not None:
             translated_folds = []
-            for (train, test) in folds:
+            for train, test in folds:
                 translated_folds.append((_translate_inds(0, train), _translate_inds(0, test)))
                 # sanity check that the folds are the same no matter the time period
                 for t in range(1, self.n_periods):
@@ -88,17 +99,20 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
         for t in np.arange(self.n_periods):
             self._model_y_trained[t].train(
-                is_selecting, translated_folds,
+                is_selecting,
+                translated_folds,
                 self._index_or_None(X, period_filters[t]),
-                self._index_or_None(
-                    W, period_filters[t]),
-                Y[period_filters[self.n_periods - 1]])
+                self._index_or_None(W, period_filters[t]),
+                Y[period_filters[self.n_periods - 1]],
+            )
             for j in np.arange(t, self.n_periods):
                 self._model_t_trained[j][t].train(
-                    is_selecting, translated_folds,
+                    is_selecting,
+                    translated_folds,
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]),
-                    T[period_filters[j]])
+                    T[period_filters[j]],
+                )
         return self
 
     def predict(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
@@ -116,39 +130,40 @@ class _DynamicModelNuisanceSelector(ModelSelector):
             matrix are np.nan.
             This shape is required for _OrthoLearner's crossfitting.
         """
-        assert Y.shape[0] % self.n_periods == 0, \
-            "Length of training data should be an integer multiple of time periods."
+        assert (
+            Y.shape[0] % self.n_periods == 0
+        ), "Length of training data should be an integer multiple of time periods."
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         Y_res = np.full(Y.shape, np.nan)
-        T_res = np.full(T.shape + (self.n_periods, ), np.nan)
+        T_res = np.full(T.shape + (self.n_periods,), np.nan)
         shape_formatter = self._get_shape_formatter(X, W)
         for t in np.arange(self.n_periods):
             Y_slice = Y[period_filters[self.n_periods - 1]]
             Y_pred = self._model_y_trained[t].predict(
-                self._index_or_None(X, period_filters[t]),
-                self._index_or_None(W, period_filters[t]))
-            Y_res[period_filters[t]] = Y_slice\
-                - shape_formatter(Y_slice, Y_pred)
+                self._index_or_None(X, period_filters[t]), self._index_or_None(W, period_filters[t])
+            )
+            Y_res[period_filters[t]] = Y_slice - shape_formatter(Y_slice, Y_pred)
             for j in np.arange(t, self.n_periods):
                 T_slice = T[period_filters[j]]
                 T_pred = self._model_t_trained[j][t].predict(
-                    self._index_or_None(X, period_filters[t]),
-                    self._index_or_None(W, period_filters[t]))
-                T_res[period_filters[j], ..., t] = T_slice\
-                    - shape_formatter(T_slice, T_pred)
+                    self._index_or_None(X, period_filters[t]), self._index_or_None(W, period_filters[t])
+                )
+                T_res[period_filters[j], ..., t] = T_slice - shape_formatter(T_slice, T_pred)
         return Y_res, T_res
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
-        assert Y.shape[0] % self.n_periods == 0, \
-            "Length of training data should be an integer multiple of time periods."
+        assert (
+            Y.shape[0] % self.n_periods == 0
+        ), "Length of training data should be an integer multiple of time periods."
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         if hasattr(self._model_y, 'score'):
-            Y_score = np.full((self.n_periods, ), np.nan)
+            Y_score = np.full((self.n_periods,), np.nan)
             for t in np.arange(self.n_periods):
                 Y_score[t] = self._model_y_trained[t].score(
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]),
-                    Y[period_filters[self.n_periods - 1]])
+                    Y[period_filters[self.n_periods - 1]],
+                )
         else:
             Y_score = None
         if hasattr(self._model_t, 'score'):
@@ -158,7 +173,8 @@ class _DynamicModelNuisanceSelector(ModelSelector):
                     T_score[j][t] = self._model_t_trained[j][t].score(
                         self._index_or_None(X, period_filters[t]),
                         self._index_or_None(W, period_filters[t]),
-                        T[period_filters[j]])
+                        T[period_filters[j]],
+                    )
         else:
             T_score = None
         return Y_score, T_score
@@ -184,6 +200,7 @@ class _DynamicModelFinal:
     residual on residual regression.
     Assumes model final is parametric with no intercept.
     """
+
     # TODO: update docs
 
     def __init__(self, model_final, n_periods):
@@ -200,13 +217,20 @@ class _DynamicModelFinal:
             Y_adj = Y_res[period_filters[t]].copy()
             if t < self.n_periods - 1:
                 Y_adj -= np.sum(
-                    [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[0]] if X is not None else None,
-                        T_res[period_filters[j], ..., t]
-                    ) for j in np.arange(t + 1, self.n_periods)], axis=0)
+                    [
+                        self._model_final_trained[j].predict_with_res(
+                            X[period_filters[0]] if X is not None else None, T_res[period_filters[j], ..., t]
+                        )
+                        for j in np.arange(t + 1, self.n_periods)
+                    ],
+                    axis=0,
+                )
             self._model_final_trained[t].fit(
-                X[period_filters[0]] if X is not None else None, T[period_filters[t]],
-                T_res[period_filters[t], ..., t], Y_adj)
+                X[period_filters[0]] if X is not None else None,
+                T[period_filters[t]],
+                T_res[period_filters[t], ..., t],
+                Y_adj,
+            )
 
         return self
 
@@ -216,38 +240,36 @@ class _DynamicModelFinal:
         """
         d_t_tuple = self._model_final_trained[0]._d_t
         d_t = d_t_tuple[0] if d_t_tuple else 1
-        x_dy_shape = (X.shape[0] if X is not None else 1, ) + \
-            self._model_final_trained[0]._d_y
-        preds = np.zeros(
-            x_dy_shape +
-            (self.n_periods * d_t, )
-        )
+        x_dy_shape = (X.shape[0] if X is not None else 1,) + self._model_final_trained[0]._d_y
+        preds = np.zeros(x_dy_shape + (self.n_periods * d_t,))
         for t in range(self.n_periods):
-            preds[..., t * d_t: (t + 1) * d_t] = \
-                self._model_final_trained[t].predict(X).reshape(
-                x_dy_shape + (d_t, )
-            )
+            preds[..., t * d_t : (t + 1) * d_t] = self._model_final_trained[t].predict(X).reshape(x_dy_shape + (d_t,))
         return preds
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
-        assert Y.shape[0] % self.n_periods == 0, \
-            "Length of training data should be an integer multiple of time periods."
+        assert (
+            Y.shape[0] % self.n_periods == 0
+        ), "Length of training data should be an integer multiple of time periods."
         Y_res, T_res = nuisances
-        scores = np.full((self.n_periods, ), np.nan)
+        scores = np.full((self.n_periods,), np.nan)
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         for t in np.arange(self.n_periods - 1, -1, -1):
             Y_adj = Y_res[period_filters[t]].copy()
             if t < self.n_periods - 1:
                 Y_adj -= np.sum(
-                    [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[0]] if X is not None else None,
-                        T_res[period_filters[j], ..., t]
-                    ) for j in np.arange(t + 1, self.n_periods)], axis=0)
+                    [
+                        self._model_final_trained[j].predict_with_res(
+                            X[period_filters[0]] if X is not None else None, T_res[period_filters[j], ..., t]
+                        )
+                        for j in np.arange(t + 1, self.n_periods)
+                    ],
+                    axis=0,
+                )
             Y_adj_pred = self._model_final_trained[t].predict_with_res(
-                X[period_filters[0]] if X is not None else None,
-                T_res[period_filters[t], ..., t])
+                X[period_filters[0]] if X is not None else None, T_res[period_filters[t], ..., t]
+            )
             if sample_weight is not None:
-                scores[t] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
+                scores[t] = np.mean(np.average((Y_adj - Y_adj_pred) ** 2, weights=sample_weight, axis=0))
             else:
                 scores[t] = np.mean((Y_adj - Y_adj_pred) ** 2)
         return scores
@@ -265,8 +287,9 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         self.model_final_ = StatsModelsLinearRegression(fit_intercept=False)
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
-        super().fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
-                    sample_weight=sample_weight, sample_var=sample_var, groups=groups)
+        super().fit(
+            Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var, groups=groups
+        )
         # Compose final model
         cov = self._get_cov(nuisances, X, groups)
         coef = self._get_coef_()
@@ -277,82 +300,83 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
     def _get_coef_(self):
         period_coefs = np.array([self._model_final_trained[t]._model.coef_ for t in range(self.n_periods)])
         if self._d_y:
-            return np.array([
-                np.array([period_coefs[k, i, :] for k in range(self.n_periods)]).flatten()
-                for i in range(self._d_y[0])
-            ])
+            return np.array(
+                [
+                    np.array([period_coefs[k, i, :] for k in range(self.n_periods)]).flatten()
+                    for i in range(self._d_y[0])
+                ]
+            )
         return period_coefs.flatten()
 
     def _get_cov(self, nuisances, X, groups):
         if self._d_y:
             return np.array(
-                [self._fit_single_output_cov((nuisances[0][:, i], nuisances[1]), X, i, groups)
-                 for i in range(self._d_y[0])]
+                [
+                    self._fit_single_output_cov((nuisances[0][:, i], nuisances[1]), X, i, groups)
+                    for i in range(self._d_y[0])
+                ]
             )
         return self._fit_single_output_cov(nuisances, X, -1, groups)
 
     def _fit_single_output_cov(self, nuisances, X, y_index, groups):
-        """ Calculates the covariance (n_periods*n_treatments)
-            x (n_periods*n_treatments) matrix for a single outcome.
+        """Calculates the covariance (n_periods*n_treatments)
+        x (n_periods*n_treatments) matrix for a single outcome.
         """
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         # X ⨂ T_res
-        XT_res = np.array([
+        XT_res = np.array(
             [
-                self._model_final_trained[0]._combine(
-                    X[period_filters[0]] if X is not None else None,
-                    T_res[period_filters[t], ..., j],
-                    fitting=False
-                )
-                for j in range(self.n_periods)
+                [
+                    self._model_final_trained[0]._combine(
+                        X[period_filters[0]] if X is not None else None, T_res[period_filters[t], ..., j], fitting=False
+                    )
+                    for j in range(self.n_periods)
+                ]
+                for t in range(self.n_periods)
             ]
-            for t in range(self.n_periods)
-        ])
+        )
         d_xt = XT_res.shape[-1]
         # sum(model_final.predict(X, T_res))
-        Y_diff = np.array([
-            np.sum([
-                self._model_final_trained[j].predict_with_res(
-                    X[period_filters[0]] if X is not None else None,
-                    T_res[period_filters[j], ..., t]
-                ) for j in np.arange(t, self.n_periods)],
-                axis=0
-            )
-            for t in np.arange(self.n_periods)
-        ])
-        J = np.zeros((self.n_periods * d_xt,
-                      self.n_periods * d_xt))
-        Sigma = np.zeros((self.n_periods * d_xt,
-                          self.n_periods * d_xt))
+        Y_diff = np.array(
+            [
+                np.sum(
+                    [
+                        self._model_final_trained[j].predict_with_res(
+                            X[period_filters[0]] if X is not None else None, T_res[period_filters[j], ..., t]
+                        )
+                        for j in np.arange(t, self.n_periods)
+                    ],
+                    axis=0,
+                )
+                for t in np.arange(self.n_periods)
+            ]
+        )
+        J = np.zeros((self.n_periods * d_xt, self.n_periods * d_xt))
+        Sigma = np.zeros((self.n_periods * d_xt, self.n_periods * d_xt))
         for t in np.arange(self.n_periods):
-            res_epsilon_t = (Y_res[period_filters[t]] -
-                             (Y_diff[t][:, y_index] if y_index >= 0 else Y_diff[t])
-                             ).reshape(-1, 1, 1)
+            res_epsilon_t = (Y_res[period_filters[t]] - (Y_diff[t][:, y_index] if y_index >= 0 else Y_diff[t])).reshape(
+                -1, 1, 1
+            )
             resT_t = XT_res[t][t]
             for j in np.arange(self.n_periods):
                 # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix Sigma
-                res_epsilon_j = (Y_res[period_filters[j]] -
-                                 (Y_diff[j][:, y_index] if y_index >= 0 else Y_diff[j])
-                                 ).reshape(-1, 1, 1)
+                res_epsilon_j = (
+                    Y_res[period_filters[j]] - (Y_diff[j][:, y_index] if y_index >= 0 else Y_diff[j])
+                ).reshape(-1, 1, 1)
                 resT_j = XT_res[j][j]
                 cov_resT_tj = resT_t.reshape(-1, d_xt, 1) @ resT_j.reshape(-1, 1, d_xt)
                 sigma_tj = np.mean((res_epsilon_t * res_epsilon_j) * cov_resT_tj, axis=0)
-                Sigma[t * d_xt:(t + 1) * d_xt,
-                      j * d_xt:(j + 1) * d_xt] = sigma_tj
+                Sigma[t * d_xt : (t + 1) * d_xt, j * d_xt : (j + 1) * d_xt] = sigma_tj
                 if j >= t:
                     # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
-                    m_tj = np.mean(
-                        XT_res[j][t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
-                        axis=0)
-                    J[t * d_xt:(t + 1) * d_xt,
-                      j * d_xt:(j + 1) * d_xt] = m_tj
+                    m_tj = np.mean(XT_res[j][t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt), axis=0)
+                    J[t * d_xt : (t + 1) * d_xt, j * d_xt : (j + 1) * d_xt] = m_tj
         return np.linalg.inv(J) @ Sigma @ np.linalg.inv(J).T
 
 
 class _DynamicFinalWrapper(_FinalWrapper):
-
     def predict_with_res(self, X, T_res):
         fts = self._combine(X, T_res, fitting=False)
         prediction = self._model.predict(fts)
@@ -475,7 +499,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             -0.135...]])
     >>> est.effect(X[:2], T0=0, T1=1)
     array([-0.594..., -0.107...])
-    >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
+    >>> est.effect(X[:2], T0=np.zeros((2, n_periods * T.shape[1])), T1=np.ones((2, n_periods * T.shape[1])))
     array([-0.594..., -0.107...])
     >>> est.coef_
     array([[ 0.112... ],
@@ -498,36 +522,44 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
            [0.104...]]))
     """
 
-    def __init__(self, *,
-                 model_y='auto', model_t='auto',
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 linear_first_stages="deprecated",
-                 discrete_outcome=False,
-                 discrete_treatment=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        model_y='auto',
+        model_t='auto',
+        featurizer=None,
+        fit_cate_intercept=True,
+        linear_first_stages="deprecated",
+        discrete_outcome=False,
+        discrete_treatment=False,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+    ):
         self.fit_cate_intercept = fit_cate_intercept
         if linear_first_stages != "deprecated":
-            warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
-                 DeprecationWarning)
+            warn(
+                "The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
+                DeprecationWarning,
+            )
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=None,
-                         discrete_instrument=False,
-                         categories=categories,
-                         cv=GroupKFold(cv) if isinstance(cv, int) else cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=None,
+            discrete_instrument=False,
+            categories=categories,
+            cv=GroupKFold(cv) if isinstance(cv, int) else cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+        )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -579,30 +611,30 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y,
-                                          is_discrete=self.discrete_outcome,
-                                          random_state=self.random_state)
+        return _make_first_stage_selector(
+            self.model_y, is_discrete=self.discrete_outcome, random_state=self.random_state
+        )
 
     def _gen_model_t(self):
-        return _make_first_stage_selector(self.model_t,
-                                          is_discrete=self.discrete_treatment,
-                                          random_state=self.random_state)
+        return _make_first_stage_selector(
+            self.model_t, is_discrete=self.discrete_treatment, random_state=self.random_state
+        )
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
 
     def _gen_ortho_learner_model_nuisance(self):
         return _DynamicModelNuisanceSelector(
-            model_t=self._gen_model_t(),
-            model_y=self._gen_model_y(),
-            n_periods=self._n_periods)
+            model_t=self._gen_model_t(), model_y=self._gen_model_y(), n_periods=self._n_periods
+        )
 
     def _gen_ortho_learner_model_final(self):
         wrapped_final_model = _DynamicFinalWrapper(
             StatsModelsLinearRegression(fit_intercept=False),
             fit_cate_intercept=self.fit_cate_intercept,
             featurizer=self.featurizer,
-            use_weight_trick=False)
+            use_weight_trick=False,
+        )
         return _LinearDynamicModelFinal(wrapped_final_model, n_periods=self._n_periods)
 
     def _prefit(self, Y, T, *args, groups=None, only_final=False, **kwargs):
@@ -611,23 +643,36 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         u_periods = np.unique(np.unique(groups, return_counts=True)[1])
         if len(u_periods) > 1:
             raise AttributeError(
-                "Imbalanced panel. Method currently expects only panels with equal number of periods. Pad your data")
+                "Imbalanced panel. Method currently expects only panels with equal number of periods. Pad your data"
+            )
         self._n_periods = u_periods[0]
         super()._prefit(Y, T, *args, **kwargs)
 
     def _postfit(self, Y, T, *args, **kwargs):
         super()._postfit(Y, T, *args, **kwargs)
         # Set _d_t to effective number of treatments
-        self._d_t = (self._n_periods * self._d_t[0], ) if self._d_t else (self._n_periods, )
+        self._d_t = (self._n_periods * self._d_t[0],) if self._d_t else (self._n_periods,)
 
-    def _strata(self, Y, T, X=None, W=None, Z=None,
-                sample_weight=None, sample_var=None, groups=None,
-                cache_values=False, only_final=False, check_input=True):
+    def _strata(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        sample_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        only_final=False,
+        check_input=True,
+    ):
         # Required for bootstrap inference
         return groups
 
-    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, sample_var=None, groups,
-            cache_values=False, inference='auto'):
+    def fit(
+        self, Y, T, *, X=None, W=None, sample_weight=None, sample_var=None, groups, cache_values=False, inference='auto'
+    ):
         """Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         The input data must contain groups with the same size corresponding to the number
@@ -678,13 +723,22 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self: DynamicDML instance
         """
         if sample_weight is not None or sample_var is not None:
-            warn("This CATE estimator does not yet support sample weights and sample variance. "
-                 "These inputs will be ignored during fitting.",
-                 UserWarning)
-        return super().fit(Y, T, X=X, W=W,
-                           sample_weight=None, sample_var=None, groups=groups,
-                           cache_values=cache_values,
-                           inference=inference)
+            warn(
+                "This CATE estimator does not yet support sample weights and sample variance. "
+                "These inputs will be ignored during fitting.",
+                UserWarning,
+            )
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            sample_weight=None,
+            sample_var=None,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, *, groups):
         """
@@ -716,7 +770,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
         Y, T, X, groups = check_input_arrays(Y, T, X, groups)
-        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        (W,) = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         self._check_fitted_dims(X)
         X, T = super()._expand_treatments(X, T)
         n_iters = len(self._models_nuisance)
@@ -738,9 +792,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
-        return self._ortho_learner_model_final.score(Y, T, nuisances=nuisances,
-                                                     **filter_none_kwargs(X=X, W=W,
-                                                                          sample_weight=sample_weight, groups=groups))
+        return self._ortho_learner_model_final.score(
+            Y, T, nuisances=nuisances, **filter_none_kwargs(X=X, W=W, sample_weight=sample_weight, groups=groups)
+        )
 
     def cate_treatment_names(self, treatment_names=None):
         """
@@ -800,15 +854,21 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             if ndim(T) == 0:
                 one_T = base_expand_treatments(X, T, transform=transform)[1]
                 one_T = one_T.reshape(-1, 1) if ndim(one_T) == 1 else one_T
-                T = np.tile(one_T, (1, self._n_periods, ))
+                T = np.tile(
+                    one_T,
+                    (
+                        1,
+                        self._n_periods,
+                    ),
+                )
             else:
-                assert (T.shape[1] == self._n_periods if self.transformer else T.shape[1] == self._d_t[0]), \
-                    f"Expected a list of time period * d_t, instead got a treatment array of shape {T.shape}."
+                assert (
+                    T.shape[1] == self._n_periods if self.transformer else T.shape[1] == self._d_t[0]
+                ), f"Expected a list of time period * d_t, instead got a treatment array of shape {T.shape}."
                 if self.transformer:
-                    T = np.hstack([
-                        base_expand_treatments(
-                            X, T[:, [t]], transform=transform)[1] for t in range(self._n_periods)
-                    ])
+                    T = np.hstack(
+                        [base_expand_treatments(X, T[:, [t]], transform=transform)[1] for t in range(self._n_periods)]
+                    )
             outTs.append(T)
         return (X,) + tuple(outTs)
 
@@ -873,7 +933,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         if not hasattr(self, '_cached_values'):
             raise AttributeError("Estimator is not fitted yet!")
         if self._cached_values is None:
-            raise AttributeError("`fit` was called with `cache_values=False`. "
-                                 "Set to `True` to enable residual storage.")
+            raise AttributeError(
+                "`fit` was called with `cache_values=False`. " "Set to `True` to enable residual storage."
+            )
         Y_res, T_res = self._cached_values.nuisances
         return Y_res, T_res, self._cached_values.X, self._cached_values.W

@@ -8,7 +8,6 @@ import numpy as np
 
 
 class PolicyLearner(metaclass=abc.ABCMeta):
-
     def fit(self, Y, T, *, X=None, **kwargs):
         pass
 

@@ -17,14 +17,14 @@ from sklearn.utils import check_random_state
 from joblib import effective_n_jobs
 from packaging.version import parse
 import sklearn
+
 if parse(sklearn.__version__) < parse("1.5"):
     from sklearn.utils import _print_elapsed_time
 else:
     from sklearn.utils._user_interface import _print_elapsed_time
 
 
-def _fit_single_estimator(estimator, X, y, sample_weight=None,
-                          message_clsname=None, message=None):
+def _fit_single_estimator(estimator, X, y, sample_weight=None, message_clsname=None, message=None):
     """Private function used to fit an estimator within a job."""
     if sample_weight is not None:
         try:
@@ -33,8 +33,7 @@ def _fit_single_estimator(estimator, X, y, sample_weight=None,
         except TypeError as exc:
             if "unexpected keyword argument 'sample_weight'" in str(exc):
                 raise TypeError(
-                    "Underlying estimator {} does not support sample weights."
-                    .format(estimator.__class__.__name__)
+                    "Underlying estimator {} does not support sample weights.".format(estimator.__class__.__name__)
                 ) from exc
             raise
     else:
@@ -95,8 +94,7 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def __init__(self, base_estimator, *, n_estimators=10,
-                 estimator_params=tuple()):
+    def __init__(self, base_estimator, *, n_estimators=10, estimator_params=tuple()):
         # Set parameters
         self.base_estimator = base_estimator
         self.n_estimators = n_estimators
@@ -111,12 +109,10 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
         Sets the base_estimator_` attributes.
         """
         if not isinstance(self.n_estimators, numbers.Integral):
-            raise ValueError("n_estimators must be an integer, "
-                             "got {0}.".format(type(self.n_estimators)))
+            raise ValueError("n_estimators must be an integer, " "got {0}.".format(type(self.n_estimators)))
 
         if self.n_estimators <= 0:
-            raise ValueError("n_estimators must be greater than zero, "
-                             "got {0}.".format(self.n_estimators))
+            raise ValueError("n_estimators must be greater than zero, " "got {0}.".format(self.n_estimators))
 
         if self.base_estimator is not None:
             self.base_estimator_ = self.base_estimator
@@ -132,8 +128,7 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
         sub-estimators.
         """
         estimator = clone(self.base_estimator_)
-        estimator.set_params(**{p: getattr(self, p)
-                                for p in self.estimator_params})
+        estimator.set_params(**{p: getattr(self, p) for p in self.estimator_params})
 
         if random_state is not None:
             _set_random_states(estimator, random_state)
@@ -162,8 +157,7 @@ def _partition_estimators(n_estimators, n_jobs):
     n_jobs = min(effective_n_jobs(n_jobs), n_estimators)
 
     # Partition estimators between jobs
-    n_estimators_per_job = np.full(n_jobs, n_estimators // n_jobs,
-                                   dtype=int)
+    n_estimators_per_job = np.full(n_jobs, n_estimators // n_jobs, dtype=int)
     n_estimators_per_job[: n_estimators % n_jobs] += 1
     starts = np.cumsum(n_estimators_per_job)
 

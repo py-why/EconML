@@ -15,9 +15,4 @@ https://arxiv.org/abs/1905.10176
 
 from ._dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV
 
-__all__ = ["DRIV",
-           "LinearDRIV",
-           "SparseLinearDRIV",
-           "ForestDRIV",
-           "IntentToTreatDRIV",
-           "LinearIntentToTreatDRIV"]
+__all__ = ["DRIV", "LinearDRIV", "SparseLinearDRIV", "ForestDRIV", "IntentToTreatDRIV", "LinearIntentToTreatDRIV"]

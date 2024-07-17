@@ -18,20 +18,16 @@ c_files = glob("econml/**/*.c", recursive=True)
 # If both a .pyx and a .c file exist, we assume the .c file is up to date and don't force a recompile
 pyx_files = [file for file in pyx_files if (os.path.splitext(file)[0] + ".c") not in c_files]
 
-c_extensions = [Extension(os.path.splitext(file)[0].replace(os.sep, '.'),
-                          [file],
-                          include_dirs=[np.get_include()])
-                for file in c_files]
+c_extensions = [
+    Extension(os.path.splitext(file)[0].replace(os.sep, '.'), [file], include_dirs=[np.get_include()])
+    for file in c_files
+]
 
 if pyx_files:
     from Cython.Build import cythonize
-    pyx_extensions = cythonize([Extension("*",
-                                          pyx_files,
-                                          include_dirs=[np.get_include()])],
-                               language_level="3")
+
+    pyx_extensions = cythonize([Extension("*", pyx_files, include_dirs=[np.get_include()])], language_level="3")
 else:
     pyx_extensions = []
 # configuration is all pulled from setup.cfg
-setup(ext_modules=c_extensions + pyx_extensions,
-      zip_safe=False,
-      version=version)
+setup(ext_modules=c_extensions + pyx_extensions, zip_safe=False, version=version)

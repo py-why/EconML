@@ -31,10 +31,9 @@ class GroupingModel:
 
         # ensure that the grouping has worked correctly and we get exactly the number of copies
         # of the items in whichever groups we see
-        for (yval, ct) in zip(yvals, cts):
+        for yval, ct in zip(yvals, cts):
             if ct != self.n_copies[yval]:
-                raise Exception(
-                    f"Grouping failed; received {ct} copies of {yval} instead of {self.n_copies[yval]}")
+                raise Exception(f"Grouping failed; received {ct} copies of {yval} instead of {self.n_copies[yval]}")
 
     def fit(self, X, y):
         self.validate(y, len(y) == self.total)
@@ -61,7 +60,7 @@ class NestedModel(GroupingModel):
         self.model.cv = value
 
     def fit(self, X, y):
-        for (train, test) in check_cv(self.cv, y).split(X, y):
+        for train, test in check_cv(self.cv, y).split(X, y):
             # want to validate the nested grouping, not the outer grouping in the nesting tests
             self.validate(y[train], len(y) == self.total)
         self.model.fit(X, y)

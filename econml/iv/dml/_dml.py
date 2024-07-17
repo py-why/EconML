@@ -24,11 +24,25 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin, LinearCateEstimator
 from ...inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector,
-                                                   WeightedStratifiedKFold, get_selector)
-from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
-                          cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
-                          parse_final_model_params, deprecated, Summary)
+from ...sklearn_extensions.model_selection import (
+    ModelSelector,
+    SingleModelSelector,
+    WeightedStratifiedKFold,
+    get_selector,
+)
+from ...utilities import (
+    _deprecate_positional,
+    get_feature_names_or_default,
+    filter_none_kwargs,
+    add_intercept,
+    cross_product,
+    broadcast_unit_treatments,
+    reshape_treatmentwise_effects,
+    shape,
+    parse_final_model_params,
+    deprecated,
+    Summary,
+)
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
@@ -42,12 +56,9 @@ def _combine(W, Z, n_samples):
 
 
 class _OrthoIVNuisanceSelector(ModelSelector):
-
-    def __init__(self,
-                 model_y_xw: SingleModelSelector,
-                 model_t_xw: SingleModelSelector,
-                 model_z: SingleModelSelector,
-                 projection):
+    def __init__(
+        self, model_y_xw: SingleModelSelector, model_t_xw: SingleModelSelector, model_z: SingleModelSelector, projection
+    ):
         self._model_y_xw = model_y_xw
         self._model_t_xw = model_t_xw
         self._projection = projection
@@ -62,8 +73,9 @@ class _OrthoIVNuisanceSelector(ModelSelector):
         if self._projection:
             # concat W and Z
             WZ = _combine(W, Z, Y.shape[0])
-            self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T,
-                                    sample_weight=sample_weight, groups=groups)
+            self._model_t_xwz.train(
+                is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups
+            )
         else:
             self._model_z_xw.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
@@ -127,11 +139,11 @@ class _OrthoIVModelFinal:
         self._fit_cate_intercept = fit_cate_intercept
 
         if self._fit_cate_intercept:
-            add_intercept_trans = FunctionTransformer(add_intercept,
-                                                      validate=True)
+            add_intercept_trans = FunctionTransformer(add_intercept, validate=True)
             if featurizer:
-                self._featurizer = Pipeline([('featurize', self._original_featurizer),
-                                             ('add_intercept', add_intercept_trans)])
+                self._featurizer = Pipeline(
+                    [('featurize', self._original_featurizer), ('add_intercept', add_intercept_trans)]
+                )
             else:
                 self._featurizer = add_intercept_trans
         else:
@@ -149,8 +161,19 @@ class _OrthoIVModelFinal:
             F = np.ones((T.shape[0], 1))
         return cross_product(F, T)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
-            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
+    def fit(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        nuisances=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+    ):
         Y_res, T_res, Z_res = nuisances
 
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
@@ -159,20 +182,19 @@ class _OrthoIVModelFinal:
 
         XT_res = self._combine(X, T_res)
         XZ_res = self._combine(X, Z_res)
-        filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
-                                             freq_weight=freq_weight, sample_var=sample_var)
+        filtered_kwargs = filter_none_kwargs(
+            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var
+        )
 
         self._model_final.fit(XZ_res, XT_res, Y_res, **filtered_kwargs)
 
         return self
 
     def predict(self, X=None):
-        X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
-                                          self._d_t[0] if self._d_t else 1)
+        X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)), self._d_t[0] if self._d_t else 1)
         XT = self._combine(None if X is None else X2, T, fitting=False)
         prediction = self._model_final.predict(XT)
-        return reshape_treatmentwise_effects(prediction,
-                                             self._d_t, self._d_y)
+        return reshape_treatmentwise_effects(prediction, self._d_t, self._d_y)
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
         Y_res, T_res, Z_res = nuisances
@@ -183,8 +205,9 @@ class _OrthoIVModelFinal:
         effects = self.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         if sample_weight is not None:
-            return np.linalg.norm(np.average(cross_product(Z_res, Y_res - Y_res_pred), weights=sample_weight, axis=0),
-                                  ord=2)
+            return np.linalg.norm(
+                np.average(cross_product(Z_res, Y_res - Y_res_pred), weights=sample_weight, axis=0), ord=2
+            )
         else:
             return np.linalg.norm(np.mean(cross_product(Z_res, Y_res - Y_res_pred), axis=0), ord=2)
 
@@ -361,24 +384,27 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     (-1.27036..., 0.99690...)
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_t_xwz="auto",
-                 model_z_xw="auto",
-                 projection=False,
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 discrete_outcome=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 discrete_instrument=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_t_xwz="auto",
+        model_z_xw="auto",
+        projection=False,
+        featurizer=None,
+        fit_cate_intercept=True,
+        discrete_outcome=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        discrete_instrument=False,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+    ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -387,16 +413,18 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
 
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+        )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -411,32 +439,44 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return _OrthoIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept)
 
     def _gen_ortho_learner_model_nuisance(self):
-        model_y = _make_first_stage_selector(self.model_y_xw,
-                                             is_discrete=self.discrete_outcome,
-                                             random_state=self.random_state)
+        model_y = _make_first_stage_selector(
+            self.model_y_xw, is_discrete=self.discrete_outcome, random_state=self.random_state
+        )
 
-        model_t = _make_first_stage_selector(self.model_t_xw,
-                                             is_discrete=self.discrete_treatment,
-                                             random_state=self.random_state)
+        model_t = _make_first_stage_selector(
+            self.model_t_xw, is_discrete=self.discrete_treatment, random_state=self.random_state
+        )
 
         if self.projection:
             # train E[T|X,W,Z]
-            model_z = _make_first_stage_selector(self.model_t_xwz,
-                                                 is_discrete=self.discrete_treatment,
-                                                 random_state=self.random_state)
+            model_z = _make_first_stage_selector(
+                self.model_t_xwz, is_discrete=self.discrete_treatment, random_state=self.random_state
+            )
 
         else:
             # train E[Z|X,W]
             # note: discrete_instrument rather than discrete_treatment in call to _make_first_stage_selector
-            model_z = _make_first_stage_selector(self.model_z_xw,
-                                                 is_discrete=self.discrete_instrument,
-                                                 random_state=self.random_state)
+            model_z = _make_first_stage_selector(
+                self.model_z_xw, is_discrete=self.discrete_instrument, random_state=self.random_state
+            )
 
-        return _OrthoIVNuisanceSelector(model_y, model_t, model_z,
-                                        self.projection)
+        return _OrthoIVNuisanceSelector(model_y, model_t, model_z, self.projection)
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference="auto"):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference="auto",
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -477,18 +517,33 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self: OrthoIV instance
         """
         if self.projection:
-            assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
-                                               "please leave it when initializing the estimator!")
+            assert self.model_z_xw == "auto", (
+                "In the case of projection=True, model_z_xw will not be fitted, "
+                "please leave it when initializing the estimator!"
+            )
         else:
-            assert self.model_t_xwz == "auto", ("In the case of projection=False, model_t_xwz will not be fitted, "
-                                                "please leave it when initializing the estimator!")
+            assert self.model_t_xwz == "auto", (
+                "In the case of projection=False, model_t_xwz will not be fitted, "
+                "please leave it when initializing the estimator!"
+            )
         #  Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
+
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
@@ -707,8 +762,9 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         if not hasattr(self, '_cached_values'):
             raise AttributeError("Estimator is not fitted yet!")
         if self._cached_values is None:
-            raise AttributeError("`fit` was called with `cache_values=False`. "
-                                 "Set to `True` to enable residual storage.")
+            raise AttributeError(
+                "`fit` was called with `cache_values=False`. " "Set to `True` to enable residual storage."
+            )
         Y_res, T_res, Z_res = self._cached_values.nuisances
         return Y_res, T_res, Z_res, self._cached_values.X, self._cached_values.W, self._cached_values.Z
 
@@ -725,14 +781,17 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
         self._model_t_xwz = model_t_xwz
 
     def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.train(is_selecting, folds, X, W, Y, **
-                               filter_none_kwargs(sample_weight=sample_weight, groups=groups))
-        self._model_t_xw.train(is_selecting, folds, X, W, T, **
-                               filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_y_xw.train(
+            is_selecting, folds, X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups)
+        )
+        self._model_t_xw.train(
+            is_selecting, folds, X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups)
+        )
         # concat W and Z
         WZ = _combine(W, Z, Y.shape[0])
-        self._model_t_xwz.train(is_selecting, folds, X, WZ, T,
-                                **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_t_xwz.train(
+            is_selecting, folds, X, WZ, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups)
+        )
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -779,6 +838,7 @@ class _BaseDMLIVModelFinal(_ModelFinal):
     and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
     residual on residual regression.
     """
+
     pass
 
 
@@ -786,8 +846,21 @@ class _BaseDMLIV(_OrthoLearner):
     # A helper class that access all the internal fitted objects of a DMLIV Cate Estimator.
     # Used by both Parametric and Non Parametric DMLIV.
     # override only so that we can enforce Z to be required
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference=None,
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -826,9 +899,19 @@ class _BaseDMLIV(_OrthoLearner):
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
@@ -963,8 +1046,9 @@ class _BaseDMLIV(_OrthoLearner):
         if not hasattr(self, '_cached_values'):
             raise AttributeError("Estimator is not fitted yet!")
         if self._cached_values is None:
-            raise AttributeError("`fit` was called with `cache_values=False`. "
-                                 "Set to `True` to enable residual storage.")
+            raise AttributeError(
+                "`fit` was called with `cache_values=False`. " "Set to `True` to enable residual storage."
+            )
         Y_res, T_res = self._cached_values.nuisances
         return Y_res, T_res, self._cached_values.X, self._cached_values.W, self._cached_values.Z
 
@@ -1152,39 +1236,44 @@ class DMLIV(_BaseDMLIV):
 
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_t_xwz="auto",
-                 model_final=StatsModelsLinearRegression(fit_intercept=False),
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 discrete_outcome=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 discrete_instrument=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_t_xwz="auto",
+        model_final=StatsModelsLinearRegression(fit_intercept=False),
+        featurizer=None,
+        fit_cate_intercept=True,
+        discrete_outcome=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        discrete_instrument=False,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+    ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         discrete_instrument=discrete_instrument,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            discrete_instrument=discrete_instrument,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+        )
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1205,10 +1294,9 @@ class DMLIV(_BaseDMLIV):
         return _BaseDMLIVNuisanceSelector(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
 
     def _gen_ortho_learner_model_final(self):
-        return _BaseDMLIVModelFinal(_FinalWrapper(self._gen_model_final(),
-                                                  self.fit_cate_intercept,
-                                                  self._gen_featurizer(),
-                                                  False))
+        return _BaseDMLIVModelFinal(
+            _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
+        )
 
     @property
     def bias_part_of_coef(self):
@@ -1222,18 +1310,24 @@ class DMLIV(_BaseDMLIV):
         if hasattr(self, "featurizer_") and self.featurizer_ is not None:
             X = self.featurizer_.transform(X)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_joint_linear_model_cate(self.model_final_, X, self._d_t, self._d_y,
-                                                     self.bias_part_of_coef,
-                                                     feature_names=feature_names, treatment_names=treatment_names,
-                                                     output_names=output_names,
-                                                     input_names=self._input_names,
-                                                     background_samples=background_samples)
+        return _shap_explain_joint_linear_model_cate(
+            self.model_final_,
+            X,
+            self._d_t,
+            self._d_y,
+            self.bias_part_of_coef,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            output_names=output_names,
+            input_names=self._input_names,
+            background_samples=background_samples,
+        )
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     @property
     def coef_(self):
-        """ The coefficients in the linear model of the constant marginal treatment
+        """The coefficients in the linear model of the constant marginal treatment
         effect.
 
         Returns
@@ -1246,13 +1340,19 @@ class DMLIV(_BaseDMLIV):
             a vector and not a 2D array. For binary treatment the n_t dimension is
             also omitted.
         """
-        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
-                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                        self.fit_cate_intercept_)[0]
+        return parse_final_model_params(
+            self.model_final_.coef_,
+            self.model_final_.intercept_,
+            self._d_y,
+            self._d_t,
+            self._d_t_in,
+            self.bias_part_of_coef,
+            self.fit_cate_intercept_,
+        )[0]
 
     @property
     def intercept_(self):
-        """ The intercept in the linear model of the constant marginal treatment
+        """The intercept in the linear model of the constant marginal treatment
         effect.
 
         Returns
@@ -1265,12 +1365,18 @@ class DMLIV(_BaseDMLIV):
         """
         if not self.fit_cate_intercept_:
             raise AttributeError("No intercept was fitted!")
-        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
-                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                        self.fit_cate_intercept_)[1]
+        return parse_final_model_params(
+            self.model_final_.coef_,
+            self.model_final_.intercept_,
+            self._d_y,
+            self._d_t,
+            self._d_t_in,
+            self.bias_part_of_coef,
+            self.fit_cate_intercept_,
+        )[1]
 
     def summary(self, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        """The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
         Parameters
@@ -1303,11 +1409,11 @@ class DMLIV(_BaseDMLIV):
             extra_txt.append("$Y = \\Theta(X)\\cdot \\psi(T) + g(X, W) + \\epsilon$")
             extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
             extra_txt.append(
-                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:"
+            )
         else:
             extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
-            extra_txt.append(
-                "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+            extra_txt.append("where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
 
         if self.featurizer:
             extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
@@ -1315,9 +1421,11 @@ class DMLIV(_BaseDMLIV):
         else:
             extra_txt.append("$\\Theta_{ij}(X) = X' coef_{ij} + cate\\_intercept_{ij}$")
 
-        extra_txt.append("Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                         "each outcome $i$ and treatment $j$. "
-                         "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>")
+        extra_txt.append(
+            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+            "each outcome $i$ and treatment $j$. "
+            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"
+        )
 
         smry.add_extra_txt(extra_txt)
         d_t = self._d_t[0] if self._d_t else 1
@@ -1539,37 +1647,42 @@ class NonParamDMLIV(_BaseDMLIV):
 
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_t_xwz="auto",
-                 model_final,
-                 discrete_outcome=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 discrete_instrument=False,
-                 featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_t_xwz="auto",
+        model_final,
+        discrete_outcome=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        discrete_instrument=False,
+        featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+    ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_treatment=discrete_treatment,
-                         discrete_instrument=discrete_instrument,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_treatment=discrete_treatment,
+            discrete_instrument=discrete_instrument,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+        )
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1590,17 +1703,21 @@ class NonParamDMLIV(_BaseDMLIV):
         return _BaseDMLIVNuisanceSelector(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
 
     def _gen_ortho_learner_model_final(self):
-        return _BaseDMLIVModelFinal(_FinalWrapper(self._gen_model_final(),
-                                                  False,
-                                                  self._gen_featurizer(),
-                                                  True))
+        return _BaseDMLIVModelFinal(_FinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), True))
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,
-                                        featurizer=self.featurizer_,
-                                        feature_names=feature_names,
-                                        treatment_names=treatment_names,
-                                        output_names=output_names,
-                                        input_names=self._input_names,
-                                        background_samples=background_samples)
+        return _shap_explain_model_cate(
+            self.const_marginal_effect,
+            self.model_cate,
+            X,
+            self._d_t,
+            self._d_y,
+            featurizer=self.featurizer_,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            output_names=output_names,
+            input_names=self._input_names,
+            background_samples=background_samples,
+        )
+
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

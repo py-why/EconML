@@ -11,9 +11,11 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 graphviz_works = True
 try:
     from graphviz import Graph
+
     g = Graph()
     g.render()
     import matplotlib
+
     matplotlib.use('Agg')
 except Exception:
     graphviz_works = False
@@ -21,7 +23,6 @@ except Exception:
 
 @pytest.mark.skipif(not graphviz_works, reason="graphviz must be installed to run CATE interpreter tests")
 class TestCateInterpreter(unittest.TestCase):
-
     # can't easily test output, but can at least test that we can all export_graphviz, render, and plot
     def test_can_use_interpreters(self):
         n = 100
@@ -100,16 +101,19 @@ class TestCateInterpreter(unittest.TestCase):
             X = np.random.normal(size=(n, 4))
             X2 = np.random.normal(size=(10, 4))
             T = np.random.binomial(2, 0.5, size=t_shape) if discrete_t else np.random.normal(size=t_shape)
-            Y = ((T.flatten() == 1) * (2 * (X[:, 0] > 0) - 1) +
-                 (T.flatten() == 2) * (2 * (X[:, 1] > 0) - 1)).reshape(y_shape)
+            Y = ((T.flatten() == 1) * (2 * (X[:, 0] > 0) - 1) + (T.flatten() == 2) * (2 * (X[:, 1] > 0) - 1)).reshape(
+                y_shape
+            )
 
             if self.coinflip():
                 y_shape = (n, 2)
                 Y = np.tile(Y.reshape((-1, 1)), (1, 2))
 
-            est = LinearDML(model_y=LinearRegression(),
-                            model_t=LogisticRegression() if discrete_t else LinearRegression(),
-                            discrete_treatment=discrete_t)
+            est = LinearDML(
+                model_y=LinearRegression(),
+                model_t=LogisticRegression() if discrete_t else LinearRegression(),
+                discrete_treatment=discrete_t,
+            )
 
             fit_kwargs = {}
             cate_init_kwargs = {}
@@ -179,18 +183,20 @@ class TestCateInterpreter(unittest.TestCase):
             if self.coinflip(0.95):  # don't launch files most of the time
                 render_kwargs.update(view=False)
 
-            with self.subTest(t_shape=t_shape,
-                              y_shape=y_shape,
-                              discrete_t=discrete_t,
-                              fit_kwargs=fit_kwargs,
-                              cate_init_kwargs=cate_init_kwargs,
-                              policy_init_kwargs=policy_init_kwargs,
-                              policy_intrp_kwargs=policy_intrp_kwargs,
-                              intrp_kwargs=intrp_kwargs,
-                              common_kwargs=common_kwargs,
-                              plot_kwargs=plot_kwargs,
-                              render_kwargs=render_kwargs,
-                              export_kwargs=export_kwargs):
+            with self.subTest(
+                t_shape=t_shape,
+                y_shape=y_shape,
+                discrete_t=discrete_t,
+                fit_kwargs=fit_kwargs,
+                cate_init_kwargs=cate_init_kwargs,
+                policy_init_kwargs=policy_init_kwargs,
+                policy_intrp_kwargs=policy_intrp_kwargs,
+                intrp_kwargs=intrp_kwargs,
+                common_kwargs=common_kwargs,
+                plot_kwargs=plot_kwargs,
+                render_kwargs=render_kwargs,
+                export_kwargs=export_kwargs,
+            ):
                 plot_kwargs.update(common_kwargs)
                 render_kwargs.update(common_kwargs)
                 export_kwargs.update(common_kwargs)

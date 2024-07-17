@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """Bootstrap sampling."""
+
 import numpy as np
 from joblib import Parallel, delayed
 from sklearn.base import clone
@@ -53,12 +54,9 @@ class BootstrapEstimator:
         assuming the replicates are normally distributed.
     """
 
-    def __init__(self, wrapped,
-                 n_bootstrap_samples=100,
-                 n_jobs=None,
-                 verbose=0,
-                 compute_means=True,
-                 bootstrap_type='pivot'):
+    def __init__(
+        self, wrapped, n_bootstrap_samples=100, n_jobs=None, verbose=0, compute_means=True, bootstrap_type='pivot'
+    ):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
@@ -75,7 +73,7 @@ class BootstrapEstimator:
         unique = np.unique(arr, axis=0)
         indices = []
         for el in unique:
-            ind, = np.where(np.all(arr == el, axis=1) if np.ndim(arr) == 2 else arr == el)
+            (ind,) = np.where(np.all(arr == el, axis=1) if np.ndim(arr) == 2 else arr == el)
             indices.append(ind)
         return indices
 
@@ -99,9 +97,9 @@ class BootstrapEstimator:
         indices = []
         for chunk in index_chunks:
             n_samples = len(chunk)
-            indices.append(chunk[np.random.choice(n_samples,
-                                                  size=(self._n_bootstrap_samples, n_samples),
-                                                  replace=True)])
+            indices.append(
+                chunk[np.random.choice(n_samples, size=(self._n_bootstrap_samples, n_samples), replace=True)]
+            )
 
         indices = np.hstack(indices)
 
@@ -119,9 +117,11 @@ class BootstrapEstimator:
                 return arg
 
         self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-            delayed(fit)(obj,
-                         *[convertArg(arg, inds) for arg in args],
-                         **{arg: convertArg(named_args[arg], inds) for arg in named_args})
+            delayed(fit)(
+                obj,
+                *[convertArg(arg, inds) for arg in args],
+                **{arg: convertArg(named_args[arg], inds) for arg in named_args},
+            )
             for obj, inds in zip(self._instances, indices)
         )
         return self
@@ -139,12 +139,21 @@ class BootstrapEstimator:
 
         def proxy(make_call, name, summary):
             def summarize_with(f):
-                results = np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                    (f, (obj, name), {}) for obj in self._instances)), f(self._wrapped, name)
+                results = (
+                    np.array(
+                        Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                            (f, (obj, name), {}) for obj in self._instances
+                        )
+                    ),
+                    f(self._wrapped, name),
+                )
                 return summary(*results)
+
             if make_call:
+
                 def call(*args, **kwargs):
                     return summarize_with(lambda obj, name: getattr(obj, name)(*args, **kwargs))
+
                 return call
             else:
                 return summarize_with(lambda obj, name: getattr(obj, name))
@@ -154,14 +163,13 @@ class BootstrapEstimator:
             return proxy(callable(getattr(self._instances[0], name)), name, lambda arr, _: np.mean(arr, axis=0))
 
         def get_std():
-            prefix = name[: - len('_std')]
-            return proxy(callable(getattr(self._instances[0], prefix)), prefix,
-                         lambda arr, _: np.std(arr, axis=0))
+            prefix = name[: -len('_std')]
+            return proxy(callable(getattr(self._instances[0], prefix)), prefix, lambda arr, _: np.std(arr, axis=0))
 
         def get_interval():
             # if the attribute exists on the wrapped object once we remove the suffix,
             # then we should be computing a confidence interval for the wrapped calls
-            prefix = name[: - len("_interval")]
+            prefix = name[: -len("_interval")]
 
             def call_with_bounds(can_call, lower, upper):
                 def percentile_bootstrap(arr, _):
@@ -177,9 +185,9 @@ class BootstrapEstimator:
                 # TODO: studentized bootstrap? this would be more accurate in most cases but can we avoid
                 #       second level bootstrap which would be prohibitive computationally?
 
-                fn = {'percentile': percentile_bootstrap,
-                      'normal': normal_bootstrap,
-                      'pivot': pivot_bootstrap}[self._bootstrap_type]
+                fn = {'percentile': percentile_bootstrap, 'normal': normal_bootstrap, 'pivot': pivot_bootstrap}[
+                    self._bootstrap_type
+                ]
                 return proxy(can_call, prefix, fn)
 
             can_call = callable(getattr(self._instances[0], prefix))
@@ -187,11 +195,13 @@ class BootstrapEstimator:
                 # collect extra arguments and pass them through, if the wrapped attribute was callable
                 def call(*args, lower=5, upper=95, **kwargs):
                     return call_with_bounds(can_call, lower, upper)(*args, **kwargs)
+
                 return call
             else:
                 # don't pass extra arguments if the wrapped attribute wasn't callable to begin with
                 def call(lower=5, upper=95):
                     return call_with_bounds(can_call, lower, upper)
+
                 return call
 
         def get_inference():
@@ -199,7 +209,7 @@ class BootstrapEstimator:
             from ._inference import EmpiricalInferenceResults, NormalInferenceResults
             from .._cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
 
-            prefix = name[: - len("_inference")]
+            prefix = name[: -len("_inference")]
 
             def fname_transformer(x):
                 return x
@@ -208,8 +218,10 @@ class BootstrapEstimator:
                 inf_type = 'effect'
             elif prefix == 'coef_':
                 inf_type = 'coefficient'
-                if (hasattr(self._instances[0], 'cate_feature_names') and
-                        callable(self._instances[0].cate_feature_names)):
+                if hasattr(self._instances[0], 'cate_feature_names') and callable(
+                    self._instances[0].cate_feature_names
+                ):
+
                     def fname_transformer(x):
                         return self._instances[0].cate_feature_names(x)
             elif prefix == 'intercept_':
@@ -218,8 +230,10 @@ class BootstrapEstimator:
                 raise AttributeError("Unsupported inference: " + name)
 
             d_t = self._wrapped._d_t[0] if self._wrapped._d_t else 1
-            if prefix == 'effect' or (isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin) and
-                                      (inf_type == 'coefficient' or inf_type == 'intercept')):
+            if prefix == 'effect' or (
+                isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin)
+                and (inf_type == 'coefficient' or inf_type == 'intercept')
+            ):
                 d_t = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
@@ -227,6 +241,7 @@ class BootstrapEstimator:
 
             kind = self._bootstrap_type
             if kind == 'percentile' or kind == 'pivot':
+
                 def get_dist(est, arr):
                     if kind == 'percentile':
                         return arr
@@ -236,16 +251,21 @@ class BootstrapEstimator:
                         raise ValueError("Invalid kind, must be either 'percentile' or 'pivot'")
 
                 def get_result():
-                    return proxy(can_call, prefix,
-                                 lambda arr, est: EmpiricalInferenceResults(
-                                     d_t=d_t, d_y=d_y,
-                                     pred=est, pred_dist=get_dist(est, arr),
-                                     inf_type=inf_type,
-                                     fname_transformer=fname_transformer,
-                                     feature_names=self._wrapped.cate_feature_names(),
-                                     output_names=self._wrapped.cate_output_names(),
-                                     treatment_names=self._wrapped.cate_treatment_names()
-                                 ))
+                    return proxy(
+                        can_call,
+                        prefix,
+                        lambda arr, est: EmpiricalInferenceResults(
+                            d_t=d_t,
+                            d_y=d_y,
+                            pred=est,
+                            pred_dist=get_dist(est, arr),
+                            inf_type=inf_type,
+                            fname_transformer=fname_transformer,
+                            feature_names=self._wrapped.cate_feature_names(),
+                            output_names=self._wrapped.cate_output_names(),
+                            treatment_names=self._wrapped.cate_treatment_names(),
+                        ),
+                    )
 
                 # Note that inference results are always methods even if the inference is for a property
                 # (e.g. coef__inference() is a method but coef_ is a property)
@@ -263,12 +283,17 @@ class BootstrapEstimator:
                     if can_call:
                         stderr = stderr(*args, **kwargs)
                     return NormalInferenceResults(
-                        d_t=d_t, d_y=d_y, pred=pred,
-                        pred_stderr=stderr, mean_pred_stderr=None, inf_type=inf_type,
+                        d_t=d_t,
+                        d_y=d_y,
+                        pred=pred,
+                        pred_stderr=stderr,
+                        mean_pred_stderr=None,
+                        inf_type=inf_type,
                         fname_transformer=fname_transformer,
                         feature_names=self._wrapped.cate_feature_names(),
                         output_names=self._wrapped.cate_output_names(),
-                        treatment_names=self._wrapped.cate_treatment_names())
+                        treatment_names=self._wrapped.cate_treatment_names(),
+                    )
 
                 # If inference is for a property, create a fresh lambda to avoid passing args through
                 return normal_inference if can_call else lambda: normal_inference()

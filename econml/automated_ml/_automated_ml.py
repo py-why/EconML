@@ -7,6 +7,7 @@ from azureml.core import Workspace
 from azureml.train.automl.automlconfig import AutoMLConfig
 from azureml._base_sdk_common.common import ProjectSystemException
 from sklearn.multioutput import MultiOutputRegressor
+
 # helper imports
 import time
 import copy
@@ -16,35 +17,46 @@ to use AutomatedML to automate the process of selecting models for models Y, T,
 and final of their causal inferenve estimator.
 """
 
-LINEAR_MODELS_SET = set([
-    "ElasticNet",
-    "LassoLars",
-    "LinearRegressor",
-    "FastLinearRegressor",
-    "OnlineGradientDescentRegressor",
-    "SGDRegressor"
-])
+LINEAR_MODELS_SET = set(
+    [
+        "ElasticNet",
+        "LassoLars",
+        "LinearRegressor",
+        "FastLinearRegressor",
+        "OnlineGradientDescentRegressor",
+        "SGDRegressor",
+    ]
+)
 
 
-SAMPLE_WEIGHTS_MODELS_SET = set([
-                                "ElasticNet",
-                                "LightGBM",
-                                "GradientBoostingRegressor",
-                                "DecisionTreeRegressor",
-                                "KNeighborsRegressor",
-                                "LassoLars",
-                                "SGDRegressor",
-                                "RandomForestRegressor",
-                                "ExtraTreesRegressor",
-                                "LinearRegressor",
-                                "FastLinearRegressor",
-                                "OnlineGradientDescentRegressor"
-                                ])
+SAMPLE_WEIGHTS_MODELS_SET = set(
+    [
+        "ElasticNet",
+        "LightGBM",
+        "GradientBoostingRegressor",
+        "DecisionTreeRegressor",
+        "KNeighborsRegressor",
+        "LassoLars",
+        "SGDRegressor",
+        "RandomForestRegressor",
+        "ExtraTreesRegressor",
+        "LinearRegressor",
+        "FastLinearRegressor",
+        "OnlineGradientDescentRegressor",
+    ]
+)
 
 
-def setAutomatedMLWorkspace(create_workspace=False,
-                            create_resource_group=False, workspace_region=None, *,
-                            auth=None, subscription_id, resource_group, workspace_name):
+def setAutomatedMLWorkspace(
+    create_workspace=False,
+    create_resource_group=False,
+    workspace_region=None,
+    *,
+    auth=None,
+    subscription_id,
+    resource_group,
+    workspace_name,
+):
     """Set configuration file for AutomatedML actions with the EconML library. If
     ``create_workspace`` is set true, a new workspace is created
     for the user.
@@ -79,32 +91,41 @@ def setAutomatedMLWorkspace(create_workspace=False,
        Name of workspace of workspace to be created or set.
     """
     try:
-        ws = Workspace(subscription_id=subscription_id, resource_group=resource_group,
-                       workspace_name=workspace_name, auth=auth)
+        ws = Workspace(
+            subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name, auth=auth
+        )
         # write the details of the workspace to a configuration file to the notebook library
         ws.write_config()
         print("Workspace configuration has succeeded.")
     except ProjectSystemException:
-        if (create_workspace):
-            if (create_resource_group):
-                print("Workspace not accessible. Creating a new workspace and \
-                resource group.")
-                ws = Workspace.create(name=workspace_name,
-                                      subscription_id=subscription_id,
-                                      resource_group=resource_group,
-                                      location=workspace_region,
-                                      create_resource_group=create_resource_group,
-                                      sku='basic',
-                                      auth=auth,
-                                      exist_ok=True)
+        if create_workspace:
+            if create_resource_group:
+                print(
+                    "Workspace not accessible. Creating a new workspace and \
+                resource group."
+                )
+                ws = Workspace.create(
+                    name=workspace_name,
+                    subscription_id=subscription_id,
+                    resource_group=resource_group,
+                    location=workspace_region,
+                    create_resource_group=create_resource_group,
+                    sku='basic',
+                    auth=auth,
+                    exist_ok=True,
+                )
                 ws.get_details()
             else:
-                print("Workspace not accessible. Set \
+                print(
+                    "Workspace not accessible. Set \
                 create_resource_group = True and run again to create a new \
-                workspace and resource group.")
+                workspace and resource group."
+                )
         else:
-            print("Workspace not accessible. Set create_workspace = True \
-            to create a new workspace.")
+            print(
+                "Workspace not accessible. Set create_workspace = True \
+            to create a new workspace."
+            )
 
 
 def addAutomatedML(baseClass):
@@ -129,14 +150,15 @@ def addAutomatedML(baseClass):
       A modified version of ``baseClass`` that accepts the parameters of the
       AutomatedML Mixin rather in addition to the original class objects.
 
-   """
+    """
 
     class AutomatedMLClass(AutomatedMLMixin, baseClass):
         pass
+
     return AutomatedMLClass
 
 
-class AutomatedMLModel():
+class AutomatedMLModel:
     def __init__(self, automl_config, workspace, experiment_name_prefix="aml_experiment"):
         """
         scikit-learn style model fitted and specified with automatedML.
@@ -164,7 +186,8 @@ class AutomatedMLModel():
             Must be comprised of alphanumeric characters, hyphens, underscores and have at most 18 characters.
         """
         self._innerModel = _InnerAutomatedMLModel(
-            automl_config, workspace, experiment_name_prefix=experiment_name_prefix)
+            automl_config, workspace, experiment_name_prefix=experiment_name_prefix
+        )
 
     def fit(self, X, y, sample_weight=None):
         """
@@ -220,10 +243,9 @@ class AutomatedMLModel():
         return self._innerModel.predict_proba(X)
 
 
-class _InnerAutomatedMLModel():
+class _InnerAutomatedMLModel:
     # Inner single model to be passed that wrapper can use to pass into MultiOutputRegressor
-    def __init__(self, automl_config, workspace,
-                 experiment_name_prefix="aml_experiment"):
+    def __init__(self, automl_config, workspace, experiment_name_prefix="aml_experiment"):
         self._show_output = automl_config._show_output
         self._workspace = workspace
         self._automl_config = automl_config
@@ -235,7 +257,7 @@ class _InnerAutomatedMLModel():
         return {
             'workspace': self._workspace,
             'automl_config': self._automl_config,
-            'experiment_name_prefix': self._experiment_name_prefix
+            'experiment_name_prefix': self._experiment_name_prefix,
         }
 
     def fit(self, X, y, sample_weight=None):
@@ -263,7 +285,7 @@ class _InnerAutomatedMLModel():
         return self._model.predict_proba(X)
 
 
-class AutomatedMLMixin():
+class AutomatedMLMixin:
     def __init__(self, *args, **kwargs):
         """
         Mixin enabling users to leverage automatedML as their model of choice in
@@ -282,7 +304,7 @@ class AutomatedMLMixin():
            kwargs that are passed in order to initiate the final automatedML run.
            Any kwarg, that is an AutoMLConfig, will be converted into as
            AutomatedMLModel.
-       """
+        """
         # Loop through the kwargs and args if any of them is an AutoMLConfig file, pass them
         # create model and pass model into final.
         new_args = ()
@@ -312,12 +334,10 @@ class AutomatedMLMixin():
         prefix = prefix[:18]
         # Get workspace from config file.
         workspace = Workspace.from_config()
-        return AutomatedMLModel(automl_config, workspace,
-                                experiment_name_prefix=prefix)
+        return AutomatedMLModel(automl_config, workspace, experiment_name_prefix=prefix)
 
 
 class EconAutoMLConfig(AutoMLConfig):
-
     def __init__(self, sample_weights_required=False, linear_model_required=False, show_output=False, **kwargs):
         """
         Azure AutoMLConfig object with added guards to ensure correctness when used
@@ -351,9 +371,9 @@ class EconAutoMLConfig(AutoMLConfig):
             whitelist_models = list(LINEAR_MODELS_SET.intersection(SAMPLE_WEIGHTS_MODELS_SET))
 
         else:
-            if (linear_model_required):
+            if linear_model_required:
                 whitelist_models = list(LINEAR_MODELS_SET)
-            if (sample_weights_required):
+            if sample_weights_required:
                 whitelist_models = list(SAMPLE_WEIGHTS_MODELS_SET)
 
         kwargs['whitelist_models'] = whitelist_models

@@ -12,7 +12,6 @@ from econml.metalearners import *
 
 
 class TestMetalearners(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         # Set random seed
@@ -24,30 +23,43 @@ class TestMetalearners(unittest.TestCase):
         cls.n_test = 200
         cls.heterogeneity_index = 1
         # Test data
-        cls.X_test = cls.random_state.multivariate_normal(
-            np.zeros(cls.d),
-            np.diag(np.ones(cls.d)),
-            cls.n_test)
+        cls.X_test = cls.random_state.multivariate_normal(np.zeros(cls.d), np.diag(np.ones(cls.d)), cls.n_test)
         # Constant treatment effect
         cls.const_te_data = TestMetalearners._generate_data(
-            cls.n, cls.d, beta=cls.random_state.uniform(0, 1, cls.d),
-            treatment_effect=TestMetalearners._const_te, multi_y=False)
+            cls.n,
+            cls.d,
+            beta=cls.random_state.uniform(0, 1, cls.d),
+            treatment_effect=TestMetalearners._const_te,
+            multi_y=False,
+        )
         # Constant treatment with multi output Y
         cls.const_te_multiy_data = TestMetalearners._generate_data(
-            cls.n, cls.d, beta=cls.random_state.uniform(0, 1, size=(cls.d, 2)),
-            treatment_effect=TestMetalearners._const_te, multi_y=True)
+            cls.n,
+            cls.d,
+            beta=cls.random_state.uniform(0, 1, size=(cls.d, 2)),
+            treatment_effect=TestMetalearners._const_te,
+            multi_y=True,
+        )
         # Heterogeneous treatment
         cls.heterogeneous_te_data = TestMetalearners._generate_data(
-            cls.n, cls.d, beta=cls.random_state.uniform(0, 1, cls.d),
-            treatment_effect=TestMetalearners._heterogeneous_te, multi_y=False)
+            cls.n,
+            cls.d,
+            beta=cls.random_state.uniform(0, 1, cls.d),
+            treatment_effect=TestMetalearners._heterogeneous_te,
+            multi_y=False,
+        )
         # Heterogeneous treatment with multi output Y
         cls.heterogeneous_te_multiy_data = TestMetalearners._generate_data(
-            cls.n, cls.d, beta=cls.random_state.uniform(0, 1, size=(cls.d, 2)),
-            treatment_effect=TestMetalearners._heterogeneous_te, multi_y=True)
+            cls.n,
+            cls.d,
+            beta=cls.random_state.uniform(0, 1, size=(cls.d, 2)),
+            treatment_effect=TestMetalearners._heterogeneous_te,
+            multi_y=True,
+        )
 
     def test_TLearner(self):
         """Tests whether the TLearner can accurately estimate constant and heterogeneous
-           treatment effects.
+        treatment effects.
         """
         # TLearner test
         # Instantiate TLearner
@@ -61,7 +73,7 @@ class TestMetalearners(unittest.TestCase):
 
     def test_SLearner(self):
         """Tests whether the SLearner can accurately estimate constant and heterogeneous
-           treatment effects.
+        treatment effects.
         """
         # Instantiate SLearner
         S_learner = SLearner(overall_model=LinearRegression())
@@ -81,7 +93,7 @@ class TestMetalearners(unittest.TestCase):
 
     def test_XLearner(self):
         """Tests whether the XLearner can accurately estimate constant and heterogeneous
-           treatment effects.
+        treatment effects.
         """
         # Instantiate XLearner
         X_learner = XLearner(models=LinearRegression())
@@ -94,11 +106,10 @@ class TestMetalearners(unittest.TestCase):
 
     def test_DALearner(self):
         """Tests whether the DomainAdaptationLearner can accurately estimate constant and
-           heterogeneous treatment effects.
+        heterogeneous treatment effects.
         """
         # Instantiate DomainAdaptationLearner
-        DA_learner = DomainAdaptationLearner(models=LinearRegression(),
-                                             final_models=LinearRegression())
+        DA_learner = DomainAdaptationLearner(models=LinearRegression(), final_models=LinearRegression())
         # Test inputs
         self._test_inputs(DA_learner, T0=3, T1=5)
         # Test constant and heterogeneous treatment effect, single and multi output y
@@ -113,10 +124,12 @@ class TestMetalearners(unittest.TestCase):
         if multi_y:
             X, T, Y = getattr(TestMetalearners, "{te_type}_te_multiy_data".format(te_type=te_type))
             # Get the true treatment effect
-            te = np.repeat((np.apply_along_axis(te_func, 1, TestMetalearners.X_test) *
-                            (T1 - T0)).reshape(-1, 1), 2, axis=1)
-            marginal_te = np.repeat(np.apply_along_axis(
-                te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4]), 2, axis=0).reshape((-1, 2, 2))
+            te = np.repeat(
+                (np.apply_along_axis(te_func, 1, TestMetalearners.X_test) * (T1 - T0)).reshape(-1, 1), 2, axis=1
+            )
+            marginal_te = np.repeat(
+                np.apply_along_axis(te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4]), 2, axis=0
+            ).reshape((-1, 2, 2))
         else:
             X, T, Y = getattr(TestMetalearners, "{te_type}_te_data".format(te_type=te_type))
             # Get the true treatment effect
@@ -137,7 +150,14 @@ class TestMetalearners(unittest.TestCase):
         d_t = 2
         d_y = Y.shape[1:]
         self.assertEqual(te_hat.shape, (m,) + d_y)
-        self.assertEqual(marginal_te_hat.shape, (m, d_t,) + d_y)
+        self.assertEqual(
+            marginal_te_hat.shape,
+            (
+                m,
+                d_t,
+            )
+            + d_y,
+        )
 
     def _test_inputs(self, learner_instance, T0, T1):
         X, T, Y = TestMetalearners.const_te_data
@@ -145,12 +165,10 @@ class TestMetalearners(unittest.TestCase):
         learner_instance.fit(list(Y), list(T), X=list(X))
         learner_instance.effect(list(TestMetalearners.X_test), T0=T0, T1=T1)
         # Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, learner_instance.fit, Y, T, X=X[:TestMetalearners.n // 2])
-        self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X=X)
+        self.assertRaises(ValueError, learner_instance.fit, Y, T, X=X[: TestMetalearners.n // 2])
+        self.assertRaises(ValueError, learner_instance.fit, Y[: TestMetalearners.n // 2], T, X=X)
         # Check that it works when T, Y have shape (n, 1)
-        self.assertWarns(DataConversionWarning,
-                         learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X=X
-                         )
+        self.assertWarns(DataConversionWarning, learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X=X)
 
     @classmethod
     def _const_te(cls, x):

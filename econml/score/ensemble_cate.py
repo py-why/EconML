@@ -7,7 +7,7 @@ from .._cate_estimator import BaseCateEstimator, LinearCateEstimator
 
 
 class EnsembleCateEstimator:
-    """ A CATE estimator that represents a weighted ensemble of many
+    """A CATE estimator that represents a weighted ensemble of many
     CATE estimators. Returns their weighted effect prediction.
 
     Parameters
@@ -28,21 +28,23 @@ class EnsembleCateEstimator:
         self.weights = weights
 
     def effect(self, X=None, *, T0=0, T1=1):
-        return np.average([mdl.effect(X=X, T0=T0, T1=T1) for mdl in self.cate_models],
-                          weights=self.weights, axis=0)
+        return np.average([mdl.effect(X=X, T0=T0, T1=T1) for mdl in self.cate_models], weights=self.weights, axis=0)
+
     effect.__doc__ = BaseCateEstimator.effect.__doc__
 
     def marginal_effect(self, T, X=None):
-        return np.average([mdl.marginal_effect(T, X=X) for mdl in self.cate_models],
-                          weights=self.weights, axis=0)
+        return np.average([mdl.marginal_effect(T, X=X) for mdl in self.cate_models], weights=self.weights, axis=0)
+
     marginal_effect.__doc__ = BaseCateEstimator.marginal_effect.__doc__
 
     def const_marginal_effect(self, X=None):
         if np.any([not hasattr(mdl, 'const_marginal_effect') for mdl in self.cate_models]):
-            raise ValueError("One of the base CATE models in parameter `cate_models` does not support "
-                             "the `const_marginal_effect` method.")
-        return np.average([mdl.const_marginal_effect(X=X) for mdl in self.cate_models],
-                          weights=self.weights, axis=0)
+            raise ValueError(
+                "One of the base CATE models in parameter `cate_models` does not support "
+                "the `const_marginal_effect` method."
+            )
+        return np.average([mdl.const_marginal_effect(X=X) for mdl in self.cate_models], weights=self.weights, axis=0)
+
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     @property
@@ -61,8 +63,9 @@ class EnsembleCateEstimator:
 
     @weights.setter
     def weights(self, value):
-        weights = check_array(value, accept_sparse=False, ensure_2d=False, allow_nd=False, dtype='numeric',
-                              force_all_finite=True)
+        weights = check_array(
+            value, accept_sparse=False, ensure_2d=False, allow_nd=False, dtype='numeric', force_all_finite=True
+        )
         if np.any(weights < 0):
             raise ValueError("All weights in parameter `weights` must be non-negative.")
         self._weights = weights

@@ -3,5 +3,4 @@
 
 from ._interpreters import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
 
-__all__ = ["SingleTreeCateInterpreter",
-           "SingleTreePolicyInterpreter"]
+__all__ = ["SingleTreeCateInterpreter", "SingleTreePolicyInterpreter"]
