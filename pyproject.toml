@@ -132,3 +132,63 @@ relative_files = true
 exclude_lines = [
     "raise NotImplementedError\\(\"(Abstract method|Defer to inference)\"\\)"
 ]
+
+[tool.ruff]
+line-length = 120
+extend-include = ["*.ipynb"]
+extend-exclude = ["prototypes", "monte_carlo_tests"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "preserve"
+
+[tool.ruff.lint]
+ignore = [
+    "F401", # Unused import
+    "F402", # import module from line N shadowed by loop variable
+    "F403", # 'from module import *' used; unable to detect undefined names
+    "F405", # 'module' may be undefined, or defined from star imports
+    "F541", # f-string is missing placeholders
+    "F811", # Redefinition of unused name from line N
+    "F821", # Undefined name
+    "F841", # Unused local variable
+    "E402", # Module level import not at top of file
+    "E713", # Test for membership should be 'not in'
+    "E722", # Do not use bare 'except'
+    "E731", # Do not assign a lambda expression, use a def
+    "E741", # Ambiguous variable name
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D200", # One-line docstring should fit on one line
+    "D202", # No blank lines allowed after function docstring
+    "D204", # 1 blank line required after class docstring
+    "D205", # 1 blank line required between summary line and description
+    "D207", # Docstring is under-indented
+    "D209", # Multi-line docstring closing quotes should be on a separate line
+    "D208", # Docstring is over-indented
+    "D210", # No whitespaces allowed surrounding docstring text
+    "D214", # Section is over-indented
+    "D215", # Section underline is over-indented
+    "D300", # Use """triple double quotes""" for docstrings
+    "D301", # Use r""" if any backslashes in a docstring
+    "D400", # First line should end with a period
+    "D401", # First line should be in imperative mood
+    "D403", # First word of the first line should be properly capitalized
+    "D404", # First word of the docstring should not be "This"
+    "D406", # Section name should end with a newline
+    "D409", # Section underline should match the section's title
+    "D410", # Missing blank line after section
+    "D411", # Missing blank line before section
+    "D412", # No blank lines allowed between a section header and its content
+          ]
+extend-select = [
+    "D", # Docstring
+]
+extend-per-file-ignores = { "econml/tests" = ["D"] }
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
