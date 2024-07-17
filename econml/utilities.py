@@ -908,9 +908,9 @@ def einsum_sparse(subscripts, *arrs):
 
     results = defaultdict(int)
 
-    for (s, l) in xs:
+    for (s, lst) in xs:
         coordMap = [s.index(c) for c in outputs]
-        for (c, d) in l:
+        for (c, d) in lst:
             results[tuple(c[i] for i in coordMap)] += d
 
     return sp.COO(np.array(list(results.keys())).T if results else
