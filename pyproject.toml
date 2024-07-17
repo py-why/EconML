@@ -152,7 +152,6 @@ ignore = [
     "F811", # Redefinition of unused name from line N
     "F821", # Undefined name
     "F841", # Unused local variable
-    "E402", # Module level import not at top of file
     "E713", # Test for membership should be 'not in'
     "D100", # Missing docstring in public module
     "D101", # Missing docstring in public class
