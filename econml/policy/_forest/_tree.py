@@ -359,5 +359,5 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
 # HACK: sklearn 1.3 enforces that the input to plot_tree is a DecisionTreeClassifier or DecisionTreeRegressor
 #       This is a hack to get around that restriction by declaring that PolicyTree inherits from DecisionTreeClassifier
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier  # noqa: E402
 DecisionTreeClassifier.register(PolicyTree)
