@@ -154,7 +154,6 @@ ignore = [
     "F841", # Unused local variable
     "E402", # Module level import not at top of file
     "E713", # Test for membership should be 'not in'
-    "E722", # Do not use bare 'except'
     "D100", # Missing docstring in public module
     "D101", # Missing docstring in public class
     "D102", # Missing docstring in public method
