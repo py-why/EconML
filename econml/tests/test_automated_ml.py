@@ -9,8 +9,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, \
     PolynomialFeatures
 from sklearn.model_selection import KFold
-from econml.dml import *
-from econml.metalearners import *
+from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML
+from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
 from econml.dr import DRLearner
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, \
@@ -30,7 +30,7 @@ import os
 try:
     from azureml.train.automl.exceptions import ClientException
     from azureml.core.authentication import AzureCliAuthentication
-    from econml.automated_ml import *
+    from econml.automated_ml import addAutomatedML, setAutomatedMLWorkspace, EconAutoMLConfig
     AutomatedTLearner = addAutomatedML(TLearner)
     AutomatedSLearner = addAutomatedML(SLearner)
     AutomatedXLearner = addAutomatedML(XLearner)
