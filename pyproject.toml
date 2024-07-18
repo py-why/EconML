@@ -146,8 +146,6 @@ quote-style = "preserve"
 ignore = [
     "F401", # Unused import
     "F402", # import module from line N shadowed by loop variable
-    "F403", # 'from module import *' used; unable to detect undefined names
-    "F405", # 'module' may be undefined, or defined from star imports
     "F541", # f-string is missing placeholders
     "F811", # Redefinition of unused name from line N
     "E713", # Test for membership should be 'not in'

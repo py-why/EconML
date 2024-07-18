@@ -8,7 +8,7 @@ from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
-from econml.metalearners import *
+from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
 
 
 class TestMetalearners(unittest.TestCase):
