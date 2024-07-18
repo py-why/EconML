@@ -864,11 +864,11 @@ class TestDRLearner(unittest.TestCase):
                                   model_final=StatsModelsLinearRegression(), cv=1,
                                   multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
                 for shape_y in [(-1, 1), (-1,)]:
-                    for shape in [(-1, 1), (-1,)]:
+                    for shape_l in [(-1, 1), (-1,)]:
                         Y = Y.reshape(shape_y)
                         score1 = DRLearner(model_propensity=LogisticRegression(),
                                            model_regression=Lasso(),
-                                           model_final=L(shape), cv=1,
+                                           model_final=L(shape_l), cv=1,
                                            multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
                         np.testing.assert_equal(score1, score)
 
