@@ -150,7 +150,6 @@ ignore = [
     "F405", # 'module' may be undefined, or defined from star imports
     "F541", # f-string is missing placeholders
     "F811", # Redefinition of unused name from line N
-    "F821", # Undefined name
     "E713", # Test for membership should be 'not in'
     "D100", # Missing docstring in public module
     "D101", # Missing docstring in public class
