@@ -145,7 +145,6 @@ quote-style = "preserve"
 [tool.ruff.lint]
 ignore = [
     "F401", # Unused import
-    "F402", # import module from line N shadowed by loop variable
     "F541", # f-string is missing placeholders
     "F811", # Redefinition of unused name from line N
     "E713", # Test for membership should be 'not in'
