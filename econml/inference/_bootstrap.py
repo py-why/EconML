@@ -132,7 +132,6 @@ class BootstrapEstimator:
 
         Additionally, the suffix "_interval" is supported for getting an interval instead of a point estimate.
         """
-
         # don't proxy special methods
         if name.startswith('__'):
             raise AttributeError(name)

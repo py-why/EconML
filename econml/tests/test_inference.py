@@ -33,7 +33,7 @@ class TestInference(unittest.TestCase):
         cls.Y = np.random.normal(0, 1, size=(cls.n, ))
 
     def test_summary(self):
-        """Tests the inference results summary for continuous treatment estimators."""
+        """Test the inference results summary for continuous treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
@@ -129,7 +129,7 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(coef_rows, fnames)
 
     def test_summary_discrete(self):
-        """Tests the inference results summary for discrete treatment estimators."""
+        """Test the inference results summary for discrete treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
@@ -230,7 +230,7 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(coef_rows, fnames)
 
     def test_degenerate_cases(self):
-        """Test that we return the correct values when our distribution doesn't vary"""
+        """Test that we return the correct values when our distribution doesn't vary."""
         predictions = np.array([[1, 0], [1, 1]])  # first component is always 1
         for inf in [EmpiricalInferenceResults(d_t=1, d_y=2,
                                               pred=np.mean(predictions, axis=0), pred_dist=predictions,
@@ -401,7 +401,7 @@ class TestInference(unittest.TestCase):
         pickle.dumps(effect_inf)
 
     def test_mean_pred_stderr(self):
-        """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
+        """Test that mean_pred_stderr is not None when estimator's final stage is linear."""
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
         ests = [LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
                           featurizer=PolynomialFeatures(degree=2,

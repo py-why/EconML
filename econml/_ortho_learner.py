@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """
+Generic implementation of Orthogonal Machine Learning.
 
 Orthogonal Machine Learning is a general approach to estimating causal models
 by formulating them as minimizers of some loss function that depends on
@@ -12,7 +13,6 @@ and save a lot of code repetition.
 
 References
 ----------
-
 Dylan Foster, Vasilis Syrgkanis (2019). Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
 
@@ -60,6 +60,9 @@ except ImportError as exn:
 def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     """
     Fits a single model on the training data and calculates the nuisance value on the test data.
+
+    Parameters
+    ----------
     model:  object
         An object that supports fit and predict. Fit must accept all the args
         and the keyword arguments kwargs. Similarly predict must all accept
@@ -81,8 +84,9 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
         `model.predict(*args, **kwargs)`. Key-value arguments that have value
         None, are ommitted from the two calls. So all the args and the non None
         kwargs variables must be part of the models signature.
-    Returns:
-    --------
+
+    Returns
+    -------
     -Tuple containing:
     nuisance_temp (tuple): Predictions or values of interest from the model.
     fitted_model: The fitted model after training.
@@ -313,7 +317,9 @@ CachedValues = namedtuple('CachedValues', ['nuisances',
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
-    Base class for all orthogonal learners. This class is a parent class to any method that has
+    Base class for all orthogonal learners.
+
+    This class is a parent class to any method that has
     the following architecture:
 
     1.  The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
@@ -426,7 +432,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Examples
     --------
-
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
@@ -589,7 +594,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
-        """Must return a fresh instance of a nuisance model selector
+        """Must return a fresh instance of a nuisance model selector.
 
         Returns
         -------
@@ -615,7 +620,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_final(self):
-        """ Must return a fresh instance of a final model
+        """Must return a fresh instance of a final model.
 
         Returns
         -------
@@ -1030,7 +1035,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds
         under different iterations. Then calls the score function of the model_final and

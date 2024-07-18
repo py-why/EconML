@@ -61,7 +61,9 @@ class BaseTree(BaseEstimator):
         pass
 
     def get_depth(self):
-        """Return the depth of the decision tree.
+        """
+        Return the depth of the decision tree.
+
         The depth of a tree is the maximum distance between the root
         and any leaf.
 
@@ -85,7 +87,9 @@ class BaseTree(BaseEstimator):
         return self.tree_.n_leaves
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
-        """ A generitc tree fit method used by many childen tree classes
+        """
+        Fit the tree to data.
+
         Child class needs to have initialized the property `random_state_` before
         calling this super `fit`.
         """
@@ -277,8 +281,7 @@ class BaseTree(BaseEstimator):
         return self
 
     def _validate_X_predict(self, X, check_input):
-        """Validate X whenever one tries to predict, apply, or any other of the prediction
-        related methods. """
+        """Validate X whenever one tries to predict, apply, or any other of the prediction related methods."""
         if check_input:
             X = check_array(X, dtype=DTYPE, accept_sparse=False, ensure_min_features=0)
 
@@ -292,9 +295,13 @@ class BaseTree(BaseEstimator):
         return X
 
     def get_train_test_split_inds(self,):
-        """ Regenerate the train_test_split of input sample indices that was used for the training
-        and the evaluation split of the honest tree construction structure. Uses the same random seed
-        that was used at ``fit`` time and re-generates the indices.
+        """
+        Regenerate the train_test_split of input sample indices.
+
+        Produces the split that was used for the training and the evaluation split of the honest tree construction
+        structure.
+
+        Uses the same random seed that was used at ``fit`` time and re-generates the indices.
         """
         check_is_fitted(self)
         random_state = check_random_state(self.random_seed_)

@@ -349,7 +349,8 @@ class DynamicPanelDGP(AbstracDynamicPanelDGP):
         return Y, T, X, groups
 
     def observational_data(self, n_units, gamma, s_t, sigma_t, random_seed=123):
-        """ Generated observational data with some observational treatment policy parameters
+        """
+        Generate observational data with some observational treatment policy parameters.
 
         Parameters
         ----------

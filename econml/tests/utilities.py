@@ -8,6 +8,7 @@ from sklearn.calibration import check_cv
 class GroupingModel:
     """
     Class for validating that grouping has been done correctly.
+
     Checks that the number of distinct y values is within a given range, and that each y value
     occurs some known number of times.
 
@@ -47,7 +48,9 @@ class GroupingModel:
 
 class NestedModel(GroupingModel):
     """
-    Class for testing nested grouping. The wrapped model must have a 'cv' attribute;
+    Class for testing nested grouping.
+
+    The wrapped model must have a 'cv' attribute;
     this class exposes an identical 'cv' attribute, which is how nested CV is implemented in _fit_with_groups
     """
 

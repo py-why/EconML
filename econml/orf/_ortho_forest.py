@@ -102,9 +102,10 @@ def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_
 
 
 def _group_predict(X, n_groups, predict_func):
-    """ Helper function that predicts using the predict function
-    for every input argument that looks like [X; i] for i in range(n_groups). Used in
-    DR moments, where we want to predict for each [X; t], for any value of the treatment t.
+    """
+    Use the predict function on the input argument augmented with each group indicator.
+
+    Used in DR moments, where we want to predict for each [X; t], for any value of the treatment t.
     Returns an (X.shape[0], n_groups) matrix of predictions for each row of X and each t in range(n_groups).
 
     Parameters
@@ -783,8 +784,9 @@ def _DMLOrthoForest_parameter_estimator_func(Y, T, X,
 
 class _DMLOrthoForest_second_stage_parameter_estimator_gen:
     """
-    For the second stage parameter estimation we add a local linear correction. So
-    we fit a local linear function as opposed to a local constant function. We also penalize
+    Generate the second stage parameter estimation function.
+
+    We fit a local linear function as opposed to a local constant function. We also penalize
     the linear part to reduce variance.
     """
 
@@ -1143,15 +1145,17 @@ class DROrthoForest(BaseOrthoForest):
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         """
-        For the second stage parameter estimation we add a local linear correction. So
-        we fit a local linear function as opposed to a local constant function. We also penalize
+        Generate the second stage parameter estimation function.
+
+        We fit a local linear function as opposed to a local constant function. We also penalize
         the linear part to reduce variance.
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight,
                                      X_single):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+            """
+            Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
 
             The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
             local corrections on a preliminary parameter estimate.
@@ -1253,8 +1257,10 @@ class BLBInference(Inference):
         return self
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Confidence intervals for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1286,8 +1292,10 @@ class BLBInference(Inference):
             param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
 
     def const_marginal_effect_inference(self, X=None):
-        """ Inference results for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Inference results for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1326,8 +1334,10 @@ class BLBInference(Inference):
         return eff.reshape((-1,) + self._estimator._d_y), scales.reshape((-1,) + self._estimator._d_y)
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1355,8 +1365,10 @@ class BLBInference(Inference):
         return effect_lower, effect_upper
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Inference results for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters

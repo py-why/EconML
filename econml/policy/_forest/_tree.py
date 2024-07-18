@@ -40,7 +40,10 @@ CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseTree):
-    """ Welfare maximization policy tree. Trains a tree to maximize the objective:
+    """
+    Welfare maximization policy tree.
+
+    Trains a tree to maximize the objective:
     :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
     to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
     optimization problem.
@@ -202,7 +205,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def fit(self, X, y, *, sample_weight=None, check_input=True):
-        """ Fit the tree from the data
+        """Fit the tree from the data.
 
         Parameters
         ----------
@@ -224,7 +227,6 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         -------
         self : object instance
         """
-
         self.random_seed_ = self.random_state
         self.random_state_ = check_random_state(self.random_seed_)
         if check_input:
@@ -240,7 +242,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def predict(self, X, check_input=True):
-        """ Predict the best treatment for each sample
+        """Predict the best treatment for each sample.
 
         Parameters
         ----------
@@ -262,7 +264,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return np.argmax(pred, axis=1)
 
     def predict_proba(self, X, check_input=True):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment.
 
         Parameters
         ----------
@@ -286,7 +288,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return proba
 
     def predict_value(self, X, check_input=True):
-        """ Predict the expected value of each treatment for each sample
+        """Predict the expected value of each treatment for each sample.
 
         Parameters
         ----------
@@ -309,6 +311,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
+        Get feature importances.
 
         Parameters
         ----------

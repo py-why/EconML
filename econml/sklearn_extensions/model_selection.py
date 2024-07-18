@@ -274,17 +274,16 @@ class WeightedStratifiedKFold(WeightedKFold):
 
 class ModelSelector(metaclass=abc.ABCMeta):
     """
-    This class enables a two-stage fitting process, where first a model is selected
-    by calling `train` with `is_selecting=True`, and then the selected model is fit (presumably
-    on a different data set) by calling train with `is_selecting=False`.
+    Class that enables a two-stage fitting process.
 
-
+    First a model is selected by calling `train` with `is_selecting=True`, and then the selected model is fit
+    (presumably on a different data set) by calling train with `is_selecting=False`.
     """
 
     @abc.abstractmethod
     def train(self, is_selecting: bool, folds: Optional[List], *args, **kwargs):
-        """
-        Either selects a model or fits a model, depending on the value of `is_selecting`.
+        """Select a model or fit a model, depending on the value of `is_selecting`.
+
         If `is_selecting` is `False`, then `folds` should not be provided because they are only during selection.
         """
         raise NotImplementedError("Abstract method")
@@ -292,15 +291,18 @@ class ModelSelector(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def predict(self, *args, **kwargs):
         """
-        Predicts using the selected model; should not be called until after `train` has been used
-        both to select a model and to fit it.
+        Predict using the selected model.
+
+        This method should not be called until after `train` has been used both to select a model and to fit it.
         """
         raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
     def score(self, *args, **kwargs):
         """
-        Gets the score of the selected model on the given data; should not be called until after `train` has been used
+        Get the score of the selected model on the given data.
+
+        This method should not be called until after `train` has been used
         both to select a model and to fit it.
         """
         raise NotImplementedError("Abstract method")
@@ -308,8 +310,9 @@ class ModelSelector(metaclass=abc.ABCMeta):
 
 class SingleModelSelector(ModelSelector):
     """
-    A model selection class that selects a single best model;
-    this encompasses random search, grid search, ensembling, etc.
+    A model selection class that selects a single best model.
+
+    This encompasses random search, grid search, ensembling, etc.
     """
 
     @property
@@ -342,7 +345,7 @@ class SingleModelSelector(ModelSelector):
 
 def _fit_with_groups(model, X, y, *, sub_model=None, groups, **kwargs):
     """
-    Fits a model while correctly handling grouping if necessary.
+    Fit a model while correctly handling grouping if necessary.
 
     This enables us to perform an inner-loop cross-validation of a model
     which handles grouping correctly, which is not easy using typical sklearn models.
@@ -379,9 +382,7 @@ def _fit_with_groups(model, X, y, *, sub_model=None, groups, **kwargs):
 
 
 class FixedModelSelector(SingleModelSelector):
-    """
-    Model selection class that always selects the given sklearn-compatible model
-    """
+    """Model selection class that always selects the given sklearn-compatible model."""
 
     def __init__(self, model, score_during_selection):
         self.model = clone(model, safe=False)
@@ -486,9 +487,7 @@ def _to_ridge(model, cls=Ridge, extra_attrs=["positive"]):
 
 
 class SklearnCVSelector(SingleModelSelector):
-    """
-    Wraps one of sklearn's CV classes in the ModelSelector interface
-    """
+    """Wraps one of sklearn's CV classes in the ModelSelector interface."""
 
     def __init__(self, searcher):
         self.searcher = clone(searcher)
@@ -573,7 +572,7 @@ class SklearnCVSelector(SingleModelSelector):
 
 class ListSelector(SingleModelSelector):
     """
-    Model selection class that selects the best model from a list of model selectors
+    Model selection class that selects the best model from a list of model selectors.
 
     Parameters
     ----------
@@ -604,7 +603,9 @@ class ListSelector(SingleModelSelector):
     @property
     def best_model(self):
         """
-        Gets the best model; note that if we were selecting over SingleModelSelectors and `unwrap` is `False`,
+        Get the best model.
+
+        Note that if we were selecting over SingleModelSelectors and `unwrap` is `False`,
         we will return the SingleModelSelector instance, not its best model.
         """
         return self._best_model.best_model if self.unwrap else self._best_model
@@ -655,8 +656,11 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
 
 
 class GridSearchCVList(BaseEstimator):
-    """ An extension of GridSearchCV that allows for passing a list of estimators each with their own
-    parameter grid and returns the best among all estimators in the list and hyperparameter in their
+    """
+    An extension of GridSearchCV that allows for passing a list of estimators.
+
+    Each estimator can have its own
+    parameter grid and we will return the best among all estimators in the list and hyperparameters in its
     corresponding grid. We are only changing the estimator parameter to estimator_list and the param_grid
     parameter to be a list of parameter grids. The rest of the parameters are the same as in
     :meth:`~sklearn.model_selection.GridSearchCV`. See the documentation of that class
@@ -714,8 +718,10 @@ class GridSearchCVList(BaseEstimator):
 def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
                        n_jobs=None, verbose=0, fit_params=None,
                        pre_dispatch='2*n_jobs', method='predict', safe=True):
-    """This is a fork from :meth:`~sklearn.model_selection.cross_val_predict` to allow for
-    non-safe cloning of the models for each fold.
+    """
+    Cross validate and predict.
+
+    A fork of :meth:`~sklearn.model_selection.cross_val_predict` allowing non-safe cloning of the models for each fold.
 
     Parameters
     ----------

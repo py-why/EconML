@@ -34,8 +34,7 @@ class Node:
 
     def find_tree_node(self, value):
         """
-        Recursively find and return the node of the causal tree that corresponds
-        to the input feature vector.
+        Recursively find and return the node of the causal tree that corresponds to the input feature vector.
 
         Parameters
         ----------
@@ -85,7 +84,7 @@ class CausalTree:
         With the default value we guarantee that each child of a split contains
         at least 20% and at most 80% of the data of the parent node.
 
-random_state : int, RandomState instance, or None, default None
+    random_state : int, RandomState instance, or None, default None
             If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used

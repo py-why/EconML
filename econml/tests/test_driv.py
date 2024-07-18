@@ -36,7 +36,7 @@ class TestDRIV(unittest.TestCase):
             return (n,) + ((1,) if binary_T else ())
 
         def eff_shape(n, d_x):
-            "Effect shape."
+            """Effect shape."""
             return (n if d_x else 1,)
 
         n = 500

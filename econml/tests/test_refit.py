@@ -24,7 +24,7 @@ class TestRefit(unittest.TestCase):
         return y, T, X, W
 
     def test_dml(self):
-        """Test setting attributes and refitting"""
+        """Test setting attributes and refitting."""
         y, T, X, W = self._get_data()
 
         dml = DML(model_y=LinearRegression(),
@@ -262,7 +262,7 @@ class TestRefit(unittest.TestCase):
             est.fit(y, T, X=X, W=W)  # should fail because passing a clf when discrete_treatment=False
 
     def test_refit_final_inference(self):
-        """Test that we can perform inference during refit_final"""
+        """Test that we can perform inference during refit_final."""
         est = LinearDML(featurizer=PolynomialFeatures(1, include_bias=False))
 
         X = np.random.choice(np.arange(5), size=(500, 3))

@@ -200,10 +200,7 @@ class TestDiscreteOutcome(unittest.TestCase):
                     ), 'Auto outcome model is not a classifier!'
 
     def test_constraints(self):
-        """
-        Confirm errors/warnings when discreteness is not handled correctly for
-        discrete outcomes and treatments
-        """
+        """Confirm errors/warnings when discreteness is not handled correctly for discrete outcomes and treatments."""
         X = np.random.normal(size=(100, 3))
         Y = np.random.choice([0, 1], size=(100))
         T = np.random.choice([0, 1], size=(100, 1))

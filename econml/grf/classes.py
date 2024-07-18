@@ -20,8 +20,10 @@ __all__ = ["MultiOutputGRF",
 
 
 class MultiOutputGRF(BaseEstimator):
-    """ Simple wrapper estimator that enables multiple outcome labels for all the
-    grf estimators that only accept a single outcome. Similar to MultiOutputRegressor.
+    """
+    Simple wrapper estimator that enables multiple outcome labels for grf estimators that only accept a single outcome.
+
+    Similar to MultiOutputRegressor.
     """
 
     def __init__(self, estimator):
@@ -86,7 +88,9 @@ class MultiOutputGRF(BaseEstimator):
 
 class CausalForest(BaseGRF):
     """
-    A Causal Forest [cf1]_. It fits a forest that solves the local moment equation problem:
+    A Causal Forest [cf1]_.
+
+    It fits a forest that solves the local moment equation problem:
 
     .. code-block::
 
@@ -407,7 +411,10 @@ class CausalForest(BaseGRF):
 
 
 class CausalIVForest(BaseGRF):
-    """A Causal IV Forest [cfiv1]_. It fits a forest that solves the local moment equation problem:
+    """
+    A Causal IV Forest [cfiv1]_.
+
+    It fits a forest that solves the local moment equation problem:
 
     .. code-block
 
@@ -755,8 +762,9 @@ class CausalIVForest(BaseGRF):
 
 class RegressionForest(BaseGRF):
     """
-    An implementation of a subsampled honest random forest regressor on top of an sklearn
-    regression tree. Implements subsampling and honesty as described in [rf3]_,
+    An implementation of a subsampled honest random forest regressor on top of an sklearn regression tree.
+
+    Implements subsampling and honesty as described in [rf3]_,
     but uses a scikit-learn regression tree as a base. It provides confidence intervals based on ideas
     described in [rf3]_ and [rf4]_
 
