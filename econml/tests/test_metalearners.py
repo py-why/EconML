@@ -46,9 +46,7 @@ class TestMetalearners(unittest.TestCase):
             treatment_effect=TestMetalearners._heterogeneous_te, multi_y=True)
 
     def test_TLearner(self):
-        """Tests whether the TLearner can accurately estimate constant and heterogeneous
-           treatment effects.
-        """
+        """Test whether the TLearner can accurately estimate constant and heterogeneous treatment effects."""
         # TLearner test
         # Instantiate TLearner
         T_learner = TLearner(models=LinearRegression())
@@ -60,9 +58,7 @@ class TestMetalearners(unittest.TestCase):
                 self._test_te(T_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
     def test_SLearner(self):
-        """Tests whether the SLearner can accurately estimate constant and heterogeneous
-           treatment effects.
-        """
+        """Test whether the SLearner can accurately estimate constant and heterogeneous treatment effects."""
         # Instantiate SLearner
         S_learner = SLearner(overall_model=LinearRegression())
         # Test inputs
@@ -80,9 +76,7 @@ class TestMetalearners(unittest.TestCase):
         self._test_te(S_learner, T0=3, T1=5, tol=0.5, te_type="heterogeneous", multi_y=True)
 
     def test_XLearner(self):
-        """Tests whether the XLearner can accurately estimate constant and heterogeneous
-           treatment effects.
-        """
+        """Test whether the XLearner can accurately estimate constant and heterogeneous treatment effects."""
         # Instantiate XLearner
         X_learner = XLearner(models=LinearRegression())
         # Test inputs
@@ -93,9 +87,7 @@ class TestMetalearners(unittest.TestCase):
                 self._test_te(X_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
     def test_DALearner(self):
-        """Tests whether the DomainAdaptationLearner can accurately estimate constant and
-           heterogeneous treatment effects.
-        """
+        """Test whether the DomainAdaptationLearner can accurately estimate constant and heterogeneous treatment effects."""
         # Instantiate DomainAdaptationLearner
         DA_learner = DomainAdaptationLearner(models=LinearRegression(),
                                              final_models=LinearRegression())
@@ -162,7 +154,7 @@ class TestMetalearners(unittest.TestCase):
 
     @classmethod
     def _generate_data(cls, n, d, beta, treatment_effect, multi_y):
-        """Generates population data for given treatment_effect functions.
+        """Generate population data for given treatment_effect functions.
 
         Parameters
         ----------

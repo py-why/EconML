@@ -254,8 +254,10 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
 
 class CausalForestDML(_BaseDML):
-    """A Causal Forest [cfdml1]_ combined with double machine learning based residualization of the treatment
-    and outcome variables. It fits a forest that solves the local moment equation problem:
+    """
+    A Causal Forest [cfdml1]_ combined with DML-based residualization of the treatment and outcome variables.
+
+    It fits a forest that solves the local moment equation problem:
 
     .. code-block::
 
@@ -718,8 +720,9 @@ class CausalForestDML(_BaseDML):
              sample_weight=None, groups=None,
              params='auto'):
         """
-        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
-        performance. It trains small forests of size 100 trees on a grid of parameters and tests the
+        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score performance.
+
+        It trains small forests of size 100 trees on a grid of parameters and tests the
         out of sample R-score. After the function is called, then all parameters of `self` have been
         set to the optimal hyperparameters found. The estimator however remains un-fitted, so you need to
         call fit afterwards to fit the estimator with the chosen hyperparameters. The list of tunable parameters
@@ -862,8 +865,8 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -953,6 +956,8 @@ class CausalForestDML(_BaseDML):
 
     def ate__inference(self):
         """
+        Get inference results for the average treatment effect over the training data.
+
         Returns
         -------
         ate__inference : NormalInferenceResults
@@ -981,6 +986,8 @@ class CausalForestDML(_BaseDML):
 
     def att__inference(self, *, T):
         """
+        Get inference results for the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1007,6 +1014,8 @@ class CausalForestDML(_BaseDML):
 
     def att_(self, *, T):
         """
+        Get the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1024,6 +1033,8 @@ class CausalForestDML(_BaseDML):
 
     def att_stderr_(self, *, T):
         """
+        Get the standard error of the average treatment effect on the treated in the training data.
+
         Parameters
         ----------
         T : int

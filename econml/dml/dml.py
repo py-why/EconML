@@ -298,8 +298,9 @@ class _BaseDML(_RLearner):
 
 class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     """
-    The base class for parametric Double ML estimators. The estimator is a special
-    case of an :class:`._RLearner` estimator, which in turn is a special case
+    The base class for parametric Double ML estimators.
+
+    The estimator is a special case of an :class:`._RLearner` estimator, which in turn is a special case
     of an :class:`_OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
@@ -1342,6 +1343,7 @@ class KernelDML(DML):
 class NonParamDML(_BaseDML):
     """
     The base class for non-parametric Double ML estimators, that can have arbitrary final ML models of the CATE.
+
     Works only for single-dimensional continuous treatment or for binary categorical treatment and uses
     the re-weighting trick, reducing the final CATE estimation to a weighted square loss minimization.
     The model_final parameter must support the sample_weight keyword argument at fit time.

@@ -277,7 +277,7 @@ class TestLassoExtensions(unittest.TestCase):
     # WeightedLassoCVWrapper #
     ##########################
     def test_wrapper_attributes(self):
-        """Test that attributes are properly maintained across calls to fit that switch between 1- and 2-D"""
+        """Test that attributes are properly maintained across calls to fit that switch between 1- and 2-D."""
         wrapper = WeightedLassoCVWrapper(alphas=[5, 10], max_iter=100)
         wrapper.tol = 0.01  # set an attribute manually as well
 

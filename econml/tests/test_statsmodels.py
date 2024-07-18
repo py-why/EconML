@@ -270,7 +270,7 @@ def _compare_dr_classes(est, lr, X_test, alpha=.05, tol=1e-10):
 class TestStatsModels(unittest.TestCase):
 
     def test_comp_with_lr(self):
-        """ Testing that we recover the same as sklearn's linear regression in terms of point estimates """
+        """Testing that we recover the same as sklearn's linear regression in terms of point estimates."""
         np.random.seed(123)
         n = 1000
         d = 3
@@ -329,7 +329,7 @@ class TestStatsModels(unittest.TestCase):
                           1e-12), "{}, {}".format(est.intercept_, lr.intercept_)
 
     def test_o_dtype(self):
-        """ Testing that the models still work when the np arrays are of O dtype """
+        """Testing that the models still work when the np arrays are of O dtype."""
         np.random.seed(123)
         n = 1000
         d = 3
@@ -348,8 +348,7 @@ class TestStatsModels(unittest.TestCase):
         assert np.all(np.abs(est.intercept_ - lr.intercept_) < 1e-12), "{}, {}".format(est.coef_, lr.intercept_)
 
     def test_inference(self):
-        """ Testing that we recover the expected standard errors and confidence intervals in a known example """
-
+        """Testing that we recover the expected standard errors and confidence intervals in a known example."""
         # 1-d output
         d = 3
         X = np.vstack([np.eye(d)])
@@ -453,7 +452,7 @@ class TestStatsModels(unittest.TestCase):
                 "{}, {}".format(est.intercept__interval()[0][t], scipy.stats.norm.ppf(.025, loc=0, scale=1))
 
     def test_comp_with_statsmodels(self):
-        """ Comparing with confidence intervals and standard errors of statsmodels in the un-weighted case """
+        """Comparing with confidence intervals and standard errors of statsmodels in the un-weighted case."""
         np.random.seed(123)
 
         # Single dimensional output y
@@ -580,7 +579,7 @@ class TestStatsModels(unittest.TestCase):
                                                               lr[t].predict_interval(X_test, alpha=alpha))
 
     def test_sum_vs_original(self):
-        """ Testing that the summarized version gives the same results as the non-summarized."""
+        """Testing that the summarized version gives the same results as the non-summarized."""
         np.random.seed(123)
         # 1-d y
         n = 100
@@ -676,7 +675,7 @@ class TestStatsModels(unittest.TestCase):
                                              X_test, alpha=alpha)
 
     def test_dml_sum_vs_original(self):
-        """ Testing that the summarized version of DML gives the same results as the non-summarized. """
+        """Testing that the summarized version of DML gives the same results as the non-summarized."""
         np.random.seed(123)
 
         n = 1000
@@ -760,7 +759,7 @@ class TestStatsModels(unittest.TestCase):
                             _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
     def test_nonparamdml_sum_vs_original(self):
-        """ Testing that the summarized version of DML gives the same results as the non-summarized. """
+        """Testing that the summarized version of DML gives the same results as the non-summarized."""
         np.random.seed(123)
 
         n = 1000
@@ -843,7 +842,7 @@ class TestStatsModels(unittest.TestCase):
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-10)
 
     def test_dr_sum_vs_original(self):
-        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        """Testing that the summarized version of DR gives the same results as the non-summarized."""
         np.random.seed(123)
 
         n = 1000
@@ -927,7 +926,7 @@ class TestStatsModels(unittest.TestCase):
                         _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
     def test_lineardriv_sum_vs_original(self):
-        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        """Testing that the summarized version of DR gives the same results as the non-summarized."""
         np.random.seed(123)
 
         n = 1000
@@ -1023,7 +1022,7 @@ class TestStatsModels(unittest.TestCase):
                         _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
     def test_dmliv_sum_vs_original(self):
-        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        """Testing that the summarized version of DR gives the same results as the non-summarized."""
         np.random.seed(123)
 
         n = 1000
@@ -1117,7 +1116,7 @@ class TestStatsModels(unittest.TestCase):
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-8)
 
     def test_dml_multi_dim_treatment_outcome(self):
-        """ Testing that the summarized and unsummarized version of DML gives the correct (known results). """
+        """Testing that the summarized and unsummarized version of DML gives the correct (known results)."""
         np.random.seed(123)
         n = 100000
         precision = .01

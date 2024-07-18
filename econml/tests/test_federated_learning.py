@@ -12,7 +12,7 @@ from econml.federated_learning import FederatedEstimator
 
 
 class FunctionRegressor:
-    """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+    """A simple model that ignores the data it is fitted on, always just using the specified function to predict."""
 
     def __init__(self, func):
         self.func = func
@@ -25,7 +25,7 @@ class FunctionRegressor:
 
 
 class FunctionClassifier(FunctionRegressor):
-    """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+    """A simple model that ignores the data it is fitted on, always just using the specified function to predict."""
 
     def __init__(self, func):
         self.func = func

@@ -567,10 +567,7 @@ class TestDML(unittest.TestCase):
                                             self.assertEqual(shape(eff), effect_shape2)
 
     def test_bad_splits_discrete(self):
-        """
-        Tests that when some training splits in a crossfit fold don't contain all treatments then an error
-        is raised.
-        """
+        """Test that we raise an error when some training splits in a crossfit fold don't contain all treatments."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         X = np.ones((8, 1))
@@ -585,9 +582,7 @@ class TestDML(unittest.TestCase):
             est.fit(Y, T, X=X)
 
     def test_bad_treatment_nonparam(self):
-        """
-        Test that the non-parametric dml raises errors when treatment is not binary or single dimensional
-        """
+        """Test that the non-parametric dml raises errors when treatment is not binary or single dimensional."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
@@ -606,9 +601,7 @@ class TestDML(unittest.TestCase):
             est.fit(Y, T, X=X)
 
     def test_access_to_internal_models(self):
-        """
-        Test that API related to accessing the nuisance models, cate_model and featurizer is working.
-        """
+        """Test that API related to accessing the nuisance models, cate_model and featurizer is working."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
@@ -645,7 +638,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
-        """Testing accuracy of forest DML is reasonable"""
+        """Testing accuracy of forest DML is reasonable."""
         np.random.seed(1234)
         n = 20000  # number of raw samples
         d = 10
@@ -723,8 +716,7 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(truth, ub + .01)
 
     def test_aaforest_pandas(self):
-        """Test that we can use CausalForest with pandas inputs"""
-
+        """Test that we can use CausalForest with pandas inputs."""
         df = pd.DataFrame({'a': np.random.normal(size=500),
                            'b': np.random.normal(size=500),
                            'c': np.random.choice([0, 1], size=500),
@@ -851,7 +843,7 @@ class TestDML(unittest.TestCase):
             self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
-        """Test that we can use discrete treatments"""
+        """Test that we can use discrete treatments."""
         dmls = [
             LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                       fit_cate_intercept=False, discrete_treatment=True),
@@ -902,8 +894,7 @@ class TestDML(unittest.TestCase):
         self._test_can_custom_splitter(use_ray=False)
 
     def test_can_use_featurizer(self):
-        "Test that we can use a featurizer, and that fit is only called during training"
-
+        """Test that we can use a featurizer, and that fit is only called during training."""
         # predetermined splits ensure that all features are seen in each split
         splits = ([0, 2, 3, 6, 8, 11, 13, 15, 16],
                   [1, 4, 5, 7, 9, 10, 12, 14, 17])
@@ -932,7 +923,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_equal(eff_int[:, ::-1], eff_int_rev)
 
     def test_can_use_statsmodel_inference(self):
-        """Test that we can use statsmodels to generate confidence intervals"""
+        """Test that we can use statsmodels to generate confidence intervals."""
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True)
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
@@ -978,7 +969,7 @@ class TestDML(unittest.TestCase):
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
     def test_ignores_final_intercept(self):
-        """Test that final model intercepts are ignored (with a warning)"""
+        """Test that final model intercepts are ignored (with a warning)."""
         class InterceptModel:
             def fit(self, Y, X):
                 pass
@@ -1021,7 +1012,7 @@ class TestDML(unittest.TestCase):
             TestDML._test_sparse(n_p, d_w, n_r)
 
     def test_linear_sparse(self):
-        """SparseDML test with a sparse DGP"""
+        """SparseDML test with a sparse DGP."""
         # Sparse DGP
         np.random.seed(123)
         n_x = 50
