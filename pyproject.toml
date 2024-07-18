@@ -151,7 +151,6 @@ ignore = [
     "F541", # f-string is missing placeholders
     "F811", # Redefinition of unused name from line N
     "F821", # Undefined name
-    "F841", # Unused local variable
     "E713", # Test for membership should be 'not in'
     "D100", # Missing docstring in public module
     "D101", # Missing docstring in public class

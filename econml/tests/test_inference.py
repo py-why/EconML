@@ -398,7 +398,7 @@ class TestInference(unittest.TestCase):
                   random_state=123)
         est.fit(Y, T, X=X, W=W)
         effect_inf = est.effect_inference(X)
-        s = pickle.dumps(effect_inf)
+        pickle.dumps(effect_inf)
 
     def test_mean_pred_stderr(self):
         """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
@@ -436,9 +436,9 @@ class TestInference(unittest.TestCase):
             for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
                 est = LinearDML().fit(Y, T, X=X, W=W, inference=inf)
                 inf = est.const_marginal_effect_inference(X)
-                pred, bounds, summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred, bounds, _summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 inf.translate(offset)
-                pred2, bounds2, summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred2, bounds2, _summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 np.testing.assert_array_equal(pred + offset, pred2)
                 np.testing.assert_array_almost_equal(bounds[0] + offset, bounds2[0])
                 np.testing.assert_array_almost_equal(bounds[1] + offset, bounds2[1])
@@ -449,9 +449,9 @@ class TestInference(unittest.TestCase):
             for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
                 est = LinearDML().fit(Y, T, X=X, W=W, inference=inf)
                 inf = est.const_marginal_effect_inference(X)
-                pred, bounds, summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred, bounds, _summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 inf.scale(factor)
-                pred2, bounds2, summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred2, bounds2, _summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 np.testing.assert_array_equal(pred * factor, pred2)
                 np.testing.assert_array_almost_equal(bounds[0] * factor, bounds2[0])
                 np.testing.assert_array_almost_equal(bounds[1] * factor, bounds2[1])

@@ -226,7 +226,6 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_pred = np.einsum(einsum_str, cme_pred, jac_T)
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
         d_t_orig = T.shape[1:][0] if T.shape[1:] else 1
 
         return NormalInferenceResults(d_t=d_t_orig, d_y=d_y, pred=e_pred,
@@ -328,7 +327,6 @@ class LinearModelFinalInference(GenericModelFinalInference):
         d_t_orig = d_t_orig[0] if d_t_orig else 1
 
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
 
         output_shape = [X.shape[0]]
         if self._d_y:

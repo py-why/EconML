@@ -1213,12 +1213,12 @@ class DROrthoForest(BaseOrthoForest):
         try:
             # This will flatten T
             T = column_or_1d(T)
-        except Exception as exc:
+        except Exception:
             raise ValueError("Expected array of shape ({n}, ), but got {T_shape}".format(n=len(T), T_shape=T.shape))
         # Check that T is numeric
         try:
             T.astype(float)
-        except Exception as exc:
+        except Exception:
             raise ValueError("Expected numeric array but got non-numeric types.")
         return T
 
@@ -1448,7 +1448,6 @@ class BLBInference(Inference):
         eff, scales = self._marginal_effect_inference_helper(T, X)
 
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
 
         return NormalInferenceResults(d_t=self.d_t_orig, d_y=d_y,
                                       pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',

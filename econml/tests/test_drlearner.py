@@ -443,7 +443,7 @@ class TestDRLearner(unittest.TestCase):
                                                         featurizer=featurizer,
                                                         multitask_model_final=multitask_model_final)
                                         if (X is None) and (W is None):
-                                            with pytest.raises(AttributeError) as e_info:
+                                            with pytest.raises(AttributeError):
                                                 est.fit(y, T, X=X, W=W, sample_weight=sample_weight,
                                                         freq_weight=freq_weight, sample_var=sample_var)
                                             continue
@@ -580,7 +580,7 @@ class TestDRLearner(unittest.TestCase):
                                                         use_ray=use_ray)
 
                                     if (X is None) and (W is None):
-                                        with pytest.raises(AttributeError) as e_info:
+                                        with pytest.raises(AttributeError):
                                             if isinstance(est, LinearDRLearner):
                                                 est.fit(
                                                     y, T, X=X, W=W, sample_weight=sample_weight,

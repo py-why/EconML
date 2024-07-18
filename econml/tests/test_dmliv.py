@@ -155,7 +155,7 @@ class TestDMLIV(unittest.TestCase):
                                             self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
 
                                             # test can run shap values
-                                            shap_values = est.shap_values(X[:10])
+                                            est.shap_values(X[:10])
 
     def test_accuracy(self):
         np.random.seed(123)
@@ -254,5 +254,5 @@ class TestDMLIV(unittest.TestCase):
         for est in est_list:
             with self.subTest(est=est):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
-                score = est.score(y, T, Z=Z, X=X, W=W)
-                eff = est.const_marginal_effect(X)
+                est.score(y, T, Z=Z, X=X, W=W)
+                est.const_marginal_effect(X)

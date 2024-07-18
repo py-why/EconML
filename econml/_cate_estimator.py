@@ -605,7 +605,6 @@ class LinearCateEstimator(BaseCateEstimator):
         # of rows of T was not taken into account
         if X is None:
             eff = np.repeat(eff, shape(T0)[0], axis=0)
-        m = shape(eff)[0]
         dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
@@ -1108,8 +1107,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         smry.add_extra_txt(extra_txt)
 
-        d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
         try:
             coef_table = self.coef__inference().summary_frame(alpha=alpha,
                                                               value=value, decimals=decimals,
