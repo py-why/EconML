@@ -659,13 +659,12 @@ class TestDML(unittest.TestCase):
             y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
 
             XT = np.hstack([T.reshape(-1, 1), X])
-            X1, X2, y1, y2, X1_sum, X2_sum, y1_sum, y2_sum, n1_sum, n2_sum, var1_sum, var2_sum = _summarize(XT, y)
+            _X1, _X2, _y1, _y2, X1_sum, X2_sum, y1_sum, y2_sum, n1_sum, n2_sum, _var1_sum, _var2_sum = _summarize(XT, y)
             # We concatenate the two copies data
             X_sum = np.vstack([np.array(X1_sum)[:, 1:], np.array(X2_sum)[:, 1:]])
             T_sum = np.concatenate((np.array(X1_sum)[:, 0], np.array(X2_sum)[:, 0]))
             y_sum = np.concatenate((y1_sum, y2_sum))  # outcome
             n_sum = np.concatenate((n1_sum, n2_sum))  # number of summarized points
-            var_sum = np.concatenate((var1_sum, var2_sum))  # variance of the summarized points
             for summarized, min_samples_leaf, tune in [(False, 20, False), (True, 1, False), (False, 20, True)]:
                 est = CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
                                       model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
@@ -736,9 +735,9 @@ class TestDML(unittest.TestCase):
         est.fit(Y=df['a'], T=df['d'], X=df[['b', 'c']])
 
         # make sure we can get out post-fit stuff
-        ate = est.ate_
-        ate_inf = est.ate__inference()
-        eff = est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
+        est.ate_
+        est.ate__inference()
+        est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
 
     def test_cfdml_ate_inference(self):
         np.random.seed(1234)
@@ -1140,7 +1139,7 @@ class TestDML(unittest.TestCase):
     def _test_nuisance_scores(self, use_ray=False):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
-        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        T = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
         for mc_iters in [1, 2, 3]:
             for cv in [1, 2, 3]:
@@ -1165,7 +1164,7 @@ class TestDML(unittest.TestCase):
     def test_compare_nuisance_with_ray_vs_without_ray(self):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
-        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        T = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
         try:
             ray.init(num_cpus=1)

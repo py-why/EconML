@@ -589,7 +589,7 @@ class TestSelectiveRegularization(unittest.TestCase):
         X_aug = X[sample_weight == 2, :]
         y_aug = y[sample_weight == 2]
         model = SelectiveRegularization(unpenalized_inds=inds,
-                                        penalized_model=Ridge(),
+                                        penalized_model=Ridge(alpha=alpha),
                                         fit_intercept=True)
         coef = model.fit(X, y, sample_weight=sample_weight).coef_
         coef2 = model.fit(np.vstack((X, X_aug)),
@@ -603,12 +603,12 @@ class TestSelectiveRegularization(unittest.TestCase):
         X = np.random.normal(size=(n, d))
         y = np.random.normal(size=(n,))
         coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
-                                       penalized_model=Lasso(),
+                                       penalized_model=Lasso(alpha=alpha),
                                        fit_intercept=True).fit(X, y).coef_
         X_perm = np.hstack((X[:, 1:],
                             X[:, :1]))
         coef2 = SelectiveRegularization(unpenalized_inds=slice(1, -1),
-                                        penalized_model=Lasso(),
+                                        penalized_model=Lasso(alpha=alpha),
                                         fit_intercept=True).fit(X_perm, y).coef_
         np.testing.assert_allclose(coef2, np.hstack((coef[1:],
                                                      coef[:1])))
@@ -620,14 +620,14 @@ class TestSelectiveRegularization(unittest.TestCase):
         X = np.random.normal(size=(n, d))
         y = np.random.normal(size=(n,))
         coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
-                                       penalized_model=Lasso(),
+                                       penalized_model=Lasso(alpha=alpha),
                                        fit_intercept=True).fit(X, y).coef_
 
         def index_lambda(X, y):
             # instead of a slice, explicitly return an array of indices
             return np.arange(2, X.shape[1])
         coef2 = SelectiveRegularization(unpenalized_inds=index_lambda,
-                                        penalized_model=Lasso(),
+                                        penalized_model=Lasso(alpha=alpha),
                                         fit_intercept=True).fit(X, y).coef_
         np.testing.assert_allclose(coef, coef2)
 
@@ -640,10 +640,10 @@ class TestSelectiveRegularization(unittest.TestCase):
 
         # _penalized_inds is only set during fitting
         with self.assertRaises(AttributeError):
-            inds = model._penalized_inds
+            _inds = model._penalized_inds
 
         # cv exists on penalized model
-        old_cv = model.cv
+        _old_cv = model.cv
         model.cv = 2
 
         model.fit(X, y)
@@ -655,8 +655,6 @@ class TestSelectiveRegularization(unittest.TestCase):
         assert model.cv == 2
 
     def test_can_clone_selective_regularization(self):
-        X = np.random.normal(size=(10, 3))
-        y = np.random.normal(size=(10,))
         model = SelectiveRegularization(unpenalized_inds=[0],
                                         penalized_model=LassoCV(),
                                         fit_intercept=True)

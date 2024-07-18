@@ -133,7 +133,7 @@ class TestDiscreteOutcome(unittest.TestCase):
                 Z = None
                 if discrete_instrument is not None:
                     Z = gen_array(n, discrete_instrument, d=0)
-                X = gen_array(n, is_binary=False, d=3)
+                X = gen_array(n, is_binary=False, d=d_x)
 
                 if Z is not None:
                     est_list = [

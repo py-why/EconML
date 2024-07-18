@@ -393,7 +393,7 @@ class SemiSynthetic:
         n_treatments = self.n_treatments
         coef_matrix = self.coef_df.values
         residual_matrix = self.new_res_df.values
-        n_x = len(self.columns)
+
         # proxy 1 is the outcome
         outcome = "proxy1"
 

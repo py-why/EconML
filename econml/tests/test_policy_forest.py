@@ -347,23 +347,23 @@ class TestPolicyForest(unittest.TestCase):
         random_state = 123
         X, y, _ = self._get_policy_data(n, n_features, random_state)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=20, max_samples=20).fit(X, y)
+            PolicyForest(n_estimators=20, max_samples=20).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=20, max_samples=1.2).fit(X, y)
+            PolicyForest(n_estimators=20, max_samples=1.2).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, criterion='peculiar').fit(X, y)
+            PolicyForest(n_estimators=4, criterion='peculiar').fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, max_depth=-1).fit(X, y)
+            PolicyForest(n_estimators=4, max_depth=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_samples_split=-1).fit(X, y)
+            PolicyForest(n_estimators=4, min_samples_split=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_samples_leaf=-1).fit(X, y)
+            PolicyForest(n_estimators=4, min_samples_leaf=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y)
+            PolicyForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, max_features=10).fit(X, y)
+            PolicyForest(n_estimators=4, max_features=10).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y)
+            PolicyForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y)
 
         return
 
@@ -407,7 +407,6 @@ class TestPolicyForest(unittest.TestCase):
         tree.render('test', max_depth=2)
 
         groups = np.repeat(np.arange(X.shape[0]), 2)
-        Xraw = X.copy()
         X = np.repeat(X, 2, axis=0)
         T = np.zeros(y.shape)
         T[:, 1] = 1

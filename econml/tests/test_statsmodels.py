@@ -1168,9 +1168,9 @@ class TestStatsModels(unittest.TestCase):
                                             fit_cate_intercept=False)
                             est.fit(y, T, X=X[:, :d_x], W=X[:, d_x:],
                                     inference=StatsModelsInference(cov_type='nonrobust'))
-                            with pytest.raises(AttributeError) as e_info:
+                            with pytest.raises(AttributeError):
                                 intercept = est.intercept_
-                            with pytest.raises(AttributeError) as e_info:
+                            with pytest.raises(AttributeError):
                                 intercept = est.intercept__interval(alpha=0.05)
                             coef = est.coef_.reshape(p, q, d_x + 1)
                             lower, upper = est.coef__interval(alpha=.001)

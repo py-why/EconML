@@ -527,13 +527,6 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         t = 10 * np.sin(theta) + np.random.normal(size=(5000, d))
         pi, mu, sig = model2.predict([x])
         sampled_t = model3.predict([x])
-        llm = model.predict([x, t])
-
-        pi_o = np.tile([[0.25, 0.25, 0.25, 0.25, 0]], (5000, 1))
-        x2 = np.sqrt(np.maximum(0, 100 - x**2)).reshape(-1, 1, 2)
-        arrs = [np.array([f1, f2]) for f1 in [-1, 1] for f2 in [-1, 1]] + [np.zeros(2)]
-        mu_o = np.concatenate([x2 * arr for arr in arrs], axis=1)
-        sig_o = np.ones((5000, 5))
 
         print(pi[0], mu[0], sig[0], x[0], t[0])
         import io

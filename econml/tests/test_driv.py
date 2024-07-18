@@ -418,5 +418,5 @@ class TestDRIV(unittest.TestCase):
         for est in est_list:
             with self.subTest(est=est):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
-                score = est.score(y, T, Z=Z, X=X, W=W)
-                eff = est.const_marginal_effect(X)
+                est.score(y, T, Z=Z, X=X, W=W)
+                est.const_marginal_effect(X)

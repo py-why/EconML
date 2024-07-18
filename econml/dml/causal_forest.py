@@ -215,9 +215,6 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         d_t_orig = T.shape[1:]
         d_t_orig = d_t_orig[0] if d_t_orig else 1
 
-        d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
-
         output_shape = [X.shape[0]]
         if self._d_y:
             output_shape.append(self._d_y[0])
@@ -904,7 +901,6 @@ class CausalForestDML(_BaseDML):
             print("Population summary results are available only if `cache_values=True` at fit time!")
             smry = Summary()
         d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
 
         try:
             intercept_table = self.ate__inference().summary_frame(alpha=alpha,
