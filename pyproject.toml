@@ -144,10 +144,6 @@ quote-style = "preserve"
 
 [tool.ruff.lint]
 ignore = [
-    "F401", # Unused import
-    "F541", # f-string is missing placeholders
-    "F811", # Redefinition of unused name from line N
-    "E713", # Test for membership should be 'not in'
     "D100", # Missing docstring in public module
     "D101", # Missing docstring in public class
     "D102", # Missing docstring in public method
@@ -159,7 +155,7 @@ ignore = [
 extend-select = [
     "D", # Docstring
 ]
-extend-per-file-ignores = { "econml/tests" = ["D"] }
+extend-per-file-ignores = { "econml/tests" = ["D"] } # ignore docstring rules for tests
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
