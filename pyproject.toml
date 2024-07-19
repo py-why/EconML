@@ -154,6 +154,7 @@ ignore = [
           ]
 extend-select = [
     "D", # Docstring
+    "E501", # Line too long
 ]
 extend-per-file-ignores = { "econml/tests" = ["D"] } # ignore docstring rules for tests
 

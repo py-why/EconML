@@ -14,7 +14,8 @@ from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array
-from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, one_hot_encoder, inverse_onehot, transpose)
+from ..utilities import (check_inputs, check_models, broadcast_unit_treatments,
+                         one_hot_encoder, inverse_onehot, transpose)
 from .._shap import _shap_explain_model_cate
 
 

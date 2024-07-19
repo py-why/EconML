@@ -21,7 +21,8 @@ from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
                                                StatsModelsLinearRegression)
 from ..utilities import (add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, hstack, inverse_onehot, reshape_treatmentwise_effects, shape, get_feature_names_or_default, filter_none_kwargs)
+                         cross_product, hstack, inverse_onehot, reshape_treatmentwise_effects,
+                         shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
 from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
 
