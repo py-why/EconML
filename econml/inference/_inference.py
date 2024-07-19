@@ -9,14 +9,11 @@ import numpy as np
 import pandas as pd
 import scipy
 from scipy.stats import norm
-from statsmodels.iolib.table import SimpleTable
 
 from ._bootstrap import BootstrapEstimator
-from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
-                         parse_final_model_params, jacify_featurizer,
-                         reshape_treatmentwise_effects, shape, filter_none_kwargs)
+                         parse_final_model_params, reshape_treatmentwise_effects, shape, filter_none_kwargs)
 
 """Options for performing inference in estimators."""
 

@@ -6,21 +6,19 @@ import pickle
 import unittest
 
 import numpy as np
-from numpy.random import normal, multivariate_normal, binomial
 import pytest
 
 import scipy.special
-from sklearn.base import TransformerMixin
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import KFold, StratifiedGroupKFold, check_cv
+from sklearn.model_selection import KFold, StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
+from sklearn.preprocessing import FunctionTransformer, PolynomialFeatures
 
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
-from econml.utilities import get_feature_names_or_default, shape, hstack, vstack, reshape, cross_product
+from econml.utilities import get_feature_names_or_default, shape
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.tests.utilities import (GroupingModel, NestedModel)
 

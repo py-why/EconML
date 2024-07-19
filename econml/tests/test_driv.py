@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV,)
-from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel

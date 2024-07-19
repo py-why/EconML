@@ -5,7 +5,6 @@
 
 import unittest
 import numpy as np
-import warnings
 import pytest
 
 from econml.utilities import shape, reshape

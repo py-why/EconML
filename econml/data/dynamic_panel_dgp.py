@@ -372,7 +372,7 @@ class SemiSynthetic:
 
     def create_instance(self):
         # get new covariance matrix
-        self.cov_new = joblib.load(os.path.join(dir, f"input_dynamicdgp/cov_new.jbl"))
+        self.cov_new = joblib.load(os.path.join(dir, "input_dynamicdgp/cov_new.jbl"))
 
         # get coefs
         self.index = ["proxy1", "proxy2", "proxy3", "proxy4",

@@ -10,18 +10,16 @@ import warnings
 import abc
 
 import numpy as np
-from collections.abc import Iterable
 import scipy.sparse as sp
 import sklearn
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, clone, is_classifier
 from sklearn.ensemble import (GradientBoostingClassifier, GradientBoostingRegressor,
                               RandomForestClassifier, RandomForestRegressor)
-from sklearn.exceptions import FitFailedWarning
 from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, MultiTaskElasticNet, MultiTaskElasticNetCV,
                                   MultiTaskLasso, MultiTaskLassoCV, Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
                                   LogisticRegression, LogisticRegressionCV)
-from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFold, KFold,
+from sklearn.model_selection import (GridSearchCV, GroupKFold, KFold,
                                      RandomizedSearchCV, StratifiedKFold,
                                      check_cv)
 # TODO: conisder working around relying on sklearn implementation details
@@ -29,9 +27,8 @@ from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import LabelEncoder, PolynomialFeatures, StandardScaler
+from sklearn.preprocessing import LabelEncoder, PolynomialFeatures
 from sklearn.utils import check_random_state, indexable
-from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import _num_samples
 
 from .linear_model import WeightedLassoCVWrapper, WeightedLassoWrapper

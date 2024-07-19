@@ -4,20 +4,14 @@ import pytest
 import unittest
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.ensemble import RandomForestRegressor
-from joblib import Parallel, delayed
 
-from econml._ortho_learner import _OrthoLearner
-from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML, NonParamDML
+from econml.dml import LinearDML, SparseLinearDML, CausalForestDML
 from econml.dr import LinearDRLearner, ForestDRLearner
-from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
+from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV
-from econml.orf import DMLOrthoForest
 
 from econml.utilities import filter_none_kwargs
-from copy import deepcopy
 
 
 class TestDiscreteOutcome(unittest.TestCase):

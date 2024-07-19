@@ -1,25 +1,13 @@
 import unittest
-import pytest
-import pickle
-from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
-from sklearn.model_selection import KFold, GroupKFold
-from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
+from sklearn.linear_model import LinearRegression
+from econml.dml import LinearDML, SparseLinearDML, KernelDML
 from econml.dml import NonParamDML, CausalForestDML
 from econml.dr import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
-from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
+from econml.iv.dml import OrthoIV, NonParamDMLIV
 from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, cross_product
-from econml.inference import BootstrapInference
-from contextlib import ExitStack
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
-from econml.tests.test_statsmodels import _summarize
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from econml.iv.dr._dr import _DummyCATE
 
 
 class TestRandomState(unittest.TestCase):

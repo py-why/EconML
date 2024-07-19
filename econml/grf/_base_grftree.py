@@ -12,11 +12,8 @@
 import numpy as np
 from ._criterion import LinearMomentGRFCriterionMSE, LinearMomentGRFCriterion
 from ..tree import BaseTree
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_array
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_is_fitted
-import copy
 
 # =============================================================================
 # Types and constants

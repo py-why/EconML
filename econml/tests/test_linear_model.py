@@ -4,15 +4,12 @@
 """Tests for linear_model extensions."""
 
 import numpy as np
-import pytest
 import unittest
-import warnings
 from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV,
                                                     WeightedLassoCVWrapper, DebiasedLasso, MultiOutputDebiasedLasso,
                                                     SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
-from sklearn.model_selection import KFold
 from sklearn.base import clone
 
 

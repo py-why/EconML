@@ -4,7 +4,6 @@ import numpy as np
 import os
 import re
 from glob import glob
-from pathlib import Path
 
 with open(os.path.join(os.path.dirname(__file__), "econml", "_version.py")) as file:
     for line in file:

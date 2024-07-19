@@ -3,7 +3,6 @@
 
 import numpy as np
 import unittest
-from numpy.random import normal, multivariate_normal, binomial
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline

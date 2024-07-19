@@ -9,7 +9,7 @@ from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.dr import DRLearner, ForestDRLearner
 from econml.metalearners import TLearner, SLearner, XLearner, DomainAdaptationLearner
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import PolynomialFeatures
 
 

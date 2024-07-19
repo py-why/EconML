@@ -4,7 +4,6 @@
 import numpy as np
 import unittest
 
-from sklearn import clone
 from econml.dml import LinearDML
 from econml.dr import LinearDRLearner
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete

@@ -13,7 +13,6 @@ import numbers
 import numpy as np
 from abc import ABCMeta, abstractmethod
 from sklearn.base import BaseEstimator, clone
-from sklearn.utils import check_random_state
 from joblib import effective_n_jobs
 from packaging.version import parse
 import sklearn

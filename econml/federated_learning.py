@@ -1,7 +1,6 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-import numpy as np
 from sklearn import clone
 
 from econml.utilities import check_input_arrays

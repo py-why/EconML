@@ -24,28 +24,22 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 """
 
-import copy
 from collections import namedtuple
-from warnings import warn
 from abc import abstractmethod
 from typing import List, Union
-import inspect
-from collections import defaultdict
-import re
 
 import numpy as np
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import (LabelEncoder)
 from sklearn.utils import check_random_state
 
 from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
-                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .utilities import (check_input_arrays,
+                        filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
+                        jacify_featurizer, reshape, shape)
 from .sklearn_extensions.model_selection import ModelSelector
 
 try:

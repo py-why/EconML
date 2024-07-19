@@ -9,18 +9,16 @@
 # Copyright (c) 2007-2020 The scikit-learn developers.
 # All rights reserved.
 
-import numbers
-from warnings import catch_warnings, simplefilter, warn
-from abc import ABCMeta, abstractmethod
+from warnings import warn
+from abc import ABCMeta
 import numpy as np
 import threading
 from ..._ensemble import (BaseEnsemble, _partition_estimators, _get_n_samples_subsample, _accumulate_prediction)
-from ...utilities import check_inputs, cross_product
 from ...tree._tree import DTYPE, DOUBLE
 from ._tree import PolicyTree
 from joblib import Parallel, delayed
 from scipy.sparse import hstack as sparse_hstack
-from sklearn.utils import check_random_state, compute_sample_weight
+from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_sample_weight, check_is_fitted
 from sklearn.utils import check_X_y
 

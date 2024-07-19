@@ -2,13 +2,8 @@
 # Licensed under the MIT License.
 
 import unittest
-import logging
-import time
-import random
 import numpy as np
-import sparse as sp
-import pytest
-from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree, MSE
+from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree
 from econml.grf import LinearMomentGRFCriterion, LinearMomentGRFCriterionMSE
 from econml.grf._utils import matinv, lstsq, pinv, fast_max_eigv, fast_min_eigv
 from econml.utilities import cross_product

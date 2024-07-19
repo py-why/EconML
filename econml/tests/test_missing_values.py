@@ -1,6 +1,5 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
-import pytest
 import unittest
 import numpy as np
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso

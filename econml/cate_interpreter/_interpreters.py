@@ -4,8 +4,7 @@
 import abc
 import numbers
 import numpy as np
-import sklearn
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_array
 from ..policy import PolicyTree
 from .._tree_exporter import (_SingleTreeExporterMixin,

@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 import numpy as np
-from warnings import warn
 from ..utilities import cross_product
 from ._base_grf import BaseGRF
 from ..utilities import check_inputs
