@@ -28,7 +28,6 @@ from econml.data.dgps import ihdp_surface_B
 import os
 
 try:
-    from azureml.train.automl.exceptions import ClientException
     from azureml.core.authentication import AzureCliAuthentication
     from econml.automated_ml import addAutomatedML, setAutomatedMLWorkspace, EconAutoMLConfig
     AutomatedTLearner = addAutomatedML(TLearner)
