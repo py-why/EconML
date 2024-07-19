@@ -15,7 +15,6 @@ https://arxiv.org/abs/1905.10176
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.dummy import DummyClassifier
@@ -25,13 +24,12 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
                                 ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference,
                                 LinearCateEstimator)
-from ...inference import StatsModelsInference
-from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, WeightedStratifiedKFold
-from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwargs,
+from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector
+from ...utilities import (add_intercept, filter_none_kwargs,
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
-from ...dml.dml import _make_first_stage_selector, _FinalWrapper
+from ...dml.dml import _make_first_stage_selector
 from ...iv.dml import NonParamDMLIV
 from ..._shap import _shap_explain_model_cate
 

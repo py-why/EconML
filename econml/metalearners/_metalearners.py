@@ -9,15 +9,12 @@ For more details on these CATE methods, see `<https://arxiv.org/abs/1706.03461>`
 """
 
 import numpy as np
-import warnings
 from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.utils import check_array, check_X_y
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                         one_hot_encoder, inverse_onehot, transpose, _deprecate_positional)
+from sklearn.utils import check_array
+from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, one_hot_encoder, inverse_onehot, transpose)
 from .._shap import _shap_explain_model_cate
 
 

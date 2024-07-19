@@ -8,27 +8,18 @@ import pandas as pd
 import scipy.sparse
 import sklearn
 import sparse as sp
-import itertools
 import inspect
-import types
-from operator import getitem
 from collections import defaultdict, Counter
 from sklearn import clone
-from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
+from sklearn.base import TransformerMixin
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, LabelEncoder
 import warnings
 from warnings import warn
-from collections.abc import Iterable
-from sklearn.utils.multiclass import type_of_target
-import numbers
 from statsmodels.iolib.table import SimpleTable
 from statsmodels.iolib.summary import summary_return
-from statsmodels.compat.python import lmap
-import copy
 from inspect import signature
 
 MAX_RAND_SEED = np.iinfo(np.int32).max

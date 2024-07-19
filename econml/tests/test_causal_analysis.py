@@ -6,7 +6,6 @@ import unittest
 from contextlib import ExitStack
 import itertools
 import numpy as np
-from numpy.core.fromnumeric import squeeze
 import pandas as pd
 import pytest
 

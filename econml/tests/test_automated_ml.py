@@ -3,27 +3,11 @@
 
 import unittest
 import pytest
-from sklearn.linear_model import LinearRegression, Lasso, \
-    LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, \
-    PolynomialFeatures
-from sklearn.model_selection import KFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML
 from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
 from econml.dr import DRLearner
-import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, \
-    cross_product
-from econml.inference import BootstrapInference
-from contextlib import ExitStack
-from sklearn.ensemble import RandomForestRegressor, \
-    GradientBoostingRegressor, GradientBoostingClassifier
-import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso
-from econml.tests.test_statsmodels import _summarize
+from sklearn.ensemble import GradientBoostingClassifier
 import copy
-import logging
 from econml.data.dgps import ihdp_surface_B
 import os
 

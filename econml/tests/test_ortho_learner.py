@@ -3,12 +3,10 @@
 
 from sklearn.datasets import make_regression
 from econml._ortho_learner import _OrthoLearner, _crossfit
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LassoCV, Lasso
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.model_selection import KFold
 import numpy as np
 import unittest
-import joblib
 import pytest
 
 try:

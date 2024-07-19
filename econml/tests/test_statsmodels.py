@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 
 import scipy.special
-from sklearn.base import clone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
@@ -23,7 +22,7 @@ from econml.iv.dr import LinearDRIV
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
 from econml.sklearn_extensions.linear_model import StatsModels2SLS
-from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
+from econml.utilities import (ndim, transpose, shape, reshape)
 
 
 class StatsModelsOLS:

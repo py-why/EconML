@@ -8,16 +8,15 @@ from collections import OrderedDict, namedtuple
 
 import joblib
 import lightgbm as lgb
-from numba.core.utils import erase_traceback
 import numpy as np
 from numpy.lib.function_base import iterable
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
-from sklearn.pipeline import make_pipeline, Pipeline
-from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import _tree
 from sklearn.utils.validation import column_or_1d
 from ...cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
@@ -25,7 +24,7 @@ from ...dml import LinearDML, CausalForestDML
 from ...inference import NormalInferenceResults
 from ...sklearn_extensions.linear_model import WeightedLasso
 from ...sklearn_extensions.model_selection import GridSearchCVList
-from ...utilities import _RegressionWrapper, get_feature_names_or_default, inverse_onehot, one_hot_encoder
+from ...utilities import _RegressionWrapper, get_feature_names_or_default, one_hot_encoder
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing

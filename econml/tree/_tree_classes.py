@@ -1,4 +1,3 @@
-import abc
 import numbers
 from math import ceil
 import numpy as np
@@ -9,8 +8,7 @@ from ._splitter import Splitter, BestSplitter
 from ._criterion import Criterion
 from . import _tree
 from ..utilities import deprecated
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_array, check_X_y
+from sklearn.utils import check_array
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_sample_weight
 
@@ -238,7 +236,7 @@ class BaseTree(BaseEstimator):
                 criterion_val = criterion
         else:
             valid_criteria = self._get_valid_criteria()
-            if not (self.criterion in valid_criteria):
+            if self.criterion not in valid_criteria:
                 raise ValueError("Input criterion is not a valid criterion")
             criterion = valid_criteria[self.criterion](
                 self.n_outputs_, self.n_relevant_outputs_, self.n_features_in_, self.n_y_, n_samples, max_train,

@@ -1,23 +1,16 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-import abc
 import numpy as np
 from warnings import warn
 from sklearn.base import clone
 from sklearn.model_selection import GroupKFold
-from scipy.stats import norm
-from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
-from ...sklearn_extensions.model_selection import ModelSelector, WeightedStratifiedKFold
+from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression)
+from ...sklearn_extensions.model_selection import ModelSelector
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
-from ..._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
+from ..._cate_estimator import LinearModelFinalCateEstimatorMixin
 from ..._ortho_learner import _OrthoLearner
-from ...utilities import (_deprecate_positional, add_intercept,
-                          broadcast_unit_treatments, check_high_dimensional,
-                          cross_product, deprecated,
-                          hstack, inverse_onehot, ndim, reshape,
-                          reshape_treatmentwise_effects, shape, transpose,
+from ...utilities import (ndim, reshape,
                           get_feature_names_or_default, check_input_arrays,
                           filter_none_kwargs)
 

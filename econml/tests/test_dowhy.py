@@ -10,8 +10,7 @@ from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
 from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import LinearDRIV
-from econml.iv.dr._dr import _DummyCATE
-from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 

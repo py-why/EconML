@@ -36,25 +36,20 @@ Tsiatis AA (2006).
 """
 
 from warnings import warn
-from copy import deepcopy
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import (LassoCV, LinearRegression,
-                                  LogisticRegressionCV)
-from sklearn.ensemble import RandomForestRegressor
 
 
 from .._ortho_learner import _OrthoLearner
-from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
-                               ForestModelFinalCateEstimatorDiscreteMixin,
+from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, ForestModelFinalCateEstimatorDiscreteMixin,
                                StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
-    DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+    DebiasedLasso, StatsModelsLinearRegression)
 from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
-from ..utilities import (_deprecate_positional, check_high_dimensional,
+from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 

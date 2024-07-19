@@ -6,8 +6,6 @@ import numpy as np
 from joblib import Parallel, delayed
 from sklearn.base import clone
 from scipy.stats import norm
-from collections import OrderedDict
-import pandas as pd
 
 
 class BootstrapEstimator:

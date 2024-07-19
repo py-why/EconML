@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression
 from econml.dml import LinearDML
 from econml.inference import BootstrapInference
 

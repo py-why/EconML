@@ -4,20 +4,15 @@
 from warnings import warn
 
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.base import clone, BaseEstimator
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
+from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from itertools import product
 from .dml import _BaseDML
 from .dml import _make_first_stage_selector
-from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
-                         _deprecate_positional, cross_product, Summary)
+from ..utilities import (shape, check_input_arrays,
+                         cross_product, Summary)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate

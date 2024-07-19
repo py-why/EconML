@@ -7,20 +7,18 @@ import pickle
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
-from sklearn.model_selection import KFold, GroupKFold, check_cv
+from sklearn.model_selection import KFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.dml import NonParamDML
 import numpy as np
 import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
-from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
+from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
 from econml.tests.utilities import (GroupingModel, NestedModel)
 

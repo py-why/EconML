@@ -4,10 +4,9 @@
 from warnings import warn
 import numpy as np
 from sklearn.base import clone
-from ..utilities import check_inputs, filter_none_kwargs, check_input_arrays
+from ..utilities import filter_none_kwargs, check_input_arrays
 from ..dr import DRLearner
 from ..dr._drlearner import _ModelFinal
-from .._tree_exporter import _SingleTreeExporterMixin
 from ._base import PolicyLearner
 from . import PolicyTree, PolicyForest
 

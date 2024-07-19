@@ -5,10 +5,10 @@ from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso, El
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
-from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML)
-from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
+from econml.dml import (DML, LinearDML, SparseLinearDML, NonParamDML)
+from econml.dr import (LinearDRLearner, SparseLinearDRLearner)
 from econml.iv.dml import (OrthoIV, DMLIV, NonParamDMLIV)
-from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 from econml.sklearn_extensions.linear_model import (DebiasedLasso, WeightedLasso,
                                                     StatsModelsRLM, StatsModelsLinearRegression)
 from econml.inference import NormalInferenceResults, BootstrapInference

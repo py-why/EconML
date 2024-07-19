@@ -10,23 +10,12 @@
 # All rights reserved.
 
 import numpy as np
-import numbers
-from math import ceil
-from ...tree import Tree
-from ...tree._criterion import Criterion
-from ...tree._splitter import Splitter, BestSplitter
-from ...tree import DepthFirstTreeBuilder
-from ...tree import _tree
 from ..._tree_exporter import _SingleTreeExporterMixin, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 from ._criterion import LinearPolicyCriterion
-from . import _criterion
 from ...tree import BaseTree
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_array, check_X_y
+from sklearn.utils import check_X_y
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import _check_sample_weight
 from sklearn.utils.validation import check_is_fitted
-import copy
 
 # =============================================================================
 # Types and constants

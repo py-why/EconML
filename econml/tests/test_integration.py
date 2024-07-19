@@ -20,7 +20,7 @@ from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.metalearners import XLearner, SLearner, TLearner
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-from sklearn.linear_model import LinearRegression, MultiTaskLasso, LassoCV
+from sklearn.linear_model import MultiTaskLasso, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
 from econml.iv.dr import LinearIntentToTreatDRIV
 from econml.iv.nnet import DeepIV

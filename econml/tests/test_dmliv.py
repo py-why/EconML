@@ -6,14 +6,12 @@ import unittest
 
 import numpy as np
 import pytest
-from scipy import special
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import PolynomialFeatures
 
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
-from econml.iv.dr._dr import _DummyCATE
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
+from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel
 

@@ -2,19 +2,13 @@
 # Licensed under the MIT License.
 
 import unittest
-import logging
-import time
-import random
 import numpy as np
 import pandas as pd
 import pytest
 import joblib
 from econml.policy import PolicyTree, PolicyForest
 from econml.policy import DRPolicyTree, DRPolicyForest
-from econml.utilities import cross_product
-from copy import deepcopy
 from sklearn.utils import check_random_state
-import scipy.stats
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.model_selection import GroupKFold

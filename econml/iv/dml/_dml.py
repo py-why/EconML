@@ -15,20 +15,17 @@ https://arxiv.org/abs/1905.10176
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from itertools import product
 
 from ..._ortho_learner import _OrthoLearner
-from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin, LinearCateEstimator
-from ...inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
-from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector,
-                                                   WeightedStratifiedKFold, get_selector)
-from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
+from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, LinearCateEstimator
+from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression
+from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector)
+from ...utilities import (get_feature_names_or_default, filter_none_kwargs, add_intercept,
                           cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
-                          parse_final_model_params, deprecated, Summary)
+                          parse_final_model_params, Summary)
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
