@@ -86,7 +86,7 @@ class TestMetalearners(unittest.TestCase):
                 self._test_te(X_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
     def test_DALearner(self):
-        """Test whether the DomainAdaptationLearner can accurately estimate constant and heterogeneous treatment effects."""
+        """Test whether the DALearner can accurately estimate constant and heterogeneous treatment effects."""
         # Instantiate DomainAdaptationLearner
         DA_learner = DomainAdaptationLearner(models=LinearRegression(),
                                              final_models=LinearRegression())
