@@ -667,6 +667,10 @@ You can get started by cloning this repository. We use
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
 `pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `pip install -e .` to get started (but depending on what you're doing you might want to install with extras instead, like `pip install -e .[plt]` if you want to use matplotlib integration, or you can use  `pip install -e .[all]` to include all extras).
 
+## Pre-commit hooks
+
+We use the [pre-commit](https://pre-commit.com/) framework to enforce code style and run checks before every commit. To install the pre-commit hooks, make sure you have pre-commit installed (`pip install pre-commit`) and then run `pre-commit install` in the root of the repository. This will install the hooks and run them automatically before every commit. If you want to run the hooks manually, you can run `pre-commit run --all-files`.
+
 ## Help wanted
 
 If you're looking to contribute to the project, we have a number of issues tagged with the [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) label that are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs.
