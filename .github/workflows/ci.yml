@@ -105,8 +105,8 @@ jobs:
         python-version: '3.9'
     - name: Ensure latest pip and setuptools
       run: python -m pip install --upgrade pip && pip install --upgrade setuptools
-    - name: Run pycodestyle to check style
-      run: 'pip install pycodestyle && pycodestyle econml'
+    - name: Run Ruff
+      run: 'pip install ruff && ruff check'
 
   notebooks:
     name: Run notebooks

@@ -4,10 +4,9 @@
 from warnings import warn
 import numpy as np
 from sklearn.base import clone
-from ..utilities import check_inputs, filter_none_kwargs, check_input_arrays
+from ..utilities import filter_none_kwargs, check_input_arrays
 from ..dr import DRLearner
 from ..dr._drlearner import _ModelFinal
-from .._tree_exporter import _SingleTreeExporterMixin
 from ._base import PolicyLearner
 from . import PolicyTree, PolicyForest
 
@@ -84,7 +83,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self
 
     def predict_value(self, X):
-        """ Get effect values for each non-baseline treatment and for each sample.
+        """Get effect values for each non-baseline treatment and for each sample.
 
         Parameters
         ----------
@@ -100,7 +99,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self.drlearner_.const_marginal_effect(X)
 
     def predict_proba(self, X):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment.
 
         Parameters
         ----------
@@ -118,7 +117,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self.policy_model_.predict_proba(X)
 
     def predict(self, X):
-        """ Get recommended treatment for each sample.
+        """Get recommended treatment for each sample.
 
         Parameters
         ----------
@@ -178,6 +177,9 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
+        Get the feature importances based on the amount of parameter heterogeneity they create.
+
+        The higher, the more important the feature.
 
         Parameters
         ----------
@@ -200,15 +202,13 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
     @property
     def policy_model_(self):
-        """ The trained final stage policy model
-        """
+        """The trained final stage policy model."""
         return self.drlearner_.multitask_model_cate
 
 
 class DRPolicyTree(_BaseDRPolicyLearner):
     """
-    Policy learner that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms.
+    Policy learner that uses doubly-robust correction techniques to account for selection bias between treatment arms.
 
     In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
     outcomes
@@ -440,7 +440,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
     def plot(self, *, feature_names=None, treatment_names=None, ax=None, title=None,
              max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
         """
-        Exports policy trees to matplotlib
+        Export policy trees to matplotlib.
 
         Parameters
         ----------
@@ -490,7 +490,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                         max_depth=None, filled=True, leaves_parallel=True,
                         rotate=False, rounded=True, special_characters=False, precision=3):
         """
-        Export a graphviz dot file representing the learned tree model
+        Export a graphviz dot file representing the learned tree model.
 
         Parameters
         ----------
@@ -547,7 +547,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                filled=True, leaves_parallel=True, rotate=False, rounded=True,
                special_characters=False, precision=3):
         """
-        Render the tree to a flie
+        Render the tree to a flie.
 
         Parameters
         ----------
@@ -607,8 +607,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
 class DRPolicyForest(_BaseDRPolicyLearner):
     """
-    Policy learner that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms.
+    Policy learner that uses doubly-robust correction techniques to account for selection bias between treatment arms.
 
     In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
     outcomes
@@ -874,7 +873,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
              ax=None, title=None,
              max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
         """
-        Exports policy trees to matplotlib
+        Export policy trees to matplotlib.
 
         Parameters
         ----------
@@ -929,7 +928,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                         filled=True, leaves_parallel=True,
                         rotate=False, rounded=True, special_characters=False, precision=3):
         """
-        Export a graphviz dot file representing the learned tree model
+        Export a graphviz dot file representing the learned tree model.
 
         Parameters
         ----------
@@ -993,7 +992,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                filled=True, leaves_parallel=True, rotate=False, rounded=True,
                special_characters=False, precision=3):
         """
-        Render the tree to a flie
+        Render the tree to a flie.
 
         Parameters
         ----------

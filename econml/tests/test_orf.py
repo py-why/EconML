@@ -3,13 +3,10 @@
 
 import numpy as np
 import unittest
-import pytest
 import warnings
-from numpy.random import binomial, choice, normal, uniform
-from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
+from numpy.random import choice, normal, uniform
+from sklearn.linear_model import Lasso, LogisticRegression, LogisticRegressionCV
 from sklearn.multioutput import MultiOutputRegressor
-from sklearn.pipeline import Pipeline
 from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 
@@ -165,7 +162,6 @@ class TestOrthoForest(unittest.TestCase):
             self._test_ci(est, expected_te, tol=2.0, treatment_type='multi')
 
     def test_effect_shape(self):
-        import scipy.special
         np.random.seed(123)
         n = 40  # number of raw samples
         d = 4  # number of binary features + 1

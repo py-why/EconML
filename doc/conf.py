@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import doctest
 import econml
 sys.path.insert(0, os.path.abspath('econml'))
 
@@ -240,7 +241,6 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
 todo_include_todos = False
 
 # -- Options for doctest extension -------------------------------------------
-import doctest
 doctest_default_flags = (doctest.DONT_ACCEPT_TRUE_FOR_1 |
                          doctest.ELLIPSIS |
                          doctest.IGNORE_EXCEPTION_DETAIL |

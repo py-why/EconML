@@ -8,16 +8,15 @@ from collections import OrderedDict, namedtuple
 
 import joblib
 import lightgbm as lgb
-from numba.core.utils import erase_traceback
 import numpy as np
 from numpy.lib.function_base import iterable
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
-from sklearn.pipeline import make_pipeline, Pipeline
-from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import _tree
 from sklearn.utils.validation import column_or_1d
 from ...cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
@@ -25,7 +24,7 @@ from ...dml import LinearDML, CausalForestDML
 from ...inference import NormalInferenceResults
 from ...sklearn_extensions.linear_model import WeightedLasso
 from ...sklearn_extensions.model_selection import GridSearchCVList
-from ...utilities import _RegressionWrapper, get_feature_names_or_default, inverse_onehot, one_hot_encoder
+from ...utilities import _RegressionWrapper, get_feature_names_or_default, one_hot_encoder
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing
@@ -76,7 +75,7 @@ class _CausalInsightsConstants:
 
 def _get_default_shared_insights_output():
     """
-    Dictionary elements shared among all analyses.
+    Get dictionary elements shared among all analyses.
 
     In case of breaking changes to this dictionary output, the major version of this
     dictionary should be updated. In case of a change to this dictionary, the minor
@@ -631,7 +630,7 @@ class CausalAnalysis:
 
     def fit(self, X, y, warm_start=False):
         """
-        Fits global and local causal effect models for each feature in feature_inds on the data
+        Fits global and local causal effect models for each feature in feature_inds on the data.
 
         Parameters
         ----------
@@ -648,7 +647,6 @@ class CausalAnalysis:
             automl flag have changed. If heterogeneity_inds have changed, then the final stage model of these features
             will be refit. If the automl flag has changed, then whole model is refit, despite the warm start flag.
         """
-
         # Validate inputs
         assert self.nuisance_models in ['automl', 'linear'], (
             "The only supported nuisance models are 'linear' and 'automl', "
@@ -972,7 +970,7 @@ class CausalAnalysis:
 
         # each attr has dimension (m,y) or (m,y,t)
         def coalesce(attr):
-            """Join together the arrays for each feature"""
+            """Join together the arrays for each feature."""
             attr = self._make_accessor(attr)
             # concatenate along treatment dimension
             arr = np.concatenate([ensure_proper_dims(attr(inf))
@@ -1133,7 +1131,7 @@ class CausalAnalysis:
 
     def _global_causal_effect_dict(self, *, alpha=0.05, row_wise=False):
         """
-        Gets the global causal effect for each feature as dictionary.
+        Get the global causal effect for each feature as dictionary.
 
         Dictionary entries for predictions, etc. will be nested lists of shape (d_y, sum(d_t))
 
@@ -1158,7 +1156,7 @@ class CausalAnalysis:
 
     def cohort_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
         """
-        Gets the average causal effects for a particular cohort defined by a population of X's.
+        Get the average causal effects for a particular cohort defined by a population of X's.
 
         Parameters
         ----------
@@ -1190,7 +1188,7 @@ class CausalAnalysis:
 
     def _cohort_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
-        Gets the cohort causal effects for each feature as dictionary.
+        Get the cohort causal effects for each feature as dictionary.
 
         Dictionary entries for predictions, etc. will be nested lists of shape (d_y, sum(d_t))
 
@@ -1219,7 +1217,7 @@ class CausalAnalysis:
 
     def local_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
         """
-        Gets the local causal effect for each feature as a pandas DataFrame.
+        Get the local causal effect for each feature as a pandas DataFrame.
 
         Parameters
         ----------
@@ -1230,6 +1228,7 @@ class CausalAnalysis:
         keep_all_levels : bool, default False
             Whether to keep all levels of the output dataframe ('sample', 'outcome', 'feature', and 'feature_level')
             even if there was only a single value for that level; by default single-valued levels are dropped.
+
         Returns
         -------
         global_effect : DataFrame
@@ -1252,7 +1251,7 @@ class CausalAnalysis:
 
     def _local_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
-        Gets the local feature importance as dictionary
+        Get the local feature importance as dictionary.
 
         Dictionary entries for predictions, etc. will be nested lists of shape (n_rows, d_y, sum(d_t))
 
@@ -1370,12 +1369,12 @@ class CausalAnalysis:
         row_wise : bool, default False
             Whether to return a list of dictionaries (one dictionary per row) instead of
             a dictionary of lists (one list per column)
+
         Returns
         -------
         dict : dict
             The counterfactual predictions, as a dictionary
         """
-
         inf = self._whatif_inference(X, Xnew, feature_index, y)
         props = self._point_props(alpha=alpha)
         res = _get_default_specific_insights('whatif')
@@ -1527,7 +1526,6 @@ class CausalAnalysis:
         -------
         output : _PolicyOutput
         """
-
         (intrp, feature_names, treatment_names,
             (policy_val, always_trt)) = self._tree(True, Xtest, feature_index,
                                                    treatment_costs=treatment_costs,
@@ -1572,7 +1570,6 @@ class CausalAnalysis:
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
-
         intrp, feature_names, treatment_names, _ = self._tree(False, Xtest, feature_index,
                                                               max_depth=max_depth,
                                                               min_samples_leaf=min_samples_leaf,
@@ -1607,7 +1604,6 @@ class CausalAnalysis:
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
-
         intrp, feature_names, _, _ = self._tree(False, Xtest, feature_index,
                                                 max_depth=max_depth,
                                                 min_samples_leaf=min_samples_leaf,
@@ -1782,7 +1778,7 @@ class CausalAnalysis:
 
     def typical_treatment_value(self, feature_index):
         """
-        Get the typical treatment value used for the specified feature
+        Get the typical treatment value used for the specified feature.
 
         Parameters
         ----------

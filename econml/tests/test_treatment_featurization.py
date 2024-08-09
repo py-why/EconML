@@ -4,19 +4,17 @@ import pytest
 import unittest
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from joblib import Parallel, delayed
 
 from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML, NonParamDML
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV
 from econml.orf import DMLOrthoForest
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
+from sklearn.preprocessing import FunctionTransformer
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
 
-from econml.utilities import jacify_featurizer
 from econml.iv.sieve import DPolynomialFeatures
 from copy import deepcopy
 

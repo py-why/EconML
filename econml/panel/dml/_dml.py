@@ -1,23 +1,16 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-import abc
 import numpy as np
 from warnings import warn
 from sklearn.base import clone
 from sklearn.model_selection import GroupKFold
-from scipy.stats import norm
-from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
-from ...sklearn_extensions.model_selection import ModelSelector, WeightedStratifiedKFold
+from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression)
+from ...sklearn_extensions.model_selection import ModelSelector
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
-from ..._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
+from ..._cate_estimator import LinearModelFinalCateEstimatorMixin
 from ..._ortho_learner import _OrthoLearner
-from ...utilities import (_deprecate_positional, add_intercept,
-                          broadcast_unit_treatments, check_high_dimensional,
-                          cross_product, deprecated,
-                          hstack, inverse_onehot, ndim, reshape,
-                          reshape_treatmentwise_effects, shape, transpose,
+from ...utilities import (ndim, reshape,
                           get_feature_names_or_default, check_input_arrays,
                           filter_none_kwargs)
 
@@ -35,7 +28,9 @@ def _get_groups_period_filter(groups, n_periods):
 
 class _DynamicModelNuisanceSelector(ModelSelector):
     """
-    Nuisance model fits the model_y and model_t at fit time and at predict time
+    Nuisance model for DynamicDML.
+
+    Fits the model_y and model_t at fit time and at predict time
     calculates the residual Y and residual T based on the fitted models and returns
     the residuals as two nuisance parameters.
     """
@@ -102,7 +97,8 @@ class _DynamicModelNuisanceSelector(ModelSelector):
         return self
 
     def predict(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
-        """Calculate nuisances for each period or period pairs.
+        """
+        Calculate nuisances for each period or period pairs.
 
         Returns
         -------
@@ -174,7 +170,9 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
 class _DynamicModelFinal:
     """
-    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    Final model at fit time.
+
+    Fits a residual on residual regression with a heterogeneous coefficient
     that depends on X, i.e.
 
         .. math ::
@@ -184,6 +182,7 @@ class _DynamicModelFinal:
     residual on residual regression.
     Assumes model final is parametric with no intercept.
     """
+
     # TODO: update docs
 
     def __init__(self, model_final, n_periods):
@@ -211,9 +210,7 @@ class _DynamicModelFinal:
         return self
 
     def predict(self, X=None):
-        """
-        Return shape: m x dy x (p*dt)
-        """
+        """Return shape: m x dy x (p*dt)."""
         d_t_tuple = self._model_final_trained[0]._d_t
         d_t = d_t_tuple[0] if d_t_tuple else 1
         x_dy_shape = (X.shape[0] if X is not None else 1, ) + \
@@ -292,9 +289,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         return self._fit_single_output_cov(nuisances, X, -1, groups)
 
     def _fit_single_output_cov(self, nuisances, X, y_index, groups):
-        """ Calculates the covariance (n_periods*n_treatments)
-            x (n_periods*n_treatments) matrix for a single outcome.
-        """
+        """Calculate the covariance (n_periods*n_treatments) x (n_periods*n_treatments) matrix for a single outcome."""
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
         period_filters = _get_groups_period_filter(groups, self.n_periods)
@@ -688,7 +683,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, *, groups):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -866,7 +863,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     @property
     def residuals_(self):
         """
-        A tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
+        Get the residuals.
+
+        Returns a tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
         along with the associated X and W. Samples are not guaranteed to be in the same
         order as the input order.
         """

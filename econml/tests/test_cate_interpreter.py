@@ -91,7 +91,7 @@ class TestCateInterpreter(unittest.TestCase):
             intrp.interpret(est, X, sample_treatment_costs=np.ones((T.shape[0], 2)))
 
     def test_random_cate_settings(self):
-        """Verify that we can call methods on the CATE interpreter with various combinations of inputs"""
+        """Verify that we can call methods on the CATE interpreter with various combinations of inputs."""
         n = 100
         for _ in range(100):
             t_shape = (n,) if self.coinflip() else (n, 1)

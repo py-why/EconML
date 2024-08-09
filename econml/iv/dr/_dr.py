@@ -15,7 +15,6 @@ https://arxiv.org/abs/1905.10176
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.dummy import DummyClassifier
@@ -25,13 +24,12 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
                                 ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference,
                                 LinearCateEstimator)
-from ...inference import StatsModelsInference
-from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, WeightedStratifiedKFold
-from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwargs,
+from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector
+from ...utilities import (add_intercept, filter_none_kwargs,
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
-from ...dml.dml import _make_first_stage_selector, _FinalWrapper
+from ...dml.dml import _make_first_stage_selector
 from ...iv.dml import NonParamDMLIV
 from ..._shap import _shap_explain_model_cate
 
@@ -479,7 +477,9 @@ class _BaseDRIV(_OrthoLearner):
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -587,8 +587,10 @@ class _BaseDRIV(_OrthoLearner):
     @property
     def residuals_(self):
         """
-        A tuple (prel_theta, Y_res, T_res, Z_res, cov, X, W, Z), of the residuals from the first stage estimation
-        along with the associated X, W and Z. Samples are not guaranteed to be in the same
+        Get the residuals.
+
+        Returns a tuple (prel_theta, Y_res, T_res, Z_res, cov, X, W, Z), of the residuals from the first stage
+        estimationalong with the associated X, W and Z. Samples are not guaranteed to be in the same
         order as the input order.
         """
         if not hasattr(self, '_cached_values'):
@@ -602,9 +604,7 @@ class _BaseDRIV(_OrthoLearner):
 
 
 class _DRIV(_BaseDRIV):
-    """
-    Private Base class for the DRIV algorithm.
-    """
+    """Private Base class for the DRIV algorithm."""
 
     def __init__(self, *,
                  model_y_xw="auto",
@@ -704,8 +704,9 @@ class _DRIV(_BaseDRIV):
 
 class DRIV(_DRIV):
     """
-    The DRIV algorithm for estimating CATE with IVs. It is the parent of the
-    public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
+    The DRIV algorithm for estimating CATE with IVs.
+
+    This class is the parent of the public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
 
     Parameters
     ----------
@@ -1157,55 +1158,44 @@ class DRIV(_DRIV):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xw(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_z_xw(self):
-        """
-        Get the scores for z_xw model on the out-of-sample training data
-        """
+        """Get the scores for z_xw model on the out-of-sample training data."""
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use nuisance_scores_t_xwz.")
         return self.nuisance_scores_[2]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for z_xw model on the out-of-sample training data
-        """
+        """Get the scores for z_xw model on the out-of-sample training data."""
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use nuisance_scores_z_xw.")
         return self.nuisance_scores_[2]
 
     @property
     def nuisance_scores_prel_model_effect(self):
-        """
-        Get the scores for prel_model_effect model on the out-of-sample training data
-        """
+        """Get the scores for prel_model_effect model on the out-of-sample training data."""
         return self.nuisance_scores_[3]
 
     @property
     def nuisance_scores_tz_xw(self):
-        """
-        Get the scores for tz_xw model on the out-of-sample training data
-        """
+        """Get the scores for tz_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[4]
 
 
 class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     """
-    Special case of the :class:`.DRIV` where the final stage
-    is a Linear Regression. In this case, inference can be performed via the StatsModels Inference approach
+    Special case of the :class:`.DRIV` where the final stage is a Linear Regression.
+
+    In this case, inference can be performed via the StatsModels Inference approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='statsmodels'`` at fit time to enable inference via asymptotic normality.
@@ -1542,8 +1532,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
 
 class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     """
-    Special case of the :class:`.DRIV` where the final stage
-    is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
+    Special case of the :class:`.DRIV` where the final stage is a Debiased Lasso Regression.
+
+    In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='debiasedlasso'`` at fit time to enable inference via asymptotic normality.
@@ -1929,8 +1920,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
 
 
 class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
-    """ Instance of DRIV with a :class:`~econml.grf.RegressionForest`
-    as a final model, so as to enable non-parametric inference.
+    """
+    Instance of DRIV with a :class:`~econml.grf.RegressionForest` as a final model.
+
+    Enables non-parametric inference.
 
     Parameters
     ----------
@@ -2457,7 +2450,7 @@ class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
 
 class _DummyClassifier:
     """
-    A dummy classifier that always returns the prior ratio
+    A dummy classifier that always returns the prior ratio.
 
     Parameters
     ----------
@@ -2477,9 +2470,7 @@ class _DummyClassifier:
 
 
 class _IntentToTreatDRIV(_BaseDRIV):
-    """
-    Base class for the DRIV algorithm for the intent-to-treat A/B test setting
-    """
+    """Base class for the DRIV algorithm for the intent-to-treat A/B test setting."""
 
     def __init__(self, *,
                  model_y_xw="auto",
@@ -2544,9 +2535,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
 
 
 class _DummyCATE:
-    """
-    A dummy cate effect model that always returns zero effect
-    """
+    """A dummy cate effect model that always returns zero effect."""
 
     def __init__(self):
         return
@@ -2562,7 +2551,7 @@ class _DummyCATE:
 
 class IntentToTreatDRIV(_IntentToTreatDRIV):
     """
-    Implements the DRIV algorithm for the intent-to-treat A/B test setting
+    Implements the DRIV algorithm for the intent-to-treat A/B test setting.
 
     Parameters
     ----------
@@ -2847,29 +2836,23 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_prel_model_effect(self):
-        """
-        Get the scores for prel_model_effect model on the out-of-sample training data
-        """
+        """Get the scores for prel_model_effect model on the out-of-sample training data."""
         return self.nuisance_scores_[2]
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     """
-    Implements the DRIV algorithm for the Linear Intent-to-Treat A/B test setting
+    Implements the DRIV algorithm for the Linear Intent-to-Treat A/B test setting.
 
     Parameters
     ----------

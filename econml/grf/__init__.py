@@ -1,8 +1,8 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-""" An efficient Cython implementation of Generalized Random Forests [grf]_ and special
-case python classes.
+"""
+An efficient Cython implementation of Generalized Random Forests [grf]_ and special case python classes.
 
 References
 ----------

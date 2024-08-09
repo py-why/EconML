@@ -33,7 +33,7 @@ class TestInference(unittest.TestCase):
         cls.Y = np.random.normal(0, 1, size=(cls.n, ))
 
     def test_summary(self):
-        """Tests the inference results summary for continuous treatment estimators."""
+        """Test the inference results summary for continuous treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
@@ -129,7 +129,7 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(coef_rows, fnames)
 
     def test_summary_discrete(self):
-        """Tests the inference results summary for discrete treatment estimators."""
+        """Test the inference results summary for discrete treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
@@ -230,7 +230,7 @@ class TestInference(unittest.TestCase):
             np.testing.assert_array_equal(coef_rows, fnames)
 
     def test_degenerate_cases(self):
-        """Test that we return the correct values when our distribution doesn't vary"""
+        """Test that we return the correct values when our distribution doesn't vary."""
         predictions = np.array([[1, 0], [1, 1]])  # first component is always 1
         for inf in [EmpiricalInferenceResults(d_t=1, d_y=2,
                                               pred=np.mean(predictions, axis=0), pred_dist=predictions,
@@ -398,10 +398,10 @@ class TestInference(unittest.TestCase):
                   random_state=123)
         est.fit(Y, T, X=X, W=W)
         effect_inf = est.effect_inference(X)
-        s = pickle.dumps(effect_inf)
+        pickle.dumps(effect_inf)
 
     def test_mean_pred_stderr(self):
-        """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
+        """Test that mean_pred_stderr is not None when estimator's final stage is linear."""
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
         ests = [LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
                           featurizer=PolynomialFeatures(degree=2,
@@ -436,9 +436,9 @@ class TestInference(unittest.TestCase):
             for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
                 est = LinearDML().fit(Y, T, X=X, W=W, inference=inf)
                 inf = est.const_marginal_effect_inference(X)
-                pred, bounds, summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred, bounds, _summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 inf.translate(offset)
-                pred2, bounds2, summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred2, bounds2, _summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 np.testing.assert_array_equal(pred + offset, pred2)
                 np.testing.assert_array_almost_equal(bounds[0] + offset, bounds2[0])
                 np.testing.assert_array_almost_equal(bounds[1] + offset, bounds2[1])
@@ -449,9 +449,9 @@ class TestInference(unittest.TestCase):
             for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
                 est = LinearDML().fit(Y, T, X=X, W=W, inference=inf)
                 inf = est.const_marginal_effect_inference(X)
-                pred, bounds, summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred, bounds, _summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 inf.scale(factor)
-                pred2, bounds2, summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                pred2, bounds2, _summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
                 np.testing.assert_array_equal(pred * factor, pred2)
                 np.testing.assert_array_almost_equal(bounds[0] * factor, bounds2[0])
                 np.testing.assert_array_almost_equal(bounds[1] * factor, bounds2[1])

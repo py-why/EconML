@@ -5,7 +5,7 @@
 
 import numpy as np
 from ..._cate_estimator import BaseCateEstimator
-from ...utilities import check_input_arrays, _deprecate_positional, deprecated, MissingModule
+from ...utilities import check_input_arrays, MissingModule
 try:
     import keras
     from keras import backend as K

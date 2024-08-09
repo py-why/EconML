@@ -4,15 +4,12 @@
 """Tests for linear_model extensions."""
 
 import numpy as np
-import pytest
 import unittest
-import warnings
 from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV,
                                                     WeightedLassoCVWrapper, DebiasedLasso, MultiOutputDebiasedLasso,
                                                     SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
-from sklearn.model_selection import KFold
 from sklearn.base import clone
 
 
@@ -277,7 +274,7 @@ class TestLassoExtensions(unittest.TestCase):
     # WeightedLassoCVWrapper #
     ##########################
     def test_wrapper_attributes(self):
-        """Test that attributes are properly maintained across calls to fit that switch between 1- and 2-D"""
+        """Test that attributes are properly maintained across calls to fit that switch between 1- and 2-D."""
         wrapper = WeightedLassoCVWrapper(alphas=[5, 10], max_iter=100)
         wrapper.tol = 0.01  # set an attribute manually as well
 
@@ -589,7 +586,7 @@ class TestSelectiveRegularization(unittest.TestCase):
         X_aug = X[sample_weight == 2, :]
         y_aug = y[sample_weight == 2]
         model = SelectiveRegularization(unpenalized_inds=inds,
-                                        penalized_model=Ridge(),
+                                        penalized_model=Ridge(alpha=alpha),
                                         fit_intercept=True)
         coef = model.fit(X, y, sample_weight=sample_weight).coef_
         coef2 = model.fit(np.vstack((X, X_aug)),
@@ -603,12 +600,12 @@ class TestSelectiveRegularization(unittest.TestCase):
         X = np.random.normal(size=(n, d))
         y = np.random.normal(size=(n,))
         coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
-                                       penalized_model=Lasso(),
+                                       penalized_model=Lasso(alpha=alpha),
                                        fit_intercept=True).fit(X, y).coef_
         X_perm = np.hstack((X[:, 1:],
                             X[:, :1]))
         coef2 = SelectiveRegularization(unpenalized_inds=slice(1, -1),
-                                        penalized_model=Lasso(),
+                                        penalized_model=Lasso(alpha=alpha),
                                         fit_intercept=True).fit(X_perm, y).coef_
         np.testing.assert_allclose(coef2, np.hstack((coef[1:],
                                                      coef[:1])))
@@ -620,14 +617,14 @@ class TestSelectiveRegularization(unittest.TestCase):
         X = np.random.normal(size=(n, d))
         y = np.random.normal(size=(n,))
         coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
-                                       penalized_model=Lasso(),
+                                       penalized_model=Lasso(alpha=alpha),
                                        fit_intercept=True).fit(X, y).coef_
 
         def index_lambda(X, y):
             # instead of a slice, explicitly return an array of indices
             return np.arange(2, X.shape[1])
         coef2 = SelectiveRegularization(unpenalized_inds=index_lambda,
-                                        penalized_model=Lasso(),
+                                        penalized_model=Lasso(alpha=alpha),
                                         fit_intercept=True).fit(X, y).coef_
         np.testing.assert_allclose(coef, coef2)
 
@@ -640,10 +637,10 @@ class TestSelectiveRegularization(unittest.TestCase):
 
         # _penalized_inds is only set during fitting
         with self.assertRaises(AttributeError):
-            inds = model._penalized_inds
+            _inds = model._penalized_inds
 
         # cv exists on penalized model
-        old_cv = model.cv
+        _old_cv = model.cv
         model.cv = 2
 
         model.fit(X, y)
@@ -655,8 +652,6 @@ class TestSelectiveRegularization(unittest.TestCase):
         assert model.cv == 2
 
     def test_can_clone_selective_regularization(self):
-        X = np.random.normal(size=(10, 3))
-        y = np.random.normal(size=(10,))
         model = SelectiveRegularization(unpenalized_inds=[0],
                                         penalized_model=LassoCV(),
                                         fit_intercept=True)

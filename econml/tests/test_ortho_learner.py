@@ -3,12 +3,10 @@
 
 from sklearn.datasets import make_regression
 from econml._ortho_learner import _OrthoLearner, _crossfit
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LassoCV, Lasso
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.model_selection import KFold
 import numpy as np
 import unittest
-import joblib
 import pytest
 
 try:
@@ -120,7 +118,7 @@ class TestOrthoLearner(unittest.TestCase):
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0])),
                  (np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
         model = Lasso(alpha=0.01)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, use_ray,
                                                                   ray_remote_function_option,
                                                                   X, y, y, Z=None)
@@ -131,7 +129,7 @@ class TestOrthoLearner(unittest.TestCase):
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0])),
                  (np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
         model = Lasso(alpha=0.01)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, use_ray,
                                                                   ray_remote_function_option,
                                                                   X, y, y, Z=None)
@@ -141,7 +139,7 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
         model = Lasso(alpha=0.01)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, use_ray,
                                                                   ray_remote_function_option,
                                                                   X, y, y, Z=None)
@@ -151,7 +149,7 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
         model = Lasso(alpha=0.01)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, use_ray,
                                                                   ray_remote_function_option,
                                                                   X, y, y, Z=None)
@@ -304,7 +302,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
-        est = OrthoLearner(cv=KFold(n_splits=3), discrete_outcome=False,
+        est = OrthoLearner(cv=folds, discrete_outcome=False,
                            discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None, use_ray=use_ray)
 

@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """
+The R Learner plus associated machinery.
 
 The R Learner is an approach for estimating flexible non-parametric models
 of conditional average treatment effects in the setting with no unobserved confounders.
@@ -14,7 +15,6 @@ that also need to be estimated from data:
 
 References
 ----------
-
 Xinkun Nie, Stefan Wager (2017). Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
     https://arxiv.org/abs/1712.04912
 
@@ -27,19 +27,17 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 from abc import abstractmethod
 import numpy as np
-import copy
-from warnings import warn
 
 from ..sklearn_extensions.model_selection import ModelSelector
-from ..utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
-from sklearn.linear_model import LinearRegression
-from sklearn.base import clone
+from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
 
 
 class _ModelNuisance(ModelSelector):
     """
-    Nuisance model fits the model_y and model_t at fit time and at predict time
+    RLearner nuisance model.
+
+    Fits the model_y and model_t at fit time and at predict time
     calculates the residual Y and residual T based on the fitted models and returns
     the residuals as two nuisance parameters.
     """
@@ -75,7 +73,9 @@ class _ModelNuisance(ModelSelector):
 
 class _ModelFinal:
     """
-    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    RLearner final model.
+
+    At fit time, fits a residual on residual regression with a heterogeneous coefficient
     that depends on X, i.e.
 
         .. math ::
@@ -115,8 +115,8 @@ class _ModelFinal:
 class _RLearner(_OrthoLearner):
     """
     Base class for CATE learners that residualize treatment and outcome and run residual on residual regression.
-    The estimator is a special of an :class:`._OrthoLearner` estimator,
-    so it follows the two
+
+    The estimator is a special of an :class:`._OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
     :class:`._OrthoLearner` for a description of this two stage process.
@@ -197,7 +197,6 @@ class _RLearner(_OrthoLearner):
 
     Examples
     --------
-
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
@@ -324,6 +323,8 @@ class _RLearner(_OrthoLearner):
     @abstractmethod
     def _gen_model_y(self):
         """
+        Generate the Y model.
+
         Returns
         -------
         model_y: selector for the estimator of E[Y | X, W]
@@ -339,6 +340,8 @@ class _RLearner(_OrthoLearner):
     @abstractmethod
     def _gen_model_t(self):
         """
+        Generate the T model.
+
         Returns
         -------
         model_t: selector for the estimator of E[T | X, W]
@@ -354,6 +357,8 @@ class _RLearner(_OrthoLearner):
     @abstractmethod
     def _gen_rlearner_model_final(self):
         """
+        Generate the RLearner's final model.
+
         Returns
         -------
         model_final: estimator for fitting the response residuals to the features and treatment residuals
@@ -419,7 +424,9 @@ class _RLearner(_OrthoLearner):
 
     def score(self, Y, T, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -473,7 +480,9 @@ class _RLearner(_OrthoLearner):
     @property
     def residuals_(self):
         """
-        A tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
+        Get the residuals.
+
+        Returns a tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
         along with the associated X and W. Samples are not guaranteed to be in the same
         order as the input order.
         """

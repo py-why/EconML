@@ -1,6 +1,5 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
-import pytest
 import unittest
 import numpy as np
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -262,7 +261,7 @@ class TestMissing(unittest.TestCase):
                                              X_has_missing=False, W_has_missing=True, include_Z=include_Z)
                 est.fit(**data_dict)
                 est.effect(X)
-                est_dowhy = est.dowhy.fit(**data_dict)
+                est.dowhy.fit(**data_dict)
 
                 # assert that we fail with a value error when we pass missing X to a model that doesn't support it
                 data_dict_to_fail = create_data_dict(y, T, X, X_missing, W, W_missing, Z,

@@ -11,7 +11,7 @@ def calculate_dr_outcomes(
     prop_preds: np.array
 ) -> np.array:
     """
-    Calculates doubly-robust (DR) outcomes using predictions from nuisance models
+    Calculate doubly-robust (DR) outcomes using predictions from nuisance models.
 
     Parameters
     ----------
@@ -30,7 +30,6 @@ def calculate_dr_outcomes(
     -------
     Doubly robust outcome values
     """
-
     # treat each treatment as a separate regression
     # here, prop_preds should be a matrix
     # with rows corresponding to units and columns corresponding to treatment statuses
@@ -57,8 +56,8 @@ def calc_uplift(
     n_bootstrap: int = 1000
 ) -> Tuple[float, float, pd.DataFrame]:
     """
-    Helper function for uplift curve generation and coefficient calculation.
-    Calculates uplift curve points, integral, and errors on both points and integral.
+    Calculate uplift curve points, integral, and errors on both points and integral.
+
     Also calculates appropriate critical value multipliers for confidence intervals (via multiplier bootstrap).
     See documentation for "drtester.evaluate_uplift" method for more details.
 

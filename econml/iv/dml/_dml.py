@@ -15,20 +15,17 @@ https://arxiv.org/abs/1905.10176
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from itertools import product
 
 from ..._ortho_learner import _OrthoLearner
-from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin, LinearCateEstimator
-from ...inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
-from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector,
-                                                   WeightedStratifiedKFold, get_selector)
-from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
+from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, LinearCateEstimator
+from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression
+from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector)
+from ...utilities import (get_feature_names_or_default, filter_none_kwargs, add_intercept,
                           cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
-                          parse_final_model_params, deprecated, Summary)
+                          parse_final_model_params, Summary)
 from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
@@ -191,8 +188,9 @@ class _OrthoIVModelFinal:
 
 class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     """
-    Implementation of the orthogonal/double ml method for CATE estimation with
-    IV as described in section 4.2:
+    Implementation of the orthogonal/double ml method for CATE estimation with IV.
+
+    As described in section 4.2:
 
     Double/Debiased Machine Learning for Treatment and Causal Parameters
     Victor Chernozhukov, Denis Chetverikov, Mert Demirer, Esther Duflo, Christian Hansen, Whitney Newey, James Robins
@@ -493,7 +491,9 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -650,32 +650,24 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xw(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_z_xw(self):
-        """
-        Get the scores for z_xw model on the out-of-sample training data
-        """
+        """Get the scores for z_xw model on the out-of-sample training data."""
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use nuisance_scores_t_xwz.")
         return self.nuisance_scores_[2]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for t_xwz model on the out-of-sample training data
-        """
+        """Get the scores for t_xwz model on the out-of-sample training data."""
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use nuisance_scores_z_xw.")
         return self.nuisance_scores_[2]
@@ -700,7 +692,9 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     @property
     def residuals_(self):
         """
-        A tuple (y_res, T_res,Z_res, X, W, Z), of the residuals from the first stage estimation
+        Get the residuals.
+
+        Returns a tuple (y_res, T_res,Z_res, X, W, Z), of the residuals from the first stage estimation
         along with the associated X, W and Z. Samples are not guaranteed to be in the same
         order as the input order.
         """
@@ -715,8 +709,10 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
 class _BaseDMLIVNuisanceSelector(ModelSelector):
     """
-    Nuisance model fits the three models at fit time and at predict time
-    returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
+    Nuisance model for DMLIV.
+
+    Fits the three models at fit time and at predict time returns :math:`Y-\\E[Y|X]` and
+    :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
     """
 
     def __init__(self, model_y_xw: ModelSelector, model_t_xw: ModelSelector, model_t_xwz: ModelSelector):
@@ -770,7 +766,9 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
 
 class _BaseDMLIVModelFinal(_ModelFinal):
     """
-    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    Final model for DMLIV.
+
+    At fit time, fits a residual on residual regression with a heterogeneous coefficient
     that depends on X, i.e.
 
         .. math ::
@@ -779,6 +777,7 @@ class _BaseDMLIVModelFinal(_ModelFinal):
     and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
     residual on residual regression.
     """
+
     pass
 
 
@@ -832,7 +831,9 @@ class _BaseDMLIV(_OrthoLearner):
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -934,29 +935,25 @@ class _BaseDMLIV(_OrthoLearner):
 
     @property
     def nuisance_scores_y_xw(self):
-        """
-        Get the scores for y_xw model on the out-of-sample training data
-        """
+        """Get the scores for y_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_t_xw(self):
-        """
-        Get the scores for t_xw model on the out-of-sample training data
-        """
+        """Get the scores for t_xw model on the out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
     def nuisance_scores_t_xwz(self):
-        """
-        Get the scores for t_xwz model on the out-of-sample training data
-        """
+        """Get the scores for t_xwz model on the out-of-sample training data."""
         return self.nuisance_scores_[2]
 
     @property
     def residuals_(self):
         """
-        A tuple (y_res, T_res, X, W, Z), of the residuals from the first stage estimation
+        Get the residuals.
+
+        Returns a tuple (y_res, T_res, X, W, Z), of the residuals from the first stage estimation
         along with the associated X, W and Z. Samples are not guaranteed to be in the same
         order as the input order.
         """
@@ -998,7 +995,9 @@ class _BaseDMLIV(_OrthoLearner):
 
 class DMLIV(_BaseDMLIV):
     """
-    The base class for parametric DMLIV estimators to estimate a CATE. It accepts three generic machine
+    The base class for parametric DMLIV estimators to estimate a CATE.
+
+    It accepts three generic machine
     learning models as nuisance functions:
     1) model_y_xw that estimates :math:`\\E[Y | X]`
     2) model_t_xw that estimates :math:`\\E[T | X]`
@@ -1233,8 +1232,8 @@ class DMLIV(_BaseDMLIV):
 
     @property
     def coef_(self):
-        """ The coefficients in the linear model of the constant marginal treatment
-        effect.
+        """
+        The coefficients in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -1252,8 +1251,8 @@ class DMLIV(_BaseDMLIV):
 
     @property
     def intercept_(self):
-        """ The intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        The intercept in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -1270,8 +1269,8 @@ class DMLIV(_BaseDMLIV):
                                         self.fit_cate_intercept_)[1]
 
     def summary(self, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1378,7 +1377,9 @@ class DMLIV(_BaseDMLIV):
 
 class NonParamDMLIV(_BaseDMLIV):
     """
-    The base class for non-parametric DMLIV that allows for an arbitrary square loss based ML
+    The base class for non-parametric DMLIV.
+
+    Allows for an arbitrary square loss based ML
     method in the final stage of the DMLIV algorithm. The method has to support
     sample weights and the fit method has to take as input sample_weights (e.g. random forests), i.e.
     fit(X, y, sample_weight=None)

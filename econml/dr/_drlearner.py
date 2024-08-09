@@ -2,13 +2,14 @@
 # Licensed under the MIT License.
 
 """
-Doubly Robust Learner. The method uses the doubly robust correction to construct doubly
+Doubly Robust Learner.
+
+The method uses the doubly robust correction to construct doubly
 robust estimates of all the potential outcomes of each samples. Then estimates a CATE model
 by regressing the potential outcome differences on the heterogeneity features X.
 
 References
 ----------
-
 Dylan Foster, Vasilis Syrgkanis (2019).
     Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
@@ -35,25 +36,20 @@ Tsiatis AA (2006).
 """
 
 from warnings import warn
-from copy import deepcopy
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import (LassoCV, LinearRegression,
-                                  LogisticRegressionCV)
-from sklearn.ensemble import RandomForestRegressor
 
 
 from .._ortho_learner import _OrthoLearner
-from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
-                               ForestModelFinalCateEstimatorDiscreteMixin,
+from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, ForestModelFinalCateEstimatorDiscreteMixin,
                                StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
-    DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+    DebiasedLasso, StatsModelsLinearRegression)
 from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
-from ..utilities import (_deprecate_positional, check_high_dimensional,
+from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
@@ -207,9 +203,9 @@ class _ModelFinal:
 
 class DRLearner(_OrthoLearner):
     """
-    CATE estimator that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms. The estimator is a special
-    case of an :class:`._OrthoLearner` estimator, so it follows the two
+    CATE estimator that uses doubly-robust correction to account for selection bias between the treatment arms.
+
+    The estimator is a special case of an :class:`._OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
     :class:`._OrthoLearner` for a description of this two stage process.
@@ -580,7 +576,9 @@ class DRLearner(_OrthoLearner):
 
     def score(self, Y, T, X=None, W=None, sample_weight=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds.
         Then calculates the MSE of the final residual Y on residual T regression.
@@ -676,12 +674,12 @@ class DRLearner(_OrthoLearner):
 
     @property
     def nuisance_scores_propensity(self):
-        """Gets the score for the propensity model on out-of-sample training data"""
+        """Get the score for the propensity model on out-of-sample training data."""
         return self.nuisance_scores_[0]
 
     @property
     def nuisance_scores_regression(self):
-        """Gets the score for the regression model on out-of-sample training data"""
+        """Get the score for the regression model on out-of-sample training data."""
         return self.nuisance_scores_[1]
 
     @property
@@ -756,9 +754,9 @@ class DRLearner(_OrthoLearner):
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`.DRLearner` where the final stage
-    is a Linear Regression on a low dimensional set of features. In this case, inference
-    can be performed via the asymptotic normal characterization of the estimated parameters.
+    Special case of :class:`.DRLearner` where the final stage is Linear Regression on a low dimensional set of features.
+
+    In this case, inference can be performed via the asymptotic normal characterization of the estimated parameters.
     This is computationally faster than bootstrap inference. To do this, just leave the setting ``inference='auto'``
     unchanged, or explicitly set ``inference='statsmodels'`` or alter the covariance type calculation via
     ``inference=StatsModelsInferenceDiscrete(cov_type='HC1)``.
@@ -1036,8 +1034,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
 class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`.DRLearner` where the final stage
-    is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
+    Special case of the :class:`.DRLearner` where the final stage is a Debiased Lasso Regression.
+
+    In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
     ``inference='debiasedlasso'`` at fit time to enable inference via asymptotic normality.
@@ -1350,8 +1349,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
 
 class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
-    """ Instance of DRLearner with a :class:`~econml.grf.RegressionForest`
-    as a final model, so as to enable non-parametric inference.
+    """
+    Instance of DRLearner with a :class:`~econml.grf.RegressionForest` final model to enable non-parametric inference.
 
     Parameters
     ----------

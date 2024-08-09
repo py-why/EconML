@@ -26,8 +26,7 @@ except ImportError as exn:
 
 class DoWhyWrapper:
     """
-    A wrapper class to allow user call other methods from dowhy package through EconML.
-    (e.g. causal graph, refutation test, etc.)
+    Wrapper to call other methods (e.g. causal graph, refutation test, etc.) from dowhy package through EconML.
 
     Parameters
     ----------

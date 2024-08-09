@@ -9,27 +9,27 @@ _ihdp_sim_data = pd.read_csv(_ihdp_sim_file)
 
 
 def ihdp_surface_A(random_state=None):
-    """ Generates semi-synthetic, constant treatment effect data according to response surface A
-        from Hill (2011).
+    """
+    Generate semi-synthetic, constant treatment effect data according to response surface A from Hill (2011).
 
-        Parameters
-        ----------
-        random_state : int, RandomState instance, or None, default None
-                If int, random_state is the seed used by the random number generator;
-            If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
-            If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-            by :mod:`np.random<numpy.random>`.
+    Parameters
+    ----------
+    random_state : int, RandomState instance, or None, default None
+            If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
 
-        Returns
-        -------
-        Y : array_like, shape (n, d_y)
-            Outcome for the treatment policy.
+    Returns
+    -------
+    Y : array_like, shape (n, d_y)
+        Outcome for the treatment policy.
 
-        T : array_like, shape (n, d_t)
-            Binary treatment policy.
+    T : array_like, shape (n, d_t)
+        Binary treatment policy.
 
-        X : array_like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
+    X : array_like, shape (n, d_x)
+        Feature vector that captures heterogeneity.
     """
     # Remove children with nonwhite mothers from the treatment group
     T, X = _process_ihdp_sim_data()
@@ -43,27 +43,27 @@ def ihdp_surface_A(random_state=None):
 
 
 def ihdp_surface_B(random_state=None):
-    """ Generates semi-synthetic, heterogeneous treatment effect data according to response surface B
-        from Hill (2011).
+    """
+    Generate semi-synthetic, heterogeneous treatment effect data according to response surface B from Hill (2011).
 
-        Parameters
-        ----------
-        random_state : int, RandomState instance, or None, default None
-                If int, random_state is the seed used by the random number generator;
-            If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
-            If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-            by :mod:`np.random<numpy.random>`.
+    Parameters
+    ----------
+    random_state : int, RandomState instance, or None, default None
+            If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
 
-        Returns
-        -------
-        Y : array_like, shape (n, d_y)
-            Outcome for the treatment policy.
+    Returns
+    -------
+    Y : array_like, shape (n, d_y)
+        Outcome for the treatment policy.
 
-        T : array_like, shape (n, d_t)
-            Binary treatment policy.
+    T : array_like, shape (n, d_t)
+        Binary treatment policy.
 
-        X : array_like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
+    X : array_like, shape (n, d_x)
+        Feature vector that captures heterogeneity.
     """
     T, X = _process_ihdp_sim_data()
     n = X.shape[0]

@@ -20,7 +20,7 @@ from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.metalearners import XLearner, SLearner, TLearner
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-from sklearn.linear_model import LinearRegression, MultiTaskLasso, LassoCV
+from sklearn.linear_model import MultiTaskLasso, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
 from econml.iv.dr import LinearIntentToTreatDRIV
 from econml.iv.nnet import DeepIV
@@ -69,8 +69,8 @@ class TestPandasIntegration(unittest.TestCase):
         # Test LinearDML
         est = LinearDML(model_y=LassoCV(), model_t=LassoCV())
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check that names propagate as expected
         # |--> Test featurizers
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
@@ -95,14 +95,14 @@ class TestPandasIntegration(unittest.TestCase):
         # Test SparseLinearDML
         est = SparseLinearDML(model_y=LassoCV(), model_t=LassoCV())
         est.fit(Y, T, X=X, W=W, inference='debiasedlasso')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check that names propagate as expected
         # Test ForestDML
         est = CausalForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='blb')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         ####################################
         #  Mutiple treatments and outcomes #
         ####################################
@@ -119,8 +119,8 @@ class TestPandasIntegration(unittest.TestCase):
         # Test SparseLinearDML
         est = SparseLinearDML(model_y=MultiTaskLasso(), model_t=MultiTaskLasso())
         est.fit(Y, T, X=X, W=W, inference='debiasedlasso')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary(), True, True)  # Check that names propagate as expected
         self._check_popsum_names(est.effect_inference(X).population_summary(), True)
 
@@ -134,15 +134,15 @@ class TestPandasIntegration(unittest.TestCase):
         est = DMLOrthoForest(
             n_trees=100, max_depth=2, model_T=WeightedLasso(), model_Y=WeightedLasso())
         est.fit(Y, T, X=X, W=W, inference='blb')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_popsum_names(est.effect_inference(X).population_summary())
         # Test DROrthoForest
         est = DROrthoForest(n_trees=100, max_depth=2)
         T = TestPandasIntegration.df[TestPandasIntegration.bin_treat]
         est.fit(Y, T, X=X, W=W, inference='blb')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_popsum_names(est.effect_inference(X).population_summary())
 
     def test_metalearners(self):
@@ -156,15 +156,15 @@ class TestPandasIntegration(unittest.TestCase):
                        propensity_model=GradientBoostingClassifier(),
                        cate_models=GradientBoostingRegressor())
         est.fit(Y, T, X=np.hstack([X, W]))
-        treatment_effects = est.effect(np.hstack([X, W]))
+        _treatment_effects = est.effect(np.hstack([X, W]))
         # Test SLearner
         est = SLearner(overall_model=GradientBoostingRegressor())
         est.fit(Y, T, X=np.hstack([X, W]))
-        treatment_effects = est.effect(np.hstack([X, W]))
+        _treatment_effects = est.effect(np.hstack([X, W]))
         # Test TLearner
         est = TLearner(models=GradientBoostingRegressor())
         est.fit(Y, T, X=np.hstack([X, W]))
-        treatment_effects = est.effect(np.hstack([X, W]))
+        _treatment_effects = est.effect(np.hstack([X, W]))
 
     def test_drlearners(self):
         X = TestPandasIntegration.df[TestPandasIntegration.features]
@@ -175,24 +175,24 @@ class TestPandasIntegration(unittest.TestCase):
         est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
                               model_regression=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary(T=1))
         self._check_popsum_names(est.effect_inference(X).population_summary())
         # Test SparseLinearDRLearner
         est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
                                     model_regression=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='debiasedlasso')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary(T=1))
         self._check_popsum_names(est.effect_inference(X).population_summary())
         # Test ForestDRLearner
         est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
                               model_regression=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='blb')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_popsum_names(est.effect_inference(X).population_summary())
 
     def test_orthoiv(self):
@@ -205,8 +205,8 @@ class TestPandasIntegration(unittest.TestCase):
                                       model_t_xwz=GradientBoostingClassifier(),
                                       flexible_model_effect=GradientBoostingRegressor())
         est.fit(Y, T, Z=Z, X=X, inference='statsmodels')
-        treatment_effects = est.effect(X)
-        lb, ub = est.effect_interval(X, alpha=0.05)
+        _treatment_effects = est.effect(X)
+        _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check input names propagate
         self._check_popsum_names(est.effect_inference(X).population_summary())
 
@@ -236,7 +236,7 @@ class TestPandasIntegration(unittest.TestCase):
                      n_samples=1  # Number of samples used to estimate the response
                      )
         est.fit(Y, T, X=X, Z=Z)
-        treatment_effects = est.effect(X)
+        _treatment_effects = est.effect(X)
 
     def test_cat_treatments(self):
         X = TestPandasIntegration.df[TestPandasIntegration.features]

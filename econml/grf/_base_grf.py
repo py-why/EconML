@@ -10,19 +10,19 @@
 # All rights reserved.
 
 import numbers
-from warnings import catch_warnings, simplefilter, warn
+from warnings import warn
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import threading
 from .._ensemble import (BaseEnsemble, _partition_estimators, _get_n_samples_subsample,
-                         _accumulate_prediction, _accumulate_prediction_var, _accumulate_prediction_and_var,
+                         _accumulate_prediction, _accumulate_prediction_and_var,
                          _accumulate_oob_preds)
-from ..utilities import check_inputs, cross_product
+from ..utilities import check_inputs
 from ..tree._tree import DTYPE, DOUBLE
 from ._base_grftree import GRFTree
 from joblib import Parallel, delayed
 from scipy.sparse import hstack as sparse_hstack
-from sklearn.utils import check_random_state, compute_sample_weight
+from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_sample_weight, check_is_fitted
 from sklearn.utils import check_X_y
 import scipy.stats
@@ -39,8 +39,9 @@ MAX_INT = np.iinfo(np.int32).max
 
 class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     """
-    Base class for Genearlized Random Forests for solving linear moment equations of
-    the form::
+    Base class for Genearlized Random Forests.
+
+    Solves a linear moment equations of the form::
 
         E[J * theta(x) - A | X = x] = 0
 
@@ -105,7 +106,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @abstractmethod
     def _get_alpha_and_pointJ(self, X, T, y, **kwargs):
-        """ This function must be implemented by child class and given input variables
+        """
+        Get the point-wise alpha and jacobian random variables.
+
+        This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should be calculating
         the point-wise random vector A and the point-wise jacobian random variable J of
         the linear moment equation for every sample in the input samples.
@@ -121,7 +125,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @abstractmethod
     def _get_n_outputs_decomposition(self, X, T, y, **kwargs):
-        """ This function must be implemented by child class and given input variables
+        """
+        Get the number of outputs and the number of relevant outputs.
+
+        This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should return a tuple
         (n_outputs, n_relevant_outputs), which determines how many parameters is the moment
         estimating and what prefix of these parameters are the relevant ones that we care about.
@@ -400,8 +407,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self
 
     def get_subsample_inds(self,):
-        """ Re-generate the example same sample indices as those at fit time using same pseudo-randomness.
-        """
+        """Re-generate the example same sample indices as those at fit time using same pseudo-randomness."""
         check_is_fitted(self)
         subsample_random_state = check_random_state(self.subsample_random_seed_)
         if self.inference_:
@@ -417,7 +423,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
-        The feature importances based on the amount of parameter heterogeneity they create.
+        Get feature importances based on the amount of parameter heterogeneity they create.
+
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
         creates. For each tree and for each split that the feature was chosen adds::
@@ -434,6 +441,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Splits of depth larger than `max_depth` are not used in this calculation
         depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
+
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)
@@ -458,15 +466,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self.feature_importances()
 
     def _validate_X_predict(self, X):
-        """
-        Validate X whenever one tries to predict, apply, and other predict methods."""
+        """Validate X whenever one tries to predict, apply, and other predict methods."""
         check_is_fitted(self)
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_tree_average_full(self, X):
-        """ Return the fitted local parameters for each X, i.e. theta(X). This
-        method simply returns the average of the parameters estimated by each tree. `predict_full`
+        """
+        Return the fitted local parameters for each X, i.e. theta(X).
+
+        This method simply returns the average of the parameters estimated by each tree. `predict_full`
         should be preferred over `pred_tree_average_full`, as it performs a more stable averaging across
         trees.
 
@@ -481,7 +490,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         theta(X) : array_like of shape (n_samples, n_outputs)
             The estimated relevant parameters for each row of X
         """
-
         check_is_fitted(self)
         # Check data
         X = self._validate_X_predict(X)
@@ -503,7 +511,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return y_hat
 
     def predict_tree_average(self, X):
-        """ Return the prefix of relevant fitted local parameters for each X, i.e. theta(X)[1..n_relevant_outputs].
+        """
+        Return the prefix of relevant fitted local parameters for each X, i.e. theta(X)[1..n_relevant_outputs].
+
         This method simply returns the average of the parameters estimated by each tree. `predict`
         should be preferred over `pred_tree_average`, as it performs a more stable averaging across
         trees.
@@ -525,8 +535,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return y_hat[:, :self.n_relevant_outputs_]
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
-        """ Return the value of the conditional expected moment vector at each sample and
-        for the given parameter estimate for each sample::
+        """
+        Return the value of the conditional expected moment vector and variance at each sample.
+
+        For the given parameter estimate for each sample::
 
             M(x; theta(x)) := E[J | X=x] theta(x) - E[A | X=x]
 
@@ -593,8 +605,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return moment_hat, moment_var_hat
 
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
-        """ Return the value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
-        using the forest as kernel weights, i.e.::
+        """
+        Get the predicted alpha and jacobian values.
+
+        The value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
+        use the forest as kernel weights, i.e.::
 
             alpha(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] A[i]
             jac(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] J[i]
@@ -648,7 +663,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
     def _predict_point_and_var(self, X, full=False, point=True, var=False, project=False, projector=None):
-        """ An internal private method that coordinates all prediction functionality and tries to share
+        """
+        Coordinate all prediction functionality.
+
+        Tries to share
         as much computation between different predict methods to avoid re-computation and re-spawining of
         parallel executions.
 
@@ -685,7 +703,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             If `project=False` and `full=True`, then `x=n_outputs`. If `project=False` and `full=False`,
             then `x=n_relevant_outputs`.
         """
-
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
         parameter = np.einsum('ijk,ik->ij', invjac, alpha)
@@ -772,7 +789,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 return pred_cov[:, :n_outputs, :n_outputs]
 
     def predict_full(self, X, interval=False, alpha=0.05):
-        """ Return the fitted local parameters for each x in X, i.e. theta(x).
+        """Return the fitted local parameters for each x in X, i.e. theta(x).
 
         Parameters
         ----------
@@ -808,8 +825,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
     def predict(self, X, interval=False, alpha=0.05):
-        """ Return the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs].
+        """
+        Return the prefix of relevant fitted local parameters for each x in X, i.e. theta(x)[1..n_relevant_outputs].
 
         Parameters
         ----------
@@ -843,8 +860,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             return y_hat[:, :self.n_relevant_outputs_]
 
     def predict_interval(self, X, alpha=0.05):
-        """ Return the confidence interval for the relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs].
+        """
+        Return the confidence interval for the relevant fitted local parameters for each x in X.
 
         Parameters
         ----------
@@ -865,8 +882,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return lb, ub
 
     def predict_and_var(self, X):
-        """ Return the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs] and their covariance matrix.
+        """
+        Return the prefix of relevant fitted local parameters and their covariance matrix for each x in X.
 
         Parameters
         ----------
@@ -884,8 +901,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=True, var=True)
 
     def predict_var(self, X):
-        """ Return the covariance matrix of the prefix of relevant fitted local parameters
-        for each x in X.
+        """
+        Return the covariance matrix of the prefix of relevant fitted local parameters for each x in X.
 
         Parameters
         ----------
@@ -901,8 +918,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=False, var=True)
 
     def prediction_stderr(self, X):
-        """ Return the standard deviation of each coordinate of the prefix of relevant fitted local parameters
-        for each x in X.
+        """
+        Return the standard deviation of each coordinate of the prefix of relevant fitted local parameters.
 
         Parameters
         ----------
@@ -918,8 +935,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return np.sqrt(np.diagonal(self.predict_var(X), axis1=1, axis2=2))
 
     def _check_projector(self, X, projector):
-        """ validate the projector parameter
-        """
+        """Validate the projector parameter."""
         X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
         if projector.ndim == 1:
             projector = projector.reshape((-1, 1))
@@ -929,8 +945,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return X, projector
 
     def predict_projection_and_var(self, X, projector):
-        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+        """
+        Return the product of the prefix of relevant fitted local parameters with a projector vector, and its variance.
+
+        That is::
 
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
 
@@ -956,8 +974,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                            project=True, projector=projector)
 
     def predict_projection(self, X, projector):
-        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+        """
+        Return the product of the prefix of relevant fitted local parameters with a projector vector.
+
+        That is::
 
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
 
@@ -979,8 +999,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                            project=True, projector=projector)
 
     def predict_projection_var(self, X, projector):
-        """ Return the variance of the inner product of the prefix of relevant fitted local parameters
-        for each x in X, i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+        """
+        Return the variance of the product of the prefix of relevant fitted local parameters with a projector vector.
+
+        That is::
 
             Var(mu(x)) for mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
 
@@ -1002,9 +1024,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                            project=True, projector=projector)
 
     def oob_predict(self, Xtrain):
-        """ Returns the relevant output predictions for each of the training data points, when
-        only trees where that data point was not used are incorporated. This method is not
-        available is the estimator was trained with `warm_start=True`.
+        """
+        Return the relevant output predictions for each data point, using the trees that didn't use that data point.
+
+        This method is not available is the estimator was trained with `warm_start=True`.
 
         Parameters
         ----------
@@ -1016,7 +1039,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         oob_preds : (n_training_samples, n_relevant_outputs) matrix
             The out-of-bag predictions of the relevant output parameters for each of the training points
         """
-
         if self.warm_start_:
             raise AttributeError("`oob_predict` is not available when "
                                  "the estimator was fitted with `warm_start=True`")

@@ -1,6 +1,13 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
+"""
+Automated Machine Learning Support For EconML Estimators.
+
+This allows analysts to use AutomatedML to automate the process of selecting models for models Y, T,
+and final of their causal inferenve estimator.
+"""
+
 # AzureML
 from azureml.core.experiment import Experiment
 from azureml.core import Workspace
@@ -11,10 +18,6 @@ from sklearn.multioutput import MultiOutputRegressor
 import time
 import copy
 
-"""Automated Machine Learning Support For EconML Estimators. This allows analysts
-to use AutomatedML to automate the process of selecting models for models Y, T,
-and final of their causal inferenve estimator.
-"""
 
 LINEAR_MODELS_SET = set([
     "ElasticNet",
@@ -45,13 +48,14 @@ SAMPLE_WEIGHTS_MODELS_SET = set([
 def setAutomatedMLWorkspace(create_workspace=False,
                             create_resource_group=False, workspace_region=None, *,
                             auth=None, subscription_id, resource_group, workspace_name):
-    """Set configuration file for AutomatedML actions with the EconML library. If
-    ``create_workspace`` is set true, a new workspace is created
+    """
+    Set configuration file for AutomatedML actions with the EconML library.
+
+    If ``create_workspace`` is set true, a new workspace is created
     for the user.
 
     Parameters
     ----------
-
     create_workspace: bool, default False
        If set to true, a new workspace will be created if the specified
        workspace does not exist.
@@ -109,27 +113,25 @@ def setAutomatedMLWorkspace(create_workspace=False,
 
 def addAutomatedML(baseClass):
     """
-    Enables base class to use EconAutoMLConfig objects instead of models
-    by adding the AutomatedMLMixin to specified base class. Once this Mixin
-    has been added, EconML classes can be initialized with EconAutoMLConfig
+    Enable base class to use EconAutoMLConfig objects instead of models by mixing AutomatedMLMixin into the base class.
+
+    Once this Mixin has been added, EconML classes can be initialized with EconAutoMLConfig
     objects rather than scikit learn models.
 
 
     Parameters
     ----------
-
     baseClass: Class, required
        Definition of a class that will serve as the parent class of the
        AutomatedMLMixin.
 
     Returns
-    ----------
-
+    -------
     automatedMLClass: Class
       A modified version of ``baseClass`` that accepts the parameters of the
       AutomatedML Mixin rather in addition to the original class objects.
 
-   """
+    """
 
     class AutomatedMLClass(AutomatedMLMixin, baseClass):
         pass
@@ -147,7 +149,6 @@ class AutomatedMLModel():
 
         Parameters
         ----------
-
         automl_config: azureml.train.automl.automlconfig.AutoMLConfig, required
            Configuration for submitting an Automated Machine Learning experiment in Azure Machine Learning.
            This configuration object contains and persists the parameters for configuring the experiment
@@ -172,7 +173,6 @@ class AutomatedMLModel():
 
         Parameters
         ----------
-
         X: ndarray or DataFrame, required
            The training features to use when fitting pipelines during AutoML experiment.
 
@@ -266,9 +266,10 @@ class _InnerAutomatedMLModel():
 class AutomatedMLMixin():
     def __init__(self, *args, **kwargs):
         """
-        Mixin enabling users to leverage automatedML as their model of choice in
-        Double Machine Learners and Doubly Robust Learners. It instantiates
-        AutomatedMLModels for each automl_config provided and pass them as
+        Mixin enabling users to leverage automatedML as their model of choice.
+
+        It instantiates
+        AutomatedMLModels for each automl_config provided and passes them as
         parameters into its parent class.
 
         Parameters
@@ -282,7 +283,7 @@ class AutomatedMLMixin():
            kwargs that are passed in order to initiate the final automatedML run.
            Any kwarg, that is an AutoMLConfig, will be converted into as
            AutomatedMLModel.
-       """
+        """
         # Loop through the kwargs and args if any of them is an AutoMLConfig file, pass them
         # create model and pass model into final.
         new_args = ()
@@ -320,12 +321,10 @@ class EconAutoMLConfig(AutoMLConfig):
 
     def __init__(self, sample_weights_required=False, linear_model_required=False, show_output=False, **kwargs):
         """
-        Azure AutoMLConfig object with added guards to ensure correctness when used
-        with EconML
+        Azure AutoMLConfig object with added guards to ensure correctness when used with EconML.
 
         Parameters
         ----------
-
         sample_weights_required: bool, default False
            If set true, only models that require sample weights will be selected during
            AutomatedML.

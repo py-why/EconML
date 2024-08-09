@@ -9,18 +9,16 @@
 # Copyright (c) 2007-2020 The scikit-learn developers.
 # All rights reserved.
 
-import numbers
-from warnings import catch_warnings, simplefilter, warn
-from abc import ABCMeta, abstractmethod
+from warnings import warn
+from abc import ABCMeta
 import numpy as np
 import threading
 from ..._ensemble import (BaseEnsemble, _partition_estimators, _get_n_samples_subsample, _accumulate_prediction)
-from ...utilities import check_inputs, cross_product
 from ...tree._tree import DTYPE, DOUBLE
 from ._tree import PolicyTree
 from joblib import Parallel, delayed
 from scipy.sparse import hstack as sparse_hstack
-from sklearn.utils import check_random_state, compute_sample_weight
+from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_sample_weight, check_is_fitted
 from sklearn.utils import check_X_y
 
@@ -34,7 +32,10 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
-    """ Welfare maximization policy forest. Trains a forest to maximize the objective:
+    """
+    Welfare maximization policy forest.
+
+    Trains a forest to maximize the objective:
     :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
     to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
     optimization problem.
@@ -273,7 +274,6 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         -------
         self : object
         """
-
         X, y = check_X_y(X, y, multi_output=True)
 
         if sample_weight is not None:
@@ -372,8 +372,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return self
 
     def get_subsample_inds(self,):
-        """ Re-generate the example same sample indices as those at fit time using same pseudo-randomness.
-        """
+        """Re-generate the example same sample indices as those at fit time using same pseudo-randomness."""
         check_is_fitted(self)
         subsample_random_state = check_random_state(self.subsample_random_seed_)
         return [subsample_random_state.choice(n_, ns_, replace=False)
@@ -381,7 +380,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
-        The feature importances based on the amount of parameter heterogeneity they create.
+        Get the feature importances based on the amount of parameter heterogeneity they create.
+
         The higher, the more important the feature.
 
         Parameters
@@ -415,14 +415,13 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return self.feature_importances()
 
     def _validate_X_predict(self, X):
-        """
-        Validate X whenever one tries to predict, apply, and other predict methods."""
+        """Validate X whenever one tries to predict, apply, and other predict methods."""
         check_is_fitted(self)
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_value(self, X):
-        """ Predict the expected value of each treatment for each sample
+        """Predict the expected value of each treatment for each sample.
 
         Parameters
         ----------
@@ -435,7 +434,6 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         welfare : array_like of shape (n_samples, n_treatments)
             The conditional average welfare for each treatment for the group of each sample defined by the tree
         """
-
         check_is_fitted(self)
         # Check data
         X = self._validate_X_predict(X)
@@ -457,7 +455,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return y_hat
 
     def predict_proba(self, X):
-        """ Predict the probability of recommending each treatment
+        """
+        Predict the probability of recommending each treatment.
 
         Parameters
         ----------
@@ -494,7 +493,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return y_hat
 
     def predict(self, X):
-        """ Predict the best treatment for each sample
+        """Predict the best treatment for each sample.
 
         Parameters
         ----------

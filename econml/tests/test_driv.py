@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV,)
-from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel
@@ -36,7 +35,7 @@ class TestDRIV(unittest.TestCase):
             return (n,) + ((1,) if binary_T else ())
 
         def eff_shape(n, d_x):
-            "Effect shape."
+            """Effect shape."""
             return (n if d_x else 1,)
 
         n = 500
@@ -418,5 +417,5 @@ class TestDRIV(unittest.TestCase):
         for est in est_list:
             with self.subTest(est=est):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
-                score = est.score(y, T, Z=Z, X=X, W=W)
-                eff = est.const_marginal_effect(X)
+                est.score(y, T, Z=Z, X=X, W=W)
+                est.const_marginal_effect(X)

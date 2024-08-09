@@ -1,27 +1,27 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-"""Metalearners for heterogeneous treatment effects in the context of discrete treatments.
+"""
+Metalearners for heterogeneous treatment effects in the context of discrete treatments.
 
 For more details on these CATE methods, see `<https://arxiv.org/abs/1706.03461>`_
 (Künzel S., Sekhon J., Bickel P., Yu B.) on Arxiv.
 """
 
 import numpy as np
-import warnings
 from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.utils import check_array, check_X_y
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                         one_hot_encoder, inverse_onehot, transpose, _deprecate_positional)
+from sklearn.utils import check_array
+from ..utilities import (check_inputs, check_models, broadcast_unit_treatments,
+                         one_hot_encoder, inverse_onehot, transpose)
 from .._shap import _shap_explain_model_cate
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
-    """Conditional mean regression estimator.
+    """
+    Conditional mean regression estimator.
 
     Parameters
     ----------
@@ -102,7 +102,6 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
 
         """
-
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
                                   force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
@@ -145,7 +144,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
 
 class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
-    """Conditional mean regression estimator where the treatment assignment is taken as a feature in the ML model.
+    """
+    Conditional mean regression estimator where the treatment assignment is taken as a feature in the ML model.
 
     Parameters
     ----------
@@ -202,7 +202,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X=None, inference=None):
-        """Build an instance of SLearner.
+        """
+        Build an instance of SLearner.
 
         Parameters
         ----------
@@ -242,7 +243,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.overall_model.fit(feat_arr, Y)
 
     def const_marginal_effect(self, X=None):
-        """Calculate the constant marginal treatment effect on a vector of features for each sample.
+        """
+        Calculate the constant marginal treatment effect on a vector of features for each sample.
 
         Parameters
         ----------
@@ -272,8 +274,10 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
 
 class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
-    """Meta-algorithm proposed by Kunzel et al. that performs best in settings
-       where the number of units in one treatment arm is much larger than others.
+    """
+    Meta-algorithm proposed by Kunzel et al.
+
+    Performs best in settings where the number of units in one treatment arm is much larger than others.
 
     Parameters
     ----------
@@ -433,8 +437,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
 
 class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
-    """Meta-algorithm that uses domain adaptation techniques to account for
-       covariate shift (selection bias) among the treatment arms.
+    """
+    Meta-algorithm that uses domain adaptation techniques to account for selection bias among the treatment arms.
 
     Parameters
     ----------

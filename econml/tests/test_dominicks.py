@@ -9,7 +9,6 @@ from econml.utilities import reshape, shape
 from econml.dml import LinearDML
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import RidgeCV, LinearRegression
 import pytest
 
 
@@ -29,8 +28,6 @@ def test_dominicks():
     featnames = ["week", "feat"] + list(oj_data.columns[6:])
 
     # Preprocess data
-    import datetime
-    import numpy as np
 
     # Convert 'week' to a date
     # week_zero = datetime.datetime.strptime("09/07/89", "%m/%d/%y")

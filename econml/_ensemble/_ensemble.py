@@ -13,7 +13,6 @@ import numbers
 import numpy as np
 from abc import ABCMeta, abstractmethod
 from sklearn.base import BaseEstimator, clone
-from sklearn.utils import check_random_state
 from joblib import effective_n_jobs
 from packaging.version import parse
 import sklearn
@@ -44,9 +43,12 @@ def _fit_single_estimator(estimator, X, y, sample_weight=None,
 
 
 def _set_random_states(estimator, random_state):
-    """Set fixed random_state parameters for an estimator.
+    """
+    Set fixed random_state parameters for an estimator.
+
     Finds all parameters ending ``random_state`` and sets them to integers
     derived from ``random_state``.
+
     Parameters
     ----------
     estimator : estimator supporting get/set_params
@@ -55,6 +57,7 @@ def _set_random_states(estimator, random_state):
     random_state : np.RandomState object
         Pseudo-random number generator to control the generation of the random
         integers.
+
     Notes
     -----
     This does not necessarily set *all* ``random_state`` attributes that
@@ -74,9 +77,12 @@ def _set_random_states(estimator, random_state):
 
 
 class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
-    """Base class for all ensemble classes.
+    """
+    Base class for all ensemble classes.
+
     Warning: This class should not be used directly. Use derived classes
     instead.
+
     Parameters
     ----------
     base_estimator : object
@@ -86,6 +92,7 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
     estimator_params : list of str, default tuple()
         The list of attributes to use as parameters when instantiating a
         new base estimator. If none are given, default parameters are used.
+
     Attributes
     ----------
     base_estimator_ : estimator
@@ -107,7 +114,9 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
         # self.estimators_ needs to be filled by the derived classes in fit.
 
     def _validate_estimator(self, default=None):
-        """Check the estimator and the n_estimator attribute.
+        """
+        Check the estimator and the n_estimator attribute.
+
         Sets the base_estimator_` attributes.
         """
         if not isinstance(self.n_estimators, numbers.Integral):
@@ -127,7 +136,9 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
             raise ValueError("base_estimator cannot be None")
 
     def _make_estimator(self, append=True, random_state=None):
-        """Make and configure a copy of the `base_estimator_` attribute.
+        """
+        Make and configure a copy of the `base_estimator_` attribute.
+
         Warning: This method should be used to properly instantiate new
         sub-estimators.
         """

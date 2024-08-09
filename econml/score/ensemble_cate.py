@@ -7,8 +7,10 @@ from .._cate_estimator import BaseCateEstimator, LinearCateEstimator
 
 
 class EnsembleCateEstimator:
-    """ A CATE estimator that represents a weighted ensemble of many
-    CATE estimators. Returns their weighted effect prediction.
+    """
+    A CATE estimator that represents a weighted ensemble of many CATE estimators.
+
+    Returns their weighted effect prediction.
 
     Parameters
     ----------

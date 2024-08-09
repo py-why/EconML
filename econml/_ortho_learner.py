@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 """
+Generic implementation of Orthogonal Machine Learning.
 
 Orthogonal Machine Learning is a general approach to estimating causal models
 by formulating them as minimizers of some loss function that depends on
@@ -12,7 +13,6 @@ and save a lot of code repetition.
 
 References
 ----------
-
 Dylan Foster, Vasilis Syrgkanis (2019). Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
 
@@ -24,28 +24,22 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 """
 
-import copy
 from collections import namedtuple
-from warnings import warn
 from abc import abstractmethod
 from typing import List, Union
-import inspect
-from collections import defaultdict
-import re
 
 import numpy as np
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import (LabelEncoder)
 from sklearn.utils import check_random_state
 
 from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
-                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .utilities import (check_input_arrays,
+                        filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
+                        jacify_featurizer, reshape, shape)
 from .sklearn_extensions.model_selection import ModelSelector
 
 try:
@@ -60,6 +54,9 @@ except ImportError as exn:
 def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     """
     Fits a single model on the training data and calculates the nuisance value on the test data.
+
+    Parameters
+    ----------
     model:  object
         An object that supports fit and predict. Fit must accept all the args
         and the keyword arguments kwargs. Similarly predict must all accept
@@ -81,8 +78,9 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
         `model.predict(*args, **kwargs)`. Key-value arguments that have value
         None, are ommitted from the two calls. So all the args and the non None
         kwargs variables must be part of the models signature.
-    Returns:
-    --------
+
+    Returns
+    -------
     -Tuple containing:
     nuisance_temp (tuple): Predictions or values of interest from the model.
     fitted_model: The fitted model after training.
@@ -313,7 +311,9 @@ CachedValues = namedtuple('CachedValues', ['nuisances',
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
-    Base class for all orthogonal learners. This class is a parent class to any method that has
+    Base class for all orthogonal learners.
+
+    This class is a parent class to any method that has
     the following architecture:
 
     1.  The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
@@ -426,7 +426,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Examples
     --------
-
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
@@ -589,7 +588,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
-        """Must return a fresh instance of a nuisance model selector
+        """Must return a fresh instance of a nuisance model selector.
 
         Returns
         -------
@@ -615,7 +614,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_final(self):
-        """ Must return a fresh instance of a final model
+        """Must return a fresh instance of a final model.
 
         Returns
         -------
@@ -1030,7 +1029,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         """
-        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        Score the fitted CATE model on a new data set.
+
+        Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
         It uses the mean prediction of the models fitted by the different crossfit folds
         under different iterations. Then calls the score function of the model_final and

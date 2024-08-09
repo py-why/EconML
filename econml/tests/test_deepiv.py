@@ -19,8 +19,7 @@ import pytest
 
 from econml.iv.nnet._deepiv import _zero_grad
 from econml.iv.nnet import DeepIV
-from econml.iv.nnet._deepiv import mog_model, mog_loss_model, mog_sample_model, response_loss_model
-from econml.utilities import reshape
+from econml.iv.nnet._deepiv import mog_model, mog_loss_model, mog_sample_model
 
 
 @pytest.mark.skipif(not keras_installed, reason="Keras not installed")
@@ -264,16 +263,8 @@ class TestDeepIV(unittest.TestCase):
             time = rng.rand(n) * 10
             emotion_id = rng.randint(0, 7, size=n)
             emotion = one_hot(emotion_id, categories=[np.arange(7)])
-            if use_images:
-                idx = np.argsort(emotion_id)
-                emotion_feature = np.zeros((0, 28 * 28))
-                for i in range(7):
-                    img = get_images(i, np.sum(emotion_id == i), seed, test)
-                    emotion_feature = np.vstack([emotion_feature, img])
-                reorder = np.argsort(idx)
-                emotion_feature = emotion_feature[reorder, :]
-            else:
-                emotion_feature = emotion
+
+            emotion_feature = emotion
 
             # random instrument
             z = rng.randn(n)
@@ -304,8 +295,8 @@ class TestDeepIV(unittest.TestCase):
                     y.reshape((-1, 1)),
                     g)
 
-        def datafunction(n, s, images=False, test=False):
-            return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
+        def datafunction(n, s, test=False):
+            return demand(n=n, seed=s, ypcor=0.5, test=test)
 
         n = 1000
         epochs = 50
@@ -397,7 +388,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             y = (g - ymu) / ysd
             return y.reshape(-1, 1)
 
-        def demand(n, seed=1, ynoise=1., pnoise=1., ypcor=0.8, use_images=False, test=False):
+        def demand(n, seed=1, ynoise=1., pnoise=1., ypcor=0.8, test=False):
             rng = np.random.RandomState(seed)
 
             # covariates: time and emotion
@@ -435,8 +426,8 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                     y.reshape((-1, 1)),
                     g)
 
-        def datafunction(n, s, images=False, test=False):
-            return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
+        def datafunction(n, s, test=False):
+            return demand(n=n, seed=s, ypcor=0.5, test=test)
 
         n = 1000
         epochs = 20
@@ -527,13 +518,6 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         t = 10 * np.sin(theta) + np.random.normal(size=(5000, d))
         pi, mu, sig = model2.predict([x])
         sampled_t = model3.predict([x])
-        llm = model.predict([x, t])
-
-        pi_o = np.tile([[0.25, 0.25, 0.25, 0.25, 0]], (5000, 1))
-        x2 = np.sqrt(np.maximum(0, 100 - x**2)).reshape(-1, 1, 2)
-        arrs = [np.array([f1, f2]) for f1 in [-1, 1] for f2 in [-1, 1]] + [np.zeros(2)]
-        mu_o = np.concatenate([x2 * arr for arr in arrs], axis=1)
-        sig_o = np.ones((5000, 5))
 
         print(pi[0], mu[0], sig[0], x[0], t[0])
         import io
