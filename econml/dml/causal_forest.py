@@ -763,7 +763,7 @@ class CausalForestDML(_BaseDML):
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
-            for key in params.keys():
+            for key in params:
                 if key not in estimator_param_names:
                     raise ValueError(f"Parameter `{key}` is not an tunable causal forest parameter.")
 

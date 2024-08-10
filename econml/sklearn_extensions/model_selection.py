@@ -525,10 +525,10 @@ class SklearnCVSelector(SingleModelSelector):
             best_model, score = SklearnCVSelector._convert_model(inner_model, args, kwargs)
             return Pipeline(steps=[*model.steps[:-1], (name, best_model)]), score
 
-        if isinstance(model, GridSearchCV) or isinstance(model, RandomizedSearchCV):
+        if isinstance(model, (GridSearchCV, RandomizedSearchCV)):
             return model.best_estimator_, model.best_score_
 
-        for known_type in SklearnCVSelector._model_mapping().keys():
+        for known_type in SklearnCVSelector._model_mapping():
             if isinstance(model, known_type):
                 converter = SklearnCVSelector._model_mapping()[known_type]
                 return converter(model, args, kwargs)

@@ -150,12 +150,16 @@ ignore = [
     "D103", # Missing docstring in public function
     "D104", # Missing docstring in public package
     "D105", # Missing docstring in magic method
-    "D301", # Use r""" if any backslashes in a docstring
-          ]
-extend-select = [
+    "D301", # Use r""" if any backslashes in a docstring,
+    "SIM108", # Use ternary instead of if-else (looks ugly for some of our long expressions)
+    "SIM300", # Yoda condition detected (these are often easier to understand in array expressions) 
+]
+select = [
     "D", # Docstring
-    "E501", # Line too long
     "W", # Pycodestyle warnings
+    "E", # All Pycodestyle erros, not just the default ones
+    "F", # All pyflakes rules
+    "SIM", # Simplifification 
 ]
 extend-per-file-ignores = { "econml/tests" = ["D"] } # ignore docstring rules for tests
 

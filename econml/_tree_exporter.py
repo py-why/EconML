@@ -694,7 +694,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         own_file = False
         try:
             if isinstance(out_file, str):
-                out_file = open(out_file, "w", encoding="utf-8")
+                out_file = open(out_file, "w", encoding="utf-8")  # noqa: SIM115, we close explicitly by design
                 own_file = True
 
             return_string = out_file is None

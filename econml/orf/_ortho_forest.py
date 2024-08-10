@@ -721,9 +721,9 @@ class _DMLOrthoForest_nuisance_estimator_generator:
     def __call__(self, Y, T, X, W, sample_weight=None, split_indices=None):
         if self.global_residualization:
             return 0
-        if self.discrete_treatment:
-            # Check that all discrete treatments are represented
-            if len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1:
+        # Check that all discrete treatments are represented
+        if (self.discrete_treatment and
+            len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1):
                 return None
         # Nuissance estimates evaluated with cross-fitting
         this_random_state = check_random_state(self.random_state)
