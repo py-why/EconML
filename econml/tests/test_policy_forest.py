@@ -117,7 +117,7 @@ class TestPolicyForest(unittest.TestCase):
                 for sample_weight in [None, 'rand']:
                     for n_outcomes in n_outcome_list:
                         config = self._get_base_config()
-                        config['honest'] = True if not dr else False
+                        config['honest'] = not dr
                         config['criterion'] = criterion
                         config['max_depth'] = 2
                         config['min_samples_leaf'] = 5

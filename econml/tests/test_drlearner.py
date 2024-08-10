@@ -669,7 +669,7 @@ class TestDRLearner(unittest.TestCase):
                                                                       [2, 3, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
 
-                                    if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):
+                                    if isinstance(est, (LinearDRLearner, SparseLinearDRLearner)):
                                         if X is not None:
                                             for t in [1, 2]:
                                                 true_coef = np.zeros(
