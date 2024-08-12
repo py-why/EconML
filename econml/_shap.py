@@ -23,7 +23,7 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
                       feature_names=None, treatment_names=None, output_names=None,
                       input_names=None, background_samples=100):
     """
-    Method to explain `const_marginal_effect` function using shap Explainer().
+    Explain `const_marginal_effect` function using shap Explainer().
 
     Parameters
     ----------
@@ -91,7 +91,9 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
                              treatment_names=None, output_names=None,
                              input_names=None, background_samples=100):
     """
-    Method to explain `model_cate` using shap Explainer(), will instead explain `const_marignal_effect`
+    Explain `model_cate` using shap Explainer().
+
+    Will instead explain `const_marignal_effect`
     if `model_cate` can't be parsed. Models should be a list of length d_t. Each element in the list of
     models represents the const_marginal_effect associated with each treatments and for all outcomes, i.e.
     the outcome of the predict method of each model should be of length d_y.
@@ -186,8 +188,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
                                           feature_names=None, treatment_names=None, output_names=None,
                                           input_names=None, background_samples=100):
     """
-    Method to explain `model_cate` of parametric final stage that was fitted on the cross product of
-    `featurizer(X)` and T.
+    Explain `model_cate` of parametric final stage fitted on the cross product of `featurizer(X)` and T.
 
     Parameters
     ----------
@@ -270,7 +271,9 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
                                        treatment_names=None, output_names=None,
                                        input_names=None, background_samples=100):
     """
-    Method to explain a final cate model that is represented in a multi-task manner, i.e. the prediction
+    Explain a final cate model that is represented in a multi-task manner.
+
+    That is, the prediction
     of the method is of dimension equal to the number of treatments and represents the const_marginal_effect
     vector for all treatments.
 
@@ -362,7 +365,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
 
 def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_names, featurizer):
     """
-    Helper function to get treatment and output names
+    Get treatment and output names.
 
     Parameters
     ----------
@@ -391,7 +394,6 @@ def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_
     feature_names: List
     transformed_feature_names: List or None
     """
-
     d_t = d_t[0] if d_t else 1
     d_y = d_y[0] if d_y else 1
 

@@ -6,14 +6,12 @@ import unittest
 
 import numpy as np
 import pytest
-from scipy import special
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import PolynomialFeatures
 
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
-from econml.iv.dr._dr import _DummyCATE
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
+from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel
 
@@ -155,7 +153,7 @@ class TestDMLIV(unittest.TestCase):
                                             self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
 
                                             # test can run shap values
-                                            shap_values = est.shap_values(X[:10])
+                                            est.shap_values(X[:10])
 
     def test_accuracy(self):
         np.random.seed(123)
@@ -254,5 +252,5 @@ class TestDMLIV(unittest.TestCase):
         for est in est_list:
             with self.subTest(est=est):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
-                score = est.score(y, T, Z=Z, X=X, W=W)
-                eff = est.const_marginal_effect(X)
+                est.score(y, T, Z=Z, X=X, W=W)
+                est.const_marginal_effect(X)

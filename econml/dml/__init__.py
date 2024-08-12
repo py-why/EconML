@@ -2,7 +2,10 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-"""Double Machine Learning. The method uses machine learning methods to identify the
+"""
+Double Machine Learning.
+
+The method uses machine learning methods to identify the
 part of the observed outcome and treatment that is not predictable by the controls X, W
 (aka residual outcome and residual treatment).
 Then estimates a CATE model by regressing the residual outcome on the residual treatment

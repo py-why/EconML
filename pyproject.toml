@@ -132,3 +132,36 @@ relative_files = true
 exclude_lines = [
     "raise NotImplementedError\\(\"(Abstract method|Defer to inference)\"\\)"
 ]
+
+[tool.ruff]
+line-length = 120
+extend-include = ["*.ipynb"]
+extend-exclude = ["prototypes", "monte_carlo_tests"]
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "preserve"
+
+[tool.ruff.lint]
+ignore = [
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D301", # Use r""" if any backslashes in a docstring,
+    "SIM108", # Use ternary instead of if-else (looks ugly for some of our long expressions)
+    "SIM300", # Yoda condition detected (these are often easier to understand in array expressions) 
+]
+select = [
+    "D", # Docstring
+    "W", # Pycodestyle warnings
+    "E", # All Pycodestyle erros, not just the default ones
+    "F", # All pyflakes rules
+    "SIM", # Simplifification 
+]
+extend-per-file-ignores = { "econml/tests" = ["D"] } # ignore docstring rules for tests
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

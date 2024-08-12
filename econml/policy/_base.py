@@ -4,7 +4,6 @@
 """Base classes for all Policy estimators."""
 
 import abc
-import numpy as np
 
 
 class PolicyLearner(metaclass=abc.ABCMeta):

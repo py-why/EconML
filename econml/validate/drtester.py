@@ -16,7 +16,9 @@ from .utils import calculate_dr_outcomes, calc_uplift
 
 class DRTester:
     """
-    Validation tests for CATE models. Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
+    Validation tests for CATE models.
+
+    Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
     the calibration test in Dwivedi et al. (2020), and the QINI coefficient as in Radcliffe (2007).
 
     **Best Linear Predictor (BLP)**
@@ -102,7 +104,6 @@ class DRTester:
 
     References
     ----------
-
     [Chernozhukov2022] V. Chernozhukov et al.
     Generic Machine Learning Inference on Heterogeneous Treatment Effects in Randomized Experiments
     arXiv preprint arXiv:1712.04802, 2022.
@@ -133,7 +134,8 @@ class DRTester:
 
     def get_cv_splitter(self, random_state: int = 123):
         """
-        Generates splitter object for cross-validation.
+        Generate splitter object for cross-validation.
+
         Checks if the cv object passed at initialization is a splitting mechanism or a number of folds and returns
         appropriately modified object for use in downstream cross-validation.
 
@@ -143,7 +145,7 @@ class DRTester:
             seed for splitter, default is 123
 
         Returns
-        ------
+        -------
         None, but adds attribute 'cv_splitter' containing the constructed splitter object.
         """
         splitter = check_cv(self.cv, [0], classifier=True)
@@ -154,7 +156,7 @@ class DRTester:
 
     def get_cv_splits(self, vars: np.array, T: np.array):
         """
-        Generates splits for cross-validation, given a set of variables and treatment vector.
+        Generate splits for cross-validation, given a set of variables and treatment vector.
 
         Parameters
         ----------
@@ -165,7 +167,7 @@ class DRTester:
             the control status be equal to 0, and all other treatments integers starting at 1.
 
         Returns
-        ------
+        -------
         list of folds of the data, on which to run cross-validation
         """
         if not hasattr(self, 'cv_splitter'):
@@ -187,7 +189,9 @@ class DRTester:
         ytrain: np.array = None,
     ):
         """
-        Generates nuisance predictions and calculates doubly robust (DR) outcomes either by (1) cross-fitting in the
+        Generate nuisance predictions and calculates doubly robust (DR) outcomes.
+
+        Uses either (1) cross-fitting in the
         validation sample, or (2) fitting in the training sample and applying to the validation sample. If Xtrain,
         Dtrain, and ytrain are all not None, then option (2) will be implemented, otherwise, option (1) will be
         implemented. In order to use the `evaluate_cal` method then Xtrain, Dtrain, and ytrain must all be specified.
@@ -210,14 +214,13 @@ class DRTester:
             Outcomes for the training sample
 
         Returns
-        ------
+        -------
         self, with added attributes for the validation treatments (Dval), treatment values (tmts),
         number of treatments excluding control (n_treat), boolean flag for whether training data is provided
         (fit_on_train), doubly robust outcome values for the validation set (dr_val), and the DR ATE value (ate_val).
         If training data is provided, also adds attributes for the doubly robust outcomes for the training
         set (dr_train) and the training treatments (Dtrain)
         """
-
         self.Dval = Dval
 
         # Unique treatments (ordered, includes control)
@@ -275,7 +278,6 @@ class DRTester:
         2 (n_val x n_treatment + 1) arrays corresponding to the predicted outcomes under treatment status and predicted
         treatment probabilities, respectively. Both evaluated on validation set.
         """
-
         # Fit propensity in treatment
         model_propensity_fitted = self.model_propensity.fit(Xtrain, Dtrain)
         # Predict propensity scores
@@ -298,7 +300,7 @@ class DRTester:
         y: np.array
     ) -> Tuple[np.array, np.array]:
         """
-        Generates nuisance function predictions using k-folds cross validation.
+        Generate nuisance function predictions using k-folds cross validation.
 
         Parameters
         ----------
@@ -316,7 +318,6 @@ class DRTester:
         2 (n x n_treatment + 1) arrays corresponding to the predicted outcomes under treatment status and predicted
         treatment probabilities, respectively.
         """
-
         splits = self.get_cv_splits([X], D)
         prop_preds = cross_val_predict(self.model_propensity, X, D, cv=splits, method='predict_proba')
 
@@ -338,7 +339,9 @@ class DRTester:
         Xtrain: np.array = None
     ):
         """
-        Generates predictions from fitted CATE model. If Xtrain is None, then the predictions are generated using
+        Generate predictions from fitted CATE model.
+
+        If Xtrain is None, then the predictions are generated using
         k-folds cross-validation on the validation set. If Xtrain is specified, then the CATE is assumed to have
         been fitted on the training sample (where the DR outcomes were generated using k-folds CV), and then applied
         to the validation sample.
@@ -370,7 +373,7 @@ class DRTester:
         n_groups: int = 4
     ) -> CalibrationEvaluationResults:
         """
-        Implements calibration test as in [Dwivedi2020]
+        Implement calibration test as in [Dwivedi2020].
 
         Parameters
         ----------
@@ -448,8 +451,9 @@ class DRTester:
         Xtrain: np.array = None
     ) -> BLPEvaluationResults:
         """
-        Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance` method must already
-        be implemented.
+        Implement the best linear predictor (BLP) test as in [Chernozhukov2022].
+
+        `fit_nusiance` method must already have been called.
 
         Parameters
         ----------
@@ -465,7 +469,6 @@ class DRTester:
         -------
         BLPEvaluationResults object showing the results of the BLP test
         """
-
         if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
 
@@ -508,9 +511,12 @@ class DRTester:
         n_bootstrap: int = 1000
     ) -> UpliftEvaluationResults:
         """
-        Calculates uplift curves and coefficients for the given model, where units are ordered by predicted
-        CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
-        through ranks. The uplift coefficient is then the area under the resulting curve, with a value of 0 interpreted
+        Calculate uplift curves and coefficients for the given model.
+
+        Units are ordered by predicted CATE values and a running measure of the average treatment effect in each cohort
+        is kept as we progress through ranks.
+
+        The uplift coefficient is then the area under the resulting curve, with a value of 0 interpreted
         as corresponding to a model with randomly assigned CATE coefficients. All calculations are performed on
         validation dataset results, using the training set as input.
 
@@ -592,8 +598,7 @@ class DRTester:
         n_bootstrap: int = 1000
     ) -> EvaluationResults:
         """
-        Implements the best linear prediction (`evaluate_blp`), calibration (`evaluate_cal`), uplift curve
-        (`evaluate_uplift`) methods
+        Combine the best linear prediction, calibration, and uplift curve methods into a single summary.
 
         Parameters
         ----------
@@ -612,7 +617,6 @@ class DRTester:
         -------
         EvaluationResults object summarizing the results of all tests
         """
-
         if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
             if (Xval is None) or (Xtrain is None):
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')

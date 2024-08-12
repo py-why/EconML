@@ -12,11 +12,8 @@
 import numpy as np
 from ._criterion import LinearMomentGRFCriterionMSE, LinearMomentGRFCriterion
 from ..tree import BaseTree
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_array
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_is_fitted
-import copy
 
 # =============================================================================
 # Types and constants
@@ -32,7 +29,10 @@ CRITERIA_GRF = {"het": LinearMomentGRFCriterion,
 
 
 class GRFTree(BaseTree):
-    """A tree of a Generalized Random Forest [grftree1]. This method should be used primarily
+    """
+    A tree of a Generalized Random Forest [grftree1].
+
+    This method should be used primarily
     through the BaseGRF forest class and its derivatives and not as a standalone
     estimator. It fits a tree that solves the local moment equation problem::
 
@@ -323,7 +323,10 @@ class GRFTree(BaseTree):
         return True
 
     def init(self,):
-        """ This method should be called before fit. We added this pre-fit step so that this step
+        """
+        Initialize this instance.
+
+        This method that should be called before fit. We added this pre-fit step so that this step
         can be executed without parallelism as it contains code that holds the gil and can hinder
         parallel execution. We also did not merge this step to ``__init__`` as we want ``__init__`` to just
         be storing the parameters for easy cloning. We also don't want to directly pass a RandomState
@@ -335,7 +338,7 @@ class GRFTree(BaseTree):
         return self
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
-        """ Fit the tree from the data
+        """Fit the tree from the data.
 
         Parameters
         ----------
@@ -363,7 +366,6 @@ class GRFTree(BaseTree):
             running time in parallel execution, if the variables have already been checked by the
             forest class that spawned this tree.
         """
-
         return super().fit(X, y, n_y, n_outputs, n_relevant_outputs,
                            sample_weight=sample_weight, check_input=check_input)
 
@@ -412,8 +414,8 @@ class GRFTree(BaseTree):
         return pred
 
     def predict_alpha_and_jac(self, X, check_input=True):
-        """Predict the local jacobian ``E[J | X=x]`` and the local alpha ``E[A | X=x]`` of
-        a linear moment equation.
+        """
+        Predict the local jacobian ``E[J | X=x]`` and the local alpha ``E[A | X=x]`` of a linear moment equation.
 
         Parameters
         ----------
@@ -437,7 +439,9 @@ class GRFTree(BaseTree):
 
     def predict_moment(self, X, parameter, check_input=True):
         """
-        Predict the local moment value for each sample and at the given parameter::
+        Predict the local moment value for each sample and at the given parameter.
+
+        This is::
 
             E[J | X=x] theta(x) - E[A | X=x]
 
@@ -461,7 +465,9 @@ class GRFTree(BaseTree):
         return alpha - np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        """The feature importances based on the amount of parameter heterogeneity they create.
+        """
+        Get feature importances based on the amount of parameter heterogeneity they create.
+
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
         creates. Each split that the feature was chosen adds::

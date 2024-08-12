@@ -4,12 +4,11 @@
 """Provides a non-parametric two-stage least squares instrumental variable estimator."""
 
 import numpy as np
-from copy import deepcopy
 from sklearn import clone
 from sklearn.linear_model import LinearRegression
 from ...utilities import (shape, transpose, reshape, cross_product, ndim, size,
-                          _deprecate_positional, check_input_arrays)
-from ..._cate_estimator import BaseCateEstimator, LinearCateEstimator
+                          check_input_arrays)
+from ..._cate_estimator import BaseCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import PolynomialFeatures
@@ -89,9 +88,9 @@ class HermiteFeatures(TransformerMixin):
 
 class DPolynomialFeatures(TransformerMixin):
     """
-    Featurizer that returns the derivatives of :class:`~sklearn.preprocessing.PolynomialFeatures` features in
-    a way that's compatible with the expectations of :class:`.SieveTSLS`'s
-    `dt_featurizer` parameter.
+    Featurizer that returns the derivatives of :class:`~sklearn.preprocessing.PolynomialFeatures` features.
+
+    Does this in a way that's compatible with the expectations of :class:`.SieveTSLS`'s `dt_featurizer` parameter.
 
     If the input has shape `(n, x)` and
     :meth:`PolynomialFeatures.transform<sklearn.preprocessing.PolynomialFeatures.transform>` returns an output
@@ -133,7 +132,7 @@ class DPolynomialFeatures(TransformerMixin):
 
     def transform(self, X):
         """
-        Transform data to derivatives of polynomial features
+        Transform data to derivatives of polynomial features.
 
         Parameters
         ----------

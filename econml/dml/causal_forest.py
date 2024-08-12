@@ -4,20 +4,15 @@
 from warnings import warn
 
 import numpy as np
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.base import clone, BaseEstimator
-from sklearn.preprocessing import FunctionTransformer
-from sklearn.pipeline import Pipeline
+from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from itertools import product
 from .dml import _BaseDML
 from .dml import _make_first_stage_selector
-from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
-                         _deprecate_positional, cross_product, Summary)
+from ..utilities import (shape, check_input_arrays,
+                         cross_product, Summary)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -215,9 +210,6 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         d_t_orig = T.shape[1:]
         d_t_orig = d_t_orig[0] if d_t_orig else 1
 
-        d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
-
         output_shape = [X.shape[0]]
         if self._d_y:
             output_shape.append(self._d_y[0])
@@ -257,8 +249,10 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
 
 class CausalForestDML(_BaseDML):
-    """A Causal Forest [cfdml1]_ combined with double machine learning based residualization of the treatment
-    and outcome variables. It fits a forest that solves the local moment equation problem:
+    """
+    A Causal Forest [cfdml1]_ combined with DML-based residualization of the treatment and outcome variables.
+
+    It fits a forest that solves the local moment equation problem:
 
     .. code-block::
 
@@ -721,8 +715,9 @@ class CausalForestDML(_BaseDML):
              sample_weight=None, groups=None,
              params='auto'):
         """
-        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
-        performance. It trains small forests of size 100 trees on a grid of parameters and tests the
+        Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score performance.
+
+        It trains small forests of size 100 trees on a grid of parameters and tests the
         out of sample R-score. After the function is called, then all parameters of `self` have been
         set to the optimal hyperparameters found. The estimator however remains un-fitted, so you need to
         call fit afterwards to fit the estimator with the chosen hyperparameters. The list of tunable parameters
@@ -768,7 +763,7 @@ class CausalForestDML(_BaseDML):
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
-            for key in params.keys():
+            for key in params:
                 if key not in estimator_param_names:
                     raise ValueError(f"Parameter `{key}` is not an tunable causal forest parameter.")
 
@@ -865,8 +860,8 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -904,7 +899,6 @@ class CausalForestDML(_BaseDML):
             print("Population summary results are available only if `cache_values=True` at fit time!")
             smry = Summary()
         d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
 
         try:
             intercept_table = self.ate__inference().summary_frame(alpha=alpha,
@@ -957,6 +951,8 @@ class CausalForestDML(_BaseDML):
 
     def ate__inference(self):
         """
+        Get inference results for the average treatment effect over the training data.
+
         Returns
         -------
         ate__inference : NormalInferenceResults
@@ -985,6 +981,8 @@ class CausalForestDML(_BaseDML):
 
     def att__inference(self, *, T):
         """
+        Get inference results for the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1011,6 +1009,8 @@ class CausalForestDML(_BaseDML):
 
     def att_(self, *, T):
         """
+        Get the average treatment effect on the treated for the training data.
+
         Parameters
         ----------
         T : int
@@ -1028,6 +1028,8 @@ class CausalForestDML(_BaseDML):
 
     def att_stderr_(self, *, T):
         """
+        Get the standard error of the average treatment effect on the treated in the training data.
+
         Parameters
         ----------
         T : int

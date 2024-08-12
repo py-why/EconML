@@ -10,23 +10,12 @@
 # All rights reserved.
 
 import numpy as np
-import numbers
-from math import ceil
-from ...tree import Tree
-from ...tree._criterion import Criterion
-from ...tree._splitter import Splitter, BestSplitter
-from ...tree import DepthFirstTreeBuilder
-from ...tree import _tree
 from ..._tree_exporter import _SingleTreeExporterMixin, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 from ._criterion import LinearPolicyCriterion
-from . import _criterion
 from ...tree import BaseTree
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_array, check_X_y
+from sklearn.utils import check_X_y
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import _check_sample_weight
 from sklearn.utils.validation import check_is_fitted
-import copy
 
 # =============================================================================
 # Types and constants
@@ -40,7 +29,10 @@ CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseTree):
-    """ Welfare maximization policy tree. Trains a tree to maximize the objective:
+    """
+    Welfare maximization policy tree.
+
+    Trains a tree to maximize the objective:
     :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
     to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
     optimization problem.
@@ -202,7 +194,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def fit(self, X, y, *, sample_weight=None, check_input=True):
-        """ Fit the tree from the data
+        """Fit the tree from the data.
 
         Parameters
         ----------
@@ -224,7 +216,6 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         -------
         self : object instance
         """
-
         self.random_seed_ = self.random_state
         self.random_state_ = check_random_state(self.random_seed_)
         if check_input:
@@ -240,7 +231,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def predict(self, X, check_input=True):
-        """ Predict the best treatment for each sample
+        """Predict the best treatment for each sample.
 
         Parameters
         ----------
@@ -262,7 +253,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return np.argmax(pred, axis=1)
 
     def predict_proba(self, X, check_input=True):
-        """ Predict the probability of recommending each treatment
+        """Predict the probability of recommending each treatment.
 
         Parameters
         ----------
@@ -286,7 +277,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return proba
 
     def predict_value(self, X, check_input=True):
-        """ Predict the expected value of each treatment for each sample
+        """Predict the expected value of each treatment for each sample.
 
         Parameters
         ----------
@@ -309,6 +300,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
+        Get feature importances.
 
         Parameters
         ----------
@@ -359,5 +351,5 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
 # HACK: sklearn 1.3 enforces that the input to plot_tree is a DecisionTreeClassifier or DecisionTreeRegressor
 #       This is a hack to get around that restriction by declaring that PolicyTree inherits from DecisionTreeClassifier
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier  # noqa: E402
 DecisionTreeClassifier.register(PolicyTree)

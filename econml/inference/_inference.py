@@ -9,21 +9,18 @@ import numpy as np
 import pandas as pd
 import scipy
 from scipy.stats import norm
-from statsmodels.iolib.table import SimpleTable
 
 from ._bootstrap import BootstrapEstimator
-from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
-                         parse_final_model_params, jacify_featurizer,
-                         reshape_treatmentwise_effects, shape, filter_none_kwargs)
+                         parse_final_model_params, reshape_treatmentwise_effects, shape, filter_none_kwargs)
 
 """Options for performing inference in estimators."""
 
 
 class Inference(metaclass=abc.ABCMeta):
     def prefit(self, estimator, *args, **kwargs):
-        """Performs any necessary logic before the estimator's fit has been called."""
+        """Perform any necessary logic before the estimator's fit has been called."""
         pass
 
     @abc.abstractmethod
@@ -111,7 +108,9 @@ class BootstrapInference(Inference):
 
 class GenericModelFinalInference(Inference):
     """
-    Inference based on predict_interval of the model_final model. Assumes that estimator
+    Inference based on predict_interval of the model_final model.
+
+    Assumes that estimator
     class has a model_final method, whose predict(cross_product(X, [0, ..., 1, ..., 0])) gives
     the const_marginal_effect of the treamtnent at the column with value 1 and which also supports
     prediction_stderr(X).
@@ -166,7 +165,9 @@ class GenericModelFinalInference(Inference):
 
 class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
     """
-    Inference based on predict_interval of the model_final model. Assumes that treatment is single dimensional.
+    Inference based on predict_interval of the model_final model.
+
+    Assumes that treatment is single dimensional.
     Thus, the predict(X) of model_final gives the const_marginal_effect(X). The single dimensionality allows us
     to implement effect_interval(X, T0, T1) based on the const_marginal_effect_interval.
     """
@@ -226,7 +227,6 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_pred = np.einsum(einsum_str, cme_pred, jac_T)
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
         d_t_orig = T.shape[1:][0] if T.shape[1:] else 1
 
         return NormalInferenceResults(d_t=d_t_orig, d_y=d_y, pred=e_pred,
@@ -240,7 +240,9 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
 
 class LinearModelFinalInference(GenericModelFinalInference):
     """
-    Inference based on predict_interval of the model_final model. Assumes that estimator
+    Inference based on predict_interval of the model_final model.
+
+    Assumes that estimator
     class has a model_final method and that model is linear. Thus, the predict(cross_product(X, T1 - T0)) gives
     the effect(X, T0, T1). This allows us to implement effect_interval(X, T0, T1) based on the
     predict_interval of model_final.
@@ -328,7 +330,6 @@ class LinearModelFinalInference(GenericModelFinalInference):
         d_t_orig = d_t_orig[0] if d_t_orig else 1
 
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
 
         output_shape = [X.shape[0]]
         if self._d_y:
@@ -483,9 +484,9 @@ class StatsModelsInference(LinearModelFinalInference):
 
 class GenericModelFinalInferenceDiscrete(Inference):
     """
-    Assumes estimator is fitted on categorical treatment and a separate generic model_final is used to
-    fit the CATE associated with each treatment. This model_final supports predict_interval. Inference is
-    based on predict_interval of the model_final model.
+    Inference where a separate generic model_final is used to fit the CATE associated with each treatment.
+
+    This model_final supports predict_interval. Inference is based on predict_interval of the model_final model.
     """
 
     def prefit(self, estimator, *args, **kwargs):
@@ -558,8 +559,9 @@ class GenericModelFinalInferenceDiscrete(Inference):
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
     """
-    Inference method for estimators with categorical treatments, where a linear in X model is used
-    for the CATE associated with each treatment. Implements the coef__interval and intercept__interval
+    Inference method for estimators with linear-in-X final models for each categorical treatment.
+
+    Implements the coef__interval and intercept__interval
     based on the corresponding methods of the underlying model_final estimator.
     """
 
@@ -651,7 +653,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
     """
-    Special case where final model is a StatsModelsLinearRegression
+    Special case where final model is a StatsModelsLinearRegression.
 
     Parameters
     ----------
@@ -950,7 +952,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def _expand_outputs(self, n_rows):
         """
-        Expand the inference results from 1 row to n_rows identical rows.  This is used internally when
+        Expand the inference results from 1 row to n_rows identical rows.
+
+        This is used internally when
         we move from constant effects when X is None to a marginal effect of a different dimension.
 
         Parameters
@@ -1292,7 +1296,7 @@ class PopulationSummaryResults:
         return self._print().as_text()
 
     def _repr_html_(self):
-        '''Display as HTML in IPython notebook.'''
+        """Display as HTML in IPython notebook."""
         return self._print().as_html()
 
     @property
@@ -1314,6 +1318,7 @@ class PopulationSummaryResults:
     def stderr_mean(self):
         """
         Get the standard error of the mean point estimate of each treatment on each outcome for sample X.
+
         The output is a conservative upper bound.
 
         Returns
@@ -1479,7 +1484,7 @@ class PopulationSummaryResults:
 
     def summary(self, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
         """
-        Output the summary inferences above.
+        Get a summary of this instance's information.
 
         Parameters
         ----------
@@ -1508,7 +1513,11 @@ class PopulationSummaryResults:
 
     def _print(self, *, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
         """
-        Helper function to be used by both `summary` and `__repr__`, in the former case with passed attributes
+        Get a summary of this instance's data.
+
+        Used as a helper function by both `summary` and `__repr__`.
+
+        In the former case with passed attributes
         in the latter case with None inputs, hence using the `__init__` params.
         """
         alpha = self.alpha if alpha is None else alpha
@@ -1565,9 +1574,7 @@ class PopulationSummaryResults:
         return smry
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):
-        """
-        Helper function to get the confidence interval of mixture gaussian distribution
-        """
+        """Get the confidence interval of mixture gaussian distribution."""
         # if stderr is zero, ppf will return nans and the loop below would never terminate
         # so bail out early; note that it might be possible to correct the algorithm for
         # this scenario, but since scipy's cdf returns nan whenever scale is zero it won't

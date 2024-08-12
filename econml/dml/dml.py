@@ -5,36 +5,26 @@ from warnings import warn
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
-from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv
+from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
-                                   OneHotEncoder)
+from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
-import copy
 
 from .._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                               ForestModelFinalCateEstimatorMixin,
                                LinearModelFinalCateEstimatorMixin,
                                StatsModelsCateEstimatorMixin,
                                LinearCateEstimator)
-from ..inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
+from ..inference import GenericSingleTreatmentModelFinalInference
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
-                                               StatsModelsLinearRegression,
-                                               WeightedLassoCVWrapper)
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
-from ..utilities import (_deprecate_positional, add_intercept,
+                                               StatsModelsLinearRegression)
+from ..utilities import (add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, deprecated,
-                         hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose,
-                         get_feature_names_or_default, filter_none_kwargs)
+                         cross_product, hstack, inverse_onehot, reshape_treatmentwise_effects,
+                         shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
-from ..sklearn_extensions.model_selection import get_selector, ModelSelector, SingleModelSelector
+from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
 
 
 def _combine(X, W, n_samples):
@@ -298,8 +288,9 @@ class _BaseDML(_RLearner):
 
 class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     """
-    The base class for parametric Double ML estimators. The estimator is a special
-    case of an :class:`._RLearner` estimator, which in turn is a special case
+    The base class for parametric Double ML estimators.
+
+    The estimator is a special case of an :class:`._RLearner` estimator, which in turn is a special case
     of an :class:`_OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
@@ -1342,6 +1333,7 @@ class KernelDML(DML):
 class NonParamDML(_BaseDML):
     """
     The base class for non-parametric Double ML estimators, that can have arbitrary final ML models of the CATE.
+
     Works only for single-dimensional continuous treatment or for binary categorical treatment and uses
     the re-weighting trick, reducing the final CATE estimation to a weighted square loss minimization.
     The model_final parameter must support the sample_weight keyword argument at fit time.

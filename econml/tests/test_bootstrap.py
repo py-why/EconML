@@ -269,7 +269,7 @@ class TestBootstrap(unittest.TestCase):
         #       and that the true effect is also usually within the bounds
 
     def test_stratify(self):
-        """Test that we can properly stratify by treatment"""
+        """Test that we can properly stratify by treatment."""
         T = [1, 0, 1, 2, 0, 2]
         Y = [1, 2, 3, 4, 5, 6]
         X = np.array([1, 1, 2, 2, 1, 2]).reshape(-1, 1)
@@ -285,7 +285,7 @@ class TestBootstrap(unittest.TestCase):
         est.const_marginal_effect_interval()
 
     def test_stratify_orthoiv(self):
-        """Test that we can properly stratify by treatment/instrument pair"""
+        """Test that we can properly stratify by treatment/instrument pair."""
         T = [1, 0, 1, 1, 0, 0, 1, 0]
         Z = [1, 0, 0, 1, 0, 1, 0, 1]
         Y = [1, 2, 3, 4, 5, 6, 7, 8]

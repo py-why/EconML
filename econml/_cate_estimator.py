@@ -10,10 +10,10 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params, get_feature_names_or_default,
-                        inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
+from .utilities import (ndim, shape, parse_final_model_params, get_feature_names_or_default,
+                        inverse_onehot, Summary, get_input_columns, check_input_arrays)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference, \
-    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference, \
+    LinearModelFinalInferenceDiscrete, GenericSingleTreatmentModelFinalInference, \
     GenericModelFinalInferenceDiscrete
 from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 from .dowhy import DoWhyWrapper
@@ -60,7 +60,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     def _strata(self, Y, T, *args, **kwargs):
         """
-        Get an array of values representing strata that should be preserved by bootstrapping.  For example,
+        Get an array of values representing strata that should be preserved by bootstrapping.
+
+        For example,
         if treatment is discrete, then each bootstrapped estimator needs to be given at least one instance
         with each treatment type.  For estimators like DRIV, then the same is true of the combination of
         treatment and instrument.  The arguments to this method will match those to fit.
@@ -91,8 +93,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
         """
-        Estimate the counterfactual model from data, i.e. estimates functions
-        :math:`\\tau(X, T0, T1)`, :math:`\\partial \\tau(T, X)`.
+        Estimate the counterfactual model from data.
+
+        That is, estimates functions :math:`\\tau(X, T0, T1)`, :math:`\\partial \\tau(T, X)`.
 
         Note that the signature of this method may vary in subclasses (e.g. classes that don't
         support instruments will not allow a `Z` argument)
@@ -340,8 +343,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -365,8 +370,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -389,8 +396,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -413,8 +422,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def marginal_effect_inference(self, T, X=None):
-        """ Inference results for the quantities :math:`\\partial \\tau(T, X)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantities :math:`\\partial \\tau(T, X)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -435,8 +446,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def ate_interval(self, X=None, *, T0, T1, alpha=0.05):
-        """ Confidence intervals for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -460,8 +473,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def ate_inference(self, X=None, *, T0, T1):
-        """ Inference results for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -484,8 +499,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -508,8 +525,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def marginal_ate_inference(self, T, X=None):
-        """ Inference results for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -530,8 +549,8 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @property
     def dowhy(self):
-        """ Get an instance of :class:`.DoWhyWrapper` to allow other functionalities from dowhy package.
-        (e.g. causal graph, refutation test, etc.)
+        """
+        Get a :class:`.DoWhyWrapper` to enable functionality (e.g. causal graph, refutation test, etc.) from dowhy.
 
         Returns
         -------
@@ -542,10 +561,8 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
 
 class LinearCateEstimator(BaseCateEstimator):
-    """
-        Base class for all CATE estimators in this package where the outcome is linear given
-        some user-defined treatment featurization.
-    """
+    """Base class for CATE estimators in this package where the outcome is linear given some treatment featurization."""
+
     _original_treatment_featurizer = None
 
     @abc.abstractmethod
@@ -605,7 +622,6 @@ class LinearCateEstimator(BaseCateEstimator):
         # of rows of T was not taken into account
         if X is None:
             eff = np.repeat(eff, shape(T0)[0], axis=0)
-        m = shape(eff)[0]
         dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
@@ -685,8 +701,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -707,8 +725,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_inference(self, X=None):
-        """ Inference results for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -747,8 +767,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_ate_interval(self, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`E_X[\\theta(X)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Confidence intervals for the quantities :math:`E_X[\\theta(X)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -769,8 +791,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_ate_inference(self, X=None):
-        """ Inference results for the quantities :math:`E_X[\\theta(X)]` produced
-        by the model. Available only when ``inference`` is not ``None``, when
+        """
+        Inference results for the quantities :math:`E_X[\\theta(X)]` produced by the model.
+
+        Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
@@ -801,7 +825,8 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        """ Shap value for the final stage models (const_marginal_effect)
+        """
+        Shap value for the final stage models (const_marginal_effect).
 
         Parameters
         ----------
@@ -835,8 +860,9 @@ class LinearCateEstimator(BaseCateEstimator):
 
 class TreatmentExpansionMixin(BaseCateEstimator):
     """
-        Mixin which automatically handles promotions of scalar treatments to the appropriate shape,
-        as well as treatment featurization for discrete treatments and user-specified treatment transformers
+    Mixin which automatically handles promotions of scalar treatments to the appropriate shape.
+
+    Also applies treatment featurization for discrete treatments and user-specified treatment transformers.
     """
 
     transformer = None
@@ -875,10 +901,10 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
     def _set_transformed_treatment_names(self):
         """
-           Extracts treatment names from sklearn transformers.
-           Or, if transformer does not have a get_feature_names method, sets default treatment names.
-        """
+        Extract treatment names from sklearn transformers.
 
+        Or, if transformer does not have a get_feature_names method, sets default treatment names.
+        """
         if hasattr(self, "_input_names"):
             ret = get_feature_names_or_default(self.transformer, self._input_names["treatment_names"], prefix='T')
             self._input_names["treatment_names"] = list(ret) if ret is not None else ret
@@ -943,6 +969,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         Whether the CATE model's intercept is contained in the final model's ``coef_`` rather
         than as a separate ``intercept_``
     """
+
     featurizer = None
 
     def _get_inference_options(self):
@@ -956,8 +983,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @property
     def coef_(self):
-        """ The coefficients in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get the coefficients in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -975,8 +1002,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @property
     def intercept_(self):
-        """ The intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get the intercept in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -994,8 +1021,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, *, alpha=0.05):
-        """ The coefficients in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get the confidence interval for coefficients in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1012,8 +1039,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def coef__inference(self):
-        """ The inference of coefficients in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get inference information for coefficients in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -1024,8 +1051,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.05):
-        """ The intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get the confidence interval for the intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1042,8 +1069,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__inference(self):
-        """ The inference of intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get inference results for intercept in the linear model of the constant marginal treatment effect.
 
         Returns
         -------
@@ -1053,8 +1080,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         raise NotImplementedError("Defer to inference")
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1108,8 +1135,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         smry.add_extra_txt(extra_txt)
 
-        d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
         try:
             coef_table = self.coef__inference().summary_frame(alpha=alpha,
                                                               value=value, decimals=decimals,
@@ -1163,8 +1188,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     """
-    Mixin class that offers `inference='statsmodels'` options to the CATE estimator
-    that inherits it.
+    Mixin class that offers `inference='statsmodels'` options to the CATE estimator that inherits it.
 
     Such an estimator must implement a :attr:`model_final_` attribute that points
     to the fitted final :class:`.StatsModelsLinearRegression` object that
@@ -1221,8 +1245,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         return options
 
     def coef_(self, T):
-        """ The coefficients in the linear model of the constant marginal treatment
-        effect associated with treatment T.
+        """
+        Get the coefficients in the linear model of the constant marginal treatment effect associated with treatment T.
 
         Parameters
         ----------
@@ -1242,13 +1266,13 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         return self.fitted_models_final[ind].coef_
 
     def intercept_(self, T):
-        """ The intercept in the linear model of the constant marginal treatment
-        effect associated with treatment T.
+        """
+        Get the intercept in the linear model of the constant marginal treatment effect associated with treatment T.
 
         Parameters
         ----------
         T: alphanumeric
-            The input treatment for which we want the coefficients.
+            The input treatment for which we want the intercept.
 
         Returns
         -------
@@ -1263,8 +1287,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, T, *, alpha=0.05):
-        """ The confidence interval for the coefficients in the linear model of the
-        constant marginal treatment effect associated with treatment T.
+        """
+        Get the confidence interval for the coefficients in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1283,8 +1307,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def coef__inference(self, T):
-        """ The inference for the coefficients in the linear model of the
-        constant marginal treatment effect associated with treatment T.
+        """
+        Get inference results for the coefficients in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
@@ -1300,13 +1324,13 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, T, *, alpha=0.05):
-        """ The intercept in the linear model of the constant marginal treatment
-        effect associated with treatment T.
+        """
+        Get the intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
         T: alphanumeric
-            The input treatment for which we want the coefficients.
+            The input treatment for which we want the intercept.
         alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
@@ -1320,13 +1344,13 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__inference(self, T):
-        """ The inference of the intercept in the linear model of the constant marginal treatment
-        effect associated with treatment T.
+        """
+        Get inference results for the intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
         T: alphanumeric
-            The input treatment for which we want the coefficients.
+            The input treatment for which we want the intercept.
 
         Returns
         -------
@@ -1338,11 +1362,13 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
     def summary(self, T, *, alpha=0.05, value=0, decimals=3,
                 feature_names=None, treatment_names=None, output_names=None):
-        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
-        effect associated with treatment T.
+        """
+        Get a summary of coefficient and intercept in the linear model of the constant marginal treatment effect.
 
         Parameters
         ----------
+        T: alphanumeric
+            The input treatment for which we want the summary.
         alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
@@ -1408,8 +1434,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
 class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
     """
-    Mixin class that offers `inference='statsmodels'` options to the CATE estimator
-    that inherits it.
+    Mixin class that offers `inference='statsmodels'` options to the CATE estimator that inherits it.
 
     Such an estimator must implement a :attr:`model_final_` attribute that points
     to a :class:`.StatsModelsLinearRegression` object that is cloned to fit

@@ -6,7 +6,6 @@ import unittest
 from contextlib import ExitStack
 import itertools
 import numpy as np
-from numpy.core.fromnumeric import squeeze
 import pandas as pd
 import pytest
 
@@ -85,7 +84,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
-                    ind_pol = ca.individualized_policy(X, inds[idx])
+                    _ind_pol = ca.individualized_policy(X, inds[idx])
 
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -220,7 +219,7 @@ class TestCausalAnalysis(unittest.TestCase):
                         # policy value should exceed always treating with any treatment
                         assert_less_close(np.array(list(always_trt.values())), policy_val)
 
-                        ind_pol = ca.individualized_policy(X, inds[idx])
+                        _ind_pol = ca.individualized_policy(X, inds[idx])
 
                     if not classification:
                         # ExitStack can be used as a "do nothing" ContextManager
@@ -304,7 +303,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 # policy value should exceed always treating with any treatment
                 assert_less_close(np.array(list(always_trt.values())), policy_val)
 
-                ind_pol = ca.individualized_policy(X, inds[idx])
+                _ind_pol = ca.individualized_policy(X, inds[idx])
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -421,12 +420,12 @@ class TestCausalAnalysis(unittest.TestCase):
             for classification in [False, True]:
                 ca = CausalAnalysis(inds, cats, hinds, classification=classification, heterogeneity_model=h_model)
                 ca.fit(X, y)
-                glo = ca.global_causal_effect()
-                coh = ca.cohort_causal_effect(X[:2])
-                loc = ca.local_causal_effect(X[:2])
-                glo_dict = ca._global_causal_effect_dict()
-                coh_dict = ca._cohort_causal_effect_dict(X[:2])
-                loc_dict = ca._local_causal_effect_dict(X[:2])
+                ca.global_causal_effect()
+                ca.cohort_causal_effect(X[:2])
+                ca.local_causal_effect(X[:2])
+                ca._global_causal_effect_dict()
+                ca._cohort_causal_effect_dict(X[:2])
+                ca._local_causal_effect_dict(X[:2])
 
                 ca._policy_tree_output(X, 1)
                 ca._heterogeneity_tree_output(X, 1)
@@ -448,7 +447,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
-                    ind_pol = ca.individualized_policy(X, inds[idx])
+                    _ind_pol = ca.individualized_policy(X, inds[idx])
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -456,8 +455,8 @@ class TestCausalAnalysis(unittest.TestCase):
                 else:
                     cm = self.assertRaises(Exception)
                 with cm:
-                    inf = ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
-                    inf = ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
+                    ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
+                    ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2], row_wise=True)
 
@@ -540,7 +539,7 @@ class TestCausalAnalysis(unittest.TestCase):
             # policy value should exceed always treating with any treatment
             assert_less_close(np.array(list(always_trt.values())), policy_val)
 
-            ind_pol = ca.individualized_policy(X, inds[idx])
+            _ind_pol = ca.individualized_policy(X, inds[idx])
 
     def test_warm_start(self):
         for classification in [True, False]:
@@ -551,7 +550,6 @@ class TestCausalAnalysis(unittest.TestCase):
             X = np.hstack((X1, X2, X3))
             X_df = pd.DataFrame(X, columns=[f"x{i} "for i in range(7)])
             y = np.random.choice([0, 1], size=(500,))
-            y_df = pd.Series(y)
             # model
             hetero_inds = [0, 1, 2]
             feat_inds = [1, 3, 5]
@@ -560,13 +558,13 @@ class TestCausalAnalysis(unittest.TestCase):
                                 classification=classification,
                                 nuisance_models='linear', heterogeneity_model="linear", n_jobs=-1)
             ca.fit(X_df, y)
-            eff = ca.global_causal_effect(alpha=0.05)
-            eff = ca.local_causal_effect(X_df, alpha=0.05)
+            ca.global_causal_effect(alpha=0.05)
+            ca.local_causal_effect(X_df, alpha=0.05)
 
             ca.feature_inds = [1, 2, 3, 5]
             ca.fit(X_df, y, warm_start=True)
-            eff = ca.global_causal_effect(alpha=0.05)
-            eff = ca.local_causal_effect(X_df, alpha=0.05)
+            ca.global_causal_effect(alpha=0.05)
+            ca.local_causal_effect(X_df, alpha=0.05)
 
     def test_empty_hinds(self):
         for h_model in ['linear', 'forest']:
@@ -577,7 +575,6 @@ class TestCausalAnalysis(unittest.TestCase):
                 X = np.hstack((X1, X2, X3))
                 X_df = pd.DataFrame(X, columns=[f"x{i} "for i in range(7)])
                 y = np.random.choice([0, 1], size=(500,))
-                y_df = pd.Series(y)
                 # model
                 hetero_inds = [[], [], []]
                 feat_inds = [1, 3, 5]
@@ -586,10 +583,10 @@ class TestCausalAnalysis(unittest.TestCase):
                                     classification=classification,
                                     nuisance_models='linear', heterogeneity_model=h_model, n_jobs=-1)
                 ca.fit(X_df, y)
-                eff = ca.global_causal_effect(alpha=0.05)
-                eff = ca.local_causal_effect(X_df, alpha=0.05)
+                ca.global_causal_effect(alpha=0.05)
+                ca.local_causal_effect(X_df, alpha=0.05)
                 for ind in feat_inds:
-                    pto = ca._policy_tree_output(X_df, ind)
+                    ca._policy_tree_output(X_df, ind)
                     ca._individualized_policy_dict(X_df, ind)
 
     def test_can_serialize(self):
@@ -607,7 +604,7 @@ class TestCausalAnalysis(unittest.TestCase):
         ca = pickle.loads(pickle.dumps(ca))
         ca.fit(X, y)
         ca = pickle.loads(pickle.dumps(ca))
-        eff = ca.global_causal_effect()
+        ca.global_causal_effect()
 
     def test_over_cat_limit(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
@@ -678,7 +675,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 self.assertEqual(df.shape[0], 500)
                 self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
 
-                dictionary = ca._individualized_policy_dict(X, 'a')
+                ca._individualized_policy_dict(X, 'a')
 
     def test_random_state(self):
         # verify that using the same state returns the same results each time
@@ -725,7 +722,7 @@ class TestCausalAnalysis(unittest.TestCase):
         ca.fit(X, y)
         eff = ca.global_causal_effect()
         values = eff.loc['d'].index.values
-        np.testing.assert_equal(eff.loc['d'].index.values, ['cvb', 'avb'])
+        np.testing.assert_equal(values, ['cvb', 'avb'])
 
     def test_policy_with_index(self):
         inds = np.arange(1000)

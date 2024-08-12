@@ -6,21 +6,19 @@ import pickle
 import unittest
 
 import numpy as np
-from numpy.random import normal, multivariate_normal, binomial
 import pytest
 
 import scipy.special
-from sklearn.base import TransformerMixin
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import KFold, StratifiedGroupKFold, check_cv
+from sklearn.model_selection import KFold, StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
+from sklearn.preprocessing import FunctionTransformer, PolynomialFeatures
 
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
-from econml.utilities import get_feature_names_or_default, shape, hstack, vstack, reshape, cross_product
+from econml.utilities import get_feature_names_or_default, shape
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.tests.utilities import (GroupingModel, NestedModel)
 
@@ -284,11 +282,9 @@ class TestDRLearner(unittest.TestCase):
     def test_test_cate_api_without_ray(self):
         self._test_cate_api(use_ray=False)
 
+    # TODO Almost identical to DML test, so consider merging
     def test_can_use_vectors(self):
-        """
-        TODO Almost identical to DML test, so consider merging
-        Test that we can pass vectors for T and Y (not only 2-dimensional arrays).
-        """
+        """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
@@ -298,11 +294,9 @@ class TestDRLearner(unittest.TestCase):
             [1, 2, 1, 2]), X=np.ones((4, 1)))
         self.assertAlmostEqual(dml.coef_(T=2).reshape(())[()], 1)
 
+    # TODO Almost identical to DML test, so consider merging
     def test_can_use_sample_weights(self):
-        """
-        TODO Almost identical to DML test, so consider merging
-        Test that we can pass sample weights to an estimator.
-        """
+        """Test that we can pass sample weights to an estimator."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
@@ -311,11 +305,9 @@ class TestDRLearner(unittest.TestCase):
                 sample_weight=np.ones((4, )))
         self.assertAlmostEqual(dml.intercept_(T=2), 1)
 
+    # TODO Almost identical to DML test, so consider merging
     def test_discrete_treatments(self):
-        """
-        TODO Almost identical to DML test, so consider merging
-        Test that we can use discrete treatments
-        """
+        """Test that we can use discrete treatments."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
@@ -337,11 +329,9 @@ class TestDRLearner(unittest.TestCase):
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
             [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
+    # TODO Almost identical to DML test, so consider merging
     def test_can_custom_splitter(self):
-        """
-        TODO Almost identical to DML test, so consider merging
-        """
-        # test that we can fit with a KFold instance
+        """Test that we can fit with a KFold instance."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
@@ -361,11 +351,9 @@ class TestDRLearner(unittest.TestCase):
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
+    # TODO Almost identical to DML test, so consider merging
     def test_can_use_statsmodel_inference(self):
-        """
-        TODO Almost identical to DML test, so consider merging
-        Test that we can use statsmodels to generate confidence intervals
-        """
+        """Test that we can use statsmodels to generate confidence intervals."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
@@ -443,7 +431,7 @@ class TestDRLearner(unittest.TestCase):
                                                         featurizer=featurizer,
                                                         multitask_model_final=multitask_model_final)
                                         if (X is None) and (W is None):
-                                            with pytest.raises(AttributeError) as e_info:
+                                            with pytest.raises(AttributeError):
                                                 est.fit(y, T, X=X, W=W, sample_weight=sample_weight,
                                                         freq_weight=freq_weight, sample_var=sample_var)
                                             continue
@@ -580,7 +568,7 @@ class TestDRLearner(unittest.TestCase):
                                                         use_ray=use_ray)
 
                                     if (X is None) and (W is None):
-                                        with pytest.raises(AttributeError) as e_info:
+                                        with pytest.raises(AttributeError):
                                             if isinstance(est, LinearDRLearner):
                                                 est.fit(
                                                     y, T, X=X, W=W, sample_weight=sample_weight,
@@ -681,7 +669,7 @@ class TestDRLearner(unittest.TestCase):
                                                                       [2, 3, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
 
-                                    if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):
+                                    if isinstance(est, (LinearDRLearner, SparseLinearDRLearner)):
                                         if X is not None:
                                             for t in [1, 2]:
                                                 true_coef = np.zeros(
@@ -752,9 +740,7 @@ class TestDRLearner(unittest.TestCase):
         np.testing.assert_array_less(truth, upper + 0.05)
 
     def test_DRLearner(self):
-        """Tests whether the DRLearner can accurately estimate constant and
-           heterogeneous treatment effects.
-        """
+        """Test whether the DRLearner can accurately estimate constant and heterogeneous treatment effects."""
         DR_learner = DRLearner(model_regression=LinearRegression(),
                                model_final=LinearRegression())
         # Test inputs
@@ -772,7 +758,7 @@ class TestDRLearner(unittest.TestCase):
         self._test_with_W(DR_learner, tol=0.5)
 
     def test_sparse(self):
-        """SparseDRLearner test with a sparse DGP"""
+        """SparseDRLearner test with a sparse DGP."""
         # Sparse DGP
         np.random.seed(123)
         n_x = 50
@@ -841,8 +827,7 @@ class TestDRLearner(unittest.TestCase):
         est.fit(y, t, W=w, groups=groups)
 
     def test_score(self):
-        """Test that scores are the same no matter whether the prediction of cate model has the same shape of
-        input or the shape of input.reshape(-1,1)."""
+        """Test that scores are the same whether the final model's prediction is the shape of the input or a vector."""
         X = np.random.normal(0, 1, size=(100, 2))
         W = np.random.normal(0, 1, size=(100, 10))
         Y = np.random.normal(0, 1, size=(100,))
@@ -864,16 +849,16 @@ class TestDRLearner(unittest.TestCase):
                                   model_final=StatsModelsLinearRegression(), cv=1,
                                   multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
                 for shape_y in [(-1, 1), (-1,)]:
-                    for shape in [(-1, 1), (-1,)]:
+                    for shape_l in [(-1, 1), (-1,)]:
                         Y = Y.reshape(shape_y)
                         score1 = DRLearner(model_propensity=LogisticRegression(),
                                            model_regression=Lasso(),
-                                           model_final=L(shape), cv=1,
+                                           model_final=L(shape_l), cv=1,
                                            multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
                         np.testing.assert_equal(score1, score)
 
     def test_multitask_model_final(self):
-        """Test that multitask model final works for different return of model cate even treatment is binary"""
+        """Test that multitask model final works for different return of model cate even treatment is binary."""
         n = 100
         X = np.random.normal(0, 1, size=(n, 2))
         W = np.random.normal(0, 1, size=(n, 10))
@@ -956,7 +941,7 @@ class TestDRLearner(unittest.TestCase):
 
     @classmethod
     def _generate_data(cls, n, d, untreated_outcome, treatment_effect, propensity):
-        """Generates population data for given untreated_outcome, treatment_effect and propensity functions.
+        """Generate population data for given untreated_outcome, treatment_effect and propensity functions.
 
         Parameters
         ----------

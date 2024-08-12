@@ -20,28 +20,24 @@ This file consists of classes that implement the following variants of the ORF m
 For more details on these methods, see our paper [Oprescu2019]_.
 """
 
-import abc
-import inspect
 import numpy as np
 import warnings
 from joblib import Parallel, delayed
 from sklearn import clone
 from scipy.stats import norm
 from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, \
-    LogisticRegressionCV, ElasticNet
+from sklearn.linear_model import LinearRegression, LogisticRegression, \
+    LogisticRegressionCV
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (one_hot_encoder, reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, check_input_arrays, jacify_featurizer,
-                         _RegressionWrapper, deprecated, ndim)
+from ..utilities import (one_hot_encoder, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product, check_input_arrays,
+                         jacify_featurizer, _RegressionWrapper, ndim)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
 from ..sklearn_extensions.model_selection import _cross_val_predict
@@ -102,9 +98,10 @@ def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_
 
 
 def _group_predict(X, n_groups, predict_func):
-    """ Helper function that predicts using the predict function
-    for every input argument that looks like [X; i] for i in range(n_groups). Used in
-    DR moments, where we want to predict for each [X; t], for any value of the treatment t.
+    """
+    Use the predict function on the input argument augmented with each group indicator.
+
+    Used in DR moments, where we want to predict for each [X; t], for any value of the treatment t.
     Returns an (X.shape[0], n_groups) matrix of predictions for each row of X and each t in range(n_groups).
 
     Parameters
@@ -724,9 +721,9 @@ class _DMLOrthoForest_nuisance_estimator_generator:
     def __call__(self, Y, T, X, W, sample_weight=None, split_indices=None):
         if self.global_residualization:
             return 0
-        if self.discrete_treatment:
-            # Check that all discrete treatments are represented
-            if len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1:
+        # Check that all discrete treatments are represented
+        if (self.discrete_treatment and
+            len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1):
                 return None
         # Nuissance estimates evaluated with cross-fitting
         this_random_state = check_random_state(self.random_state)
@@ -783,8 +780,9 @@ def _DMLOrthoForest_parameter_estimator_func(Y, T, X,
 
 class _DMLOrthoForest_second_stage_parameter_estimator_gen:
     """
-    For the second stage parameter estimation we add a local linear correction. So
-    we fit a local linear function as opposed to a local constant function. We also penalize
+    Generate the second stage parameter estimation function.
+
+    We fit a local linear function as opposed to a local constant function. We also penalize
     the linear part to reduce variance.
     """
 
@@ -1143,15 +1141,17 @@ class DROrthoForest(BaseOrthoForest):
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         """
-        For the second stage parameter estimation we add a local linear correction. So
-        we fit a local linear function as opposed to a local constant function. We also penalize
+        Generate the second stage parameter estimation function.
+
+        We fit a local linear function as opposed to a local constant function. We also penalize
         the linear part to reduce variance.
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight,
                                      X_single):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+            """
+            Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
 
             The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
             local corrections on a preliminary parameter estimate.
@@ -1213,12 +1213,12 @@ class DROrthoForest(BaseOrthoForest):
         try:
             # This will flatten T
             T = column_or_1d(T)
-        except Exception as exc:
+        except Exception:
             raise ValueError("Expected array of shape ({n}, ), but got {T_shape}".format(n=len(T), T_shape=T.shape))
         # Check that T is numeric
         try:
             T.astype(float)
-        except Exception as exc:
+        except Exception:
             raise ValueError("Expected numeric array but got non-numeric types.")
         return T
 
@@ -1253,8 +1253,10 @@ class BLBInference(Inference):
         return self
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Confidence intervals for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1286,8 +1288,10 @@ class BLBInference(Inference):
             param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
 
     def const_marginal_effect_inference(self, X=None):
-        """ Inference results for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Inference results for the quantities :math:`\\theta(X)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1326,8 +1330,10 @@ class BLBInference(Inference):
         return eff.reshape((-1,) + self._estimator._d_y), scales.reshape((-1,) + self._estimator._d_y)
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1355,8 +1361,10 @@ class BLBInference(Inference):
         return effect_lower, effect_upper
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        """
+        Inference results for the quantities :math:`\\tau(X, T0, T1)` produced by the model.
+
+        Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1448,7 +1456,6 @@ class BLBInference(Inference):
         eff, scales = self._marginal_effect_inference_helper(T, X)
 
         d_y = self._d_y[0] if self._d_y else 1
-        d_t = self._d_t[0] if self._d_t else 1
 
         return NormalInferenceResults(d_t=self.d_t_orig, d_y=d_y,
                                       pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',

@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression
 from econml.dml import LinearDML
 from econml.inference import BootstrapInference
 
@@ -25,7 +25,7 @@ class TestATEInference(unittest.TestCase):
         cls.Y = np.random.normal(0, 1, size=(cls.n, 3))
 
     def test_ate_inference(self):
-        """Tests the ate inference results."""
+        """Test the ate inference results."""
         Y, T, X, W = TestATEInference.Y, TestATEInference.T, TestATEInference.X, TestATEInference.W
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),

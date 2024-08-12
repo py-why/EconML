@@ -7,20 +7,18 @@ import pickle
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
-from sklearn.model_selection import KFold, GroupKFold, check_cv
+from sklearn.model_selection import KFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.dml import NonParamDML
 import numpy as np
 import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
-from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
+from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
 from econml.tests.utilities import (GroupingModel, NestedModel)
 
@@ -567,10 +565,7 @@ class TestDML(unittest.TestCase):
                                             self.assertEqual(shape(eff), effect_shape2)
 
     def test_bad_splits_discrete(self):
-        """
-        Tests that when some training splits in a crossfit fold don't contain all treatments then an error
-        is raised.
-        """
+        """Test that we raise an error when some training splits in a crossfit fold don't contain all treatments."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         X = np.ones((8, 1))
@@ -585,9 +580,7 @@ class TestDML(unittest.TestCase):
             est.fit(Y, T, X=X)
 
     def test_bad_treatment_nonparam(self):
-        """
-        Test that the non-parametric dml raises errors when treatment is not binary or single dimensional
-        """
+        """Test that the non-parametric dml raises errors when treatment is not binary or single dimensional."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
@@ -606,9 +599,7 @@ class TestDML(unittest.TestCase):
             est.fit(Y, T, X=X)
 
     def test_access_to_internal_models(self):
-        """
-        Test that API related to accessing the nuisance models, cate_model and featurizer is working.
-        """
+        """Test that API related to accessing the nuisance models, cate_model and featurizer is working."""
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
@@ -645,7 +636,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
-        """Testing accuracy of forest DML is reasonable"""
+        """Testing accuracy of forest DML is reasonable."""
         np.random.seed(1234)
         n = 20000  # number of raw samples
         d = 10
@@ -659,13 +650,12 @@ class TestDML(unittest.TestCase):
             y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
 
             XT = np.hstack([T.reshape(-1, 1), X])
-            X1, X2, y1, y2, X1_sum, X2_sum, y1_sum, y2_sum, n1_sum, n2_sum, var1_sum, var2_sum = _summarize(XT, y)
+            _X1, _X2, _y1, _y2, X1_sum, X2_sum, y1_sum, y2_sum, n1_sum, n2_sum, _var1_sum, _var2_sum = _summarize(XT, y)
             # We concatenate the two copies data
             X_sum = np.vstack([np.array(X1_sum)[:, 1:], np.array(X2_sum)[:, 1:]])
             T_sum = np.concatenate((np.array(X1_sum)[:, 0], np.array(X2_sum)[:, 0]))
             y_sum = np.concatenate((y1_sum, y2_sum))  # outcome
             n_sum = np.concatenate((n1_sum, n2_sum))  # number of summarized points
-            var_sum = np.concatenate((var1_sum, var2_sum))  # variance of the summarized points
             for summarized, min_samples_leaf, tune in [(False, 20, False), (True, 1, False), (False, 20, True)]:
                 est = CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
                                       model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
@@ -724,8 +714,7 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(truth, ub + .01)
 
     def test_aaforest_pandas(self):
-        """Test that we can use CausalForest with pandas inputs"""
-
+        """Test that we can use CausalForest with pandas inputs."""
         df = pd.DataFrame({'a': np.random.normal(size=500),
                            'b': np.random.normal(size=500),
                            'c': np.random.choice([0, 1], size=500),
@@ -736,9 +725,9 @@ class TestDML(unittest.TestCase):
         est.fit(Y=df['a'], T=df['d'], X=df[['b', 'c']])
 
         # make sure we can get out post-fit stuff
-        ate = est.ate_
-        ate_inf = est.ate__inference()
-        eff = est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
+        est.ate_
+        est.ate__inference()
+        est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
 
     def test_cfdml_ate_inference(self):
         np.random.seed(1234)
@@ -852,7 +841,7 @@ class TestDML(unittest.TestCase):
             self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
-        """Test that we can use discrete treatments"""
+        """Test that we can use discrete treatments."""
         dmls = [
             LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                       fit_cate_intercept=False, discrete_treatment=True),
@@ -903,8 +892,7 @@ class TestDML(unittest.TestCase):
         self._test_can_custom_splitter(use_ray=False)
 
     def test_can_use_featurizer(self):
-        "Test that we can use a featurizer, and that fit is only called during training"
-
+        """Test that we can use a featurizer, and that fit is only called during training."""
         # predetermined splits ensure that all features are seen in each split
         splits = ([0, 2, 3, 6, 8, 11, 13, 15, 16],
                   [1, 4, 5, 7, 9, 10, 12, 14, 17])
@@ -933,7 +921,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_equal(eff_int[:, ::-1], eff_int_rev)
 
     def test_can_use_statsmodel_inference(self):
-        """Test that we can use statsmodels to generate confidence intervals"""
+        """Test that we can use statsmodels to generate confidence intervals."""
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True)
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
@@ -979,7 +967,7 @@ class TestDML(unittest.TestCase):
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
     def test_ignores_final_intercept(self):
-        """Test that final model intercepts are ignored (with a warning)"""
+        """Test that final model intercepts are ignored (with a warning)."""
         class InterceptModel:
             def fit(self, Y, X):
                 pass
@@ -1022,7 +1010,7 @@ class TestDML(unittest.TestCase):
             TestDML._test_sparse(n_p, d_w, n_r)
 
     def test_linear_sparse(self):
-        """SparseDML test with a sparse DGP"""
+        """SparseDML test with a sparse DGP."""
         # Sparse DGP
         np.random.seed(123)
         n_x = 50
@@ -1140,7 +1128,7 @@ class TestDML(unittest.TestCase):
     def _test_nuisance_scores(self, use_ray=False):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
-        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        T = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
         for mc_iters in [1, 2, 3]:
             for cv in [1, 2, 3]:
@@ -1165,7 +1153,7 @@ class TestDML(unittest.TestCase):
     def test_compare_nuisance_with_ray_vs_without_ray(self):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
-        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        T = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
         try:
             ray.init(num_cpus=1)

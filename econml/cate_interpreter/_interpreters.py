@@ -4,8 +4,7 @@
 import abc
 import numbers
 import numpy as np
-import sklearn
-from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.utils import check_array
 from ..policy import PolicyTree
 from .._tree_exporter import (_SingleTreeExporterMixin,
@@ -18,7 +17,7 @@ class _SingleTreeInterpreter(_SingleTreeExporterMixin, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def interpret(self, cate_estimator, X):
         """
-        Interpret a linear CATE estimator when applied to a set of features
+        Interpret a linear CATE estimator when applied to a set of features.
 
         Parameters
         ----------
@@ -35,7 +34,7 @@ class _SingleTreeInterpreter(_SingleTreeExporterMixin, metaclass=abc.ABCMeta):
 
 class SingleTreeCateInterpreter(_SingleTreeInterpreter):
     """
-    An interpreter for the effect estimated by a CATE estimator
+    An interpreter for the effect estimated by a CATE estimator.
 
     Parameters
     ----------
@@ -163,7 +162,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     def interpret(self, cate_estimator, X):
         """
-        Interpret the heterogeneity of a CATE estimator when applied to a set of features
+        Interpret the heterogeneity of a CATE estimator when applied to a set of features.
 
         Parameters
         ----------
@@ -235,7 +234,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
 class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
     """
-    An interpreter for a policy estimated based on a CATE estimation
+    An interpreter for a policy estimated based on a CATE estimation.
 
     Parameters
     ----------
@@ -383,7 +382,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     def interpret(self, cate_estimator, X, sample_treatment_costs=None):
         """
-        Interpret a policy based on a linear CATE estimator when applied to a set of features
+        Interpret a policy based on a linear CATE estimator when applied to a set of features.
 
         Parameters
         ----------
@@ -479,7 +478,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     def treat(self, X):
         """
-        Using the policy model learned by a call to :meth:`interpret`, assign treatment to a set of units
+        Assign treatment to a set of units using the policy model learned by a call to :meth:`interpret`.
 
         Parameters
         ----------

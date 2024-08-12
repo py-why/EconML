@@ -4,7 +4,6 @@
 import numpy as np
 import unittest
 
-from sklearn import clone
 from econml.dml import LinearDML
 from econml.dr import LinearDRLearner
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
@@ -12,7 +11,7 @@ from econml.federated_learning import FederatedEstimator
 
 
 class FunctionRegressor:
-    """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+    """A simple model that ignores the data it is fitted on, always just using the specified function to predict."""
 
     def __init__(self, func):
         self.func = func
@@ -25,7 +24,7 @@ class FunctionRegressor:
 
 
 class FunctionClassifier(FunctionRegressor):
-    """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+    """A simple model that ignores the data it is fitted on, always just using the specified function to predict."""
 
     def __init__(self, func):
         self.func = func

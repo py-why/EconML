@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 import unittest
-import logging
 import time
 import random
 import warnings

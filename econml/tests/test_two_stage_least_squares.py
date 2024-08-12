@@ -5,7 +5,6 @@
 
 import unittest
 import numpy as np
-import warnings
 import pytest
 
 from econml.utilities import shape, reshape
@@ -146,7 +145,7 @@ class Test2SLS(unittest.TestCase):
         e_fresh = np.random.uniform(low=-0.5, high=0.5, size=(n, d_x))
         x_fresh = np.random.uniform(size=(n, d_x)) + e_fresh
         w_fresh = np.random.uniform(size=(n, d_w))
-        p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, d_t))
+        p_fresh = x_fresh + z_fresh * e_fresh + w_fresh @ a + np.random.uniform(size=(n, d_t))
 
         for (dt, dx, dz) in [(0, 0, 0), (1, 1, 1), (5, 5, 5), (10, 10, 10), (3, 3, 10), (10, 10, 3)]:
             np2sls = SieveTSLS(t_featurizer=HermiteFeatures(dt),

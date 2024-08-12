@@ -1,8 +1,8 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
-""" An implementation of Orthogonal Random Forests [orf]_ and special
-case python classes.
+"""
+An implementation of Orthogonal Random Forests [orf]_ and special case python classes.
 
 References
 ----------

@@ -349,7 +349,8 @@ class DynamicPanelDGP(AbstracDynamicPanelDGP):
         return Y, T, X, groups
 
     def observational_data(self, n_units, gamma, s_t, sigma_t, random_seed=123):
-        """ Generated observational data with some observational treatment policy parameters
+        """
+        Generate observational data with some observational treatment policy parameters.
 
         Parameters
         ----------
@@ -371,7 +372,7 @@ class SemiSynthetic:
 
     def create_instance(self):
         # get new covariance matrix
-        self.cov_new = joblib.load(os.path.join(dir, f"input_dynamicdgp/cov_new.jbl"))
+        self.cov_new = joblib.load(os.path.join(dir, "input_dynamicdgp/cov_new.jbl"))
 
         # get coefs
         self.index = ["proxy1", "proxy2", "proxy3", "proxy4",
@@ -393,7 +394,7 @@ class SemiSynthetic:
         n_treatments = self.n_treatments
         coef_matrix = self.coef_df.values
         residual_matrix = self.new_res_df.values
-        n_x = len(self.columns)
+
         # proxy 1 is the outcome
         outcome = "proxy1"
 

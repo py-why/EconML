@@ -2,19 +2,13 @@
 # Licensed under the MIT License.
 
 import unittest
-import logging
-import time
-import random
 import numpy as np
 import pandas as pd
 import pytest
 import joblib
 from econml.policy import PolicyTree, PolicyForest
 from econml.policy import DRPolicyTree, DRPolicyForest
-from econml.utilities import cross_product
-from copy import deepcopy
 from sklearn.utils import check_random_state
-import scipy.stats
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.model_selection import GroupKFold
@@ -123,7 +117,7 @@ class TestPolicyForest(unittest.TestCase):
                 for sample_weight in [None, 'rand']:
                     for n_outcomes in n_outcome_list:
                         config = self._get_base_config()
-                        config['honest'] = True if not dr else False
+                        config['honest'] = not dr
                         config['criterion'] = criterion
                         config['max_depth'] = 2
                         config['min_samples_leaf'] = 5
@@ -347,23 +341,23 @@ class TestPolicyForest(unittest.TestCase):
         random_state = 123
         X, y, _ = self._get_policy_data(n, n_features, random_state)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=20, max_samples=20).fit(X, y)
+            PolicyForest(n_estimators=20, max_samples=20).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=20, max_samples=1.2).fit(X, y)
+            PolicyForest(n_estimators=20, max_samples=1.2).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, criterion='peculiar').fit(X, y)
+            PolicyForest(n_estimators=4, criterion='peculiar').fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, max_depth=-1).fit(X, y)
+            PolicyForest(n_estimators=4, max_depth=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_samples_split=-1).fit(X, y)
+            PolicyForest(n_estimators=4, min_samples_split=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_samples_leaf=-1).fit(X, y)
+            PolicyForest(n_estimators=4, min_samples_leaf=-1).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y)
+            PolicyForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, max_features=10).fit(X, y)
+            PolicyForest(n_estimators=4, max_features=10).fit(X, y)
         with np.testing.assert_raises(ValueError):
-            forest = PolicyForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y)
+            PolicyForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y)
 
         return
 
@@ -407,7 +401,6 @@ class TestPolicyForest(unittest.TestCase):
         tree.render('test', max_depth=2)
 
         groups = np.repeat(np.arange(X.shape[0]), 2)
-        Xraw = X.copy()
         X = np.repeat(X, 2, axis=0)
         T = np.zeros(y.shape)
         T[:, 1] = 1

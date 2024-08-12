@@ -3,34 +3,17 @@
 
 import unittest
 import pytest
-from sklearn.linear_model import LinearRegression, Lasso, \
-    LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, \
-    PolynomialFeatures
-from sklearn.model_selection import KFold
-from econml.dml import *
-from econml.metalearners import *
+from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML
+from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
 from econml.dr import DRLearner
-import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, \
-    cross_product
-from econml.inference import BootstrapInference
-from contextlib import ExitStack
-from sklearn.ensemble import RandomForestRegressor, \
-    GradientBoostingRegressor, GradientBoostingClassifier
-import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso
-from econml.tests.test_statsmodels import _summarize
+from sklearn.ensemble import GradientBoostingClassifier
 import copy
-import logging
 from econml.data.dgps import ihdp_surface_B
 import os
 
 try:
-    from azureml.train.automl.exceptions import ClientException
     from azureml.core.authentication import AzureCliAuthentication
-    from econml.automated_ml import *
+    from econml.automated_ml import addAutomatedML, setAutomatedMLWorkspace, EconAutoMLConfig
     AutomatedTLearner = addAutomatedML(TLearner)
     AutomatedSLearner = addAutomatedML(SLearner)
     AutomatedXLearner = addAutomatedML(XLearner)
@@ -132,7 +115,7 @@ class TestAutomatedML(unittest.TestCase):
                                 resource_group=resource_group, workspace_name=workspace_name)
 
     def test_nonparam(self):
-        """Testing the completion of the fit and effect estimation of an automated Nonparametic DML"""
+        """Testing the completion of the fit and effect estimation of an automated Nonparametic DML."""
         est = AutomatedNonParamDML(model_y=automl_model_reg(),
                                    model_t=automl_model_clf(),
                                    model_final=automl_model_sample_weight_reg(), featurizer=None,
@@ -141,7 +124,7 @@ class TestAutomatedML(unittest.TestCase):
         _ = est.effect(X)
 
     def test_param(self):
-        """Testing the completion of the fit and effect estimation of an automated Parametric DML"""
+        """Testing the completion of the fit and effect estimation of an automated Parametric DML."""
         est = AutomatedLinearDML(model_y=automl_model_reg(),
                                  model_t=GradientBoostingClassifier(),
                                  featurizer=None,
@@ -150,7 +133,7 @@ class TestAutomatedML(unittest.TestCase):
         _ = est.effect(X)
 
     def test_forest_dml(self):
-        """Testing the completion of the fit and effect estimation of an AutomatedForestDML"""
+        """Testing the completion of the fit and effect estimation of an AutomatedForestDML."""
         est = AutomatedCausalForestDML(model_y=automl_model_reg(),
                                        model_t=GradientBoostingClassifier(),
                                        discrete_treatment=True,
@@ -163,7 +146,7 @@ class TestAutomatedML(unittest.TestCase):
         _ = est.effect(X)
 
     def test_TLearner(self):
-        """Testing the completion of the fit and effect estimation of an AutomatedTLearner"""
+        """Testing the completion of the fit and effect estimation of an AutomatedTLearner."""
         # TLearner test
         # Instantiate TLearner
         est = AutomatedTLearner(models=automl_model_reg())
@@ -174,7 +157,7 @@ class TestAutomatedML(unittest.TestCase):
         _ = est.effect(X)
 
     def test_SLearner(self):
-        """Testing the completion of the fit and effect estimation of an AutomatedSLearner"""
+        """Testing the completion of the fit and effect estimation of an AutomatedSLearner."""
         # Test constant treatment effect with multi output Y
         # Test heterogeneous treatment effect
         # Need interactions between T and features
@@ -186,8 +169,7 @@ class TestAutomatedML(unittest.TestCase):
         # Test heterogeneous treatment effect with multi output Y
 
     def test_DALearner(self):
-        """Testing the completion of the fit and effect estimation of an AutomatedDomainAdaptationLearner"""
-
+        """Testing the completion of the fit and effect estimation of an AutomatedDomainAdaptationLearner."""
         # Instantiate DomainAdaptationLearner
 
         est = AutomatedDomainAdaptationLearner(models=automl_model_reg(),
@@ -197,7 +179,7 @@ class TestAutomatedML(unittest.TestCase):
         _ = est.effect(X)
 
     def test_positional(self):
-        """Test that positional arguments can be used with AutoML wrappers"""
+        """Test that positional arguments can be used with AutoML wrappers."""
 
         class TestEstimator:
             def __init__(self, model_x):

@@ -8,6 +8,7 @@ import numpy as np
 def _get_n_samples_subsample(n_samples, max_samples):
     """
     Get the number of samples in a sub-sample without replacement.
+
     Parameters
     ----------
     n_samples : int
@@ -18,6 +19,7 @@ def _get_n_samples_subsample(n_samples, max_samples):
               the interval `(0, 1)`;
             - if int, this indicates the exact number of samples;
             - if None, this indicates the total number of samples.
+
     Returns
     -------
     n_samples_subsample : int
@@ -44,7 +46,9 @@ def _get_n_samples_subsample(n_samples, max_samples):
 
 def _accumulate_prediction(predict, X, out, lock, *args, **kwargs):
     """
-    This is a utility function for joblib's Parallel.
+    Accumulate predictions.
+
+    Utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
     """
@@ -59,7 +63,9 @@ def _accumulate_prediction(predict, X, out, lock, *args, **kwargs):
 
 def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
     """
-    This is a utility function for joblib's Parallel.
+    Accumulate prediction variance.
+
+    Utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
     Accumulates the mean covariance of a tree prediction. predict is assumed to
@@ -84,7 +90,9 @@ def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
 
 def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwargs):
     """
-    This is a utility function for joblib's Parallel.
+    Accumulate prediction and its variance.
+
+    Utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
     Combines `_accumulate_prediction` and `_accumulate_prediction_var` in a single

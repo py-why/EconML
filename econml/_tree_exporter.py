@@ -47,10 +47,12 @@ except ImportError:  # prior to sklearn 0.22.0, the ``export`` submodule was pub
 
 def _color_brew(n):
     """Generate n colors with equally spaced hues.
+
     Parameters
     ----------
     n : int
         The number of colors required.
+
     Returns
     -------
     color_list : list, length n
@@ -86,9 +88,7 @@ def _color_brew(n):
 
 
 class _TreeExporter(_BaseTreeExporter):
-    """
-    Tree exporter that supports replacing the "value" part of each node's text with something customized
-    """
+    """Tree exporter that supports replacing the "value" part of each node's text with something customized."""
 
     def node_replacement_text(self, tree, node_id, criterion):
         return None
@@ -108,9 +108,7 @@ class _TreeExporter(_BaseTreeExporter):
 
 
 class _MPLExporter(_MPLTreeExporter):
-    """
-    Base class that supports adding a title to an MPL tree exporter
-    """
+    """Base class that supports adding a title to an MPL tree exporter."""
 
     def __init__(self, *args, title=None, **kwargs):
         self.title = title
@@ -127,9 +125,7 @@ class _MPLExporter(_MPLTreeExporter):
 
 
 class _DOTExporter(_DOTTreeExporter):
-    """
-    Base class that supports adding a title to a DOT tree exporter
-    """
+    """Base class that supports adding a title to a DOT tree exporter."""
 
     def __init__(self, *args, title=None, **kwargs):
         self.title = title
@@ -147,9 +143,7 @@ class _DOTExporter(_DOTTreeExporter):
 
 
 class _CateTreeMixin(_TreeExporter):
-    """
-    Mixin that supports writing out the nodes of a CATE tree
-    """
+    """Mixin that supports writing out the nodes of a CATE tree."""
 
     def __init__(self, include_uncertainty=False, uncertainty_level=0.1,
                  *args, treatment_names=None, **kwargs):
@@ -246,7 +240,7 @@ class _CateTreeMixin(_TreeExporter):
 
 class _PolicyTreeMixin(_TreeExporter):
     """
-    Mixin that supports writing out the nodes of a policy tree
+    Mixin that supports writing out the nodes of a policy tree.
 
     Parameters
     ----------
@@ -338,7 +332,7 @@ class _PolicyTreeMixin(_TreeExporter):
 
 class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
     """
-    Exports policy trees to matplotlib
+    Export policy trees to matplotlib.
 
     Parameters
     ----------
@@ -385,7 +379,7 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
 
 class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
     """
-    Exports CATE trees into matplotlib
+    Export CATE trees into matplotlib.
 
     Parameters
     ----------
@@ -440,7 +434,7 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
 
 class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
     """
-    Exports policy trees to dot files
+    Export policy trees to dot files.
 
     Parameters
     ----------
@@ -497,7 +491,7 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
 
 class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     """
-    Exports CATE trees to dot files
+    Export CATE trees to dot files.
 
     Parameters
     ----------
@@ -570,7 +564,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
                            leaves_parallel, rotate, rounded,
                            special_characters, precision):
         """
-        Make a dot file exporter
+        Make a dot file exporter.
 
         Parameters
         ----------
@@ -617,7 +611,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
     def _make_mpl_exporter(self, *, title=None, feature_names=None, treatment_names=None, max_depth=None,
                            filled=True, rounded=True, precision=3, fontsize=None):
         """
-        Make a matplotlib exporter
+        Make a matplotlib exporter.
 
         Parameters
         ----------
@@ -656,7 +650,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
                         filled=True, leaves_parallel=True,
                         rotate=False, rounded=True, special_characters=False, precision=3):
         """
-        Export a graphviz dot file representing the learned tree model
+        Export a graphviz dot file representing the learned tree model.
 
         Parameters
         ----------
@@ -696,12 +690,11 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-
         check_is_fitted(self.tree_model_, 'tree_')
         own_file = False
         try:
             if isinstance(out_file, str):
-                out_file = open(out_file, "w", encoding="utf-8")
+                out_file = open(out_file, "w", encoding="utf-8")  # noqa: SIM115, we close explicitly by design
                 own_file = True
 
             return_string = out_file is None
@@ -728,7 +721,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
                filled=True, leaves_parallel=True, rotate=False, rounded=True,
                special_characters=False, precision=3):
         """
-        Render the tree to a flie
+        Render the tree to a flie.
 
         Parameters
         ----------
@@ -784,7 +777,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
     def plot(self, ax=None, title=None, feature_names=None, treatment_names=None,
              max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
         """
-        Exports policy trees to matplotlib
+        Export policy trees to matplotlib.
 
         Parameters
         ----------

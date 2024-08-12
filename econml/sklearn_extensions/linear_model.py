@@ -25,7 +25,6 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
 from sklearn.metrics import r2_score
-from sklearn.model_selection import KFold, StratifiedKFold
 # TODO: consider working around relying on sklearn implementation details
 from sklearn.model_selection._split import _CVIterableWrapper
 from sklearn.multioutput import MultiOutputRegressor
@@ -1206,8 +1205,11 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
 
 class _PairedEstimatorWrapper:
-    """Helper class to wrap two different estimators, one of which can be used only with single targets and the other
-    which can be used on multiple targets.  Not intended to be used directly by users."""
+    """
+    Helper class to wrap one estimator for single targets with another for multiple targets.
+
+    Not intended to be used directly by users.
+    """
 
     _SingleEst = None
     _MultiEst = None
@@ -1480,7 +1482,10 @@ class SelectiveRegularization:
 
 
 class _StatsModelsWrapper(BaseEstimator):
-    """ Parent class for statsmodels linear models. At init time each children class should set the
+    """
+    Parent class for statsmodels linear models.
+
+    At init time each children class should set the
     boolean flag property fit_intercept. At fit time, each children class must calculate and set the
     following properties:
 
@@ -1567,7 +1572,7 @@ class _StatsModelsWrapper(BaseEstimator):
     @property
     def coef_stderr_(self):
         """
-        Gets the standard error of the fitted coefficients.
+        Get the standard error of the fitted coefficients.
 
         Returns
         -------
@@ -1579,7 +1584,7 @@ class _StatsModelsWrapper(BaseEstimator):
     @property
     def intercept_stderr_(self):
         """
-        Gets the standard error of the intercept(s) (or 0 if no intercept was fit).
+        Get the standard error of the intercept(s) (or 0 if no intercept was fit).
 
         Returns
         -------
@@ -1590,7 +1595,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
     def prediction_stderr(self, X):
         """
-        Gets the standard error of the predictions.
+        Get the standard error of the predictions.
 
         Parameters
         ----------
@@ -1614,7 +1619,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
     def coef__interval(self, alpha=0.05):
         """
-        Gets a confidence interval bounding the fitted coefficients.
+        Get a confidence interval bounding the fitted coefficients.
 
         Parameters
         ----------
@@ -1632,7 +1637,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
     def intercept__interval(self, alpha=0.05):
         """
-        Gets a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
+        Get a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
 
         Parameters
         ----------
@@ -1654,7 +1659,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
     def predict_interval(self, X, alpha=0.05):
         """
-        Gets a confidence interval bounding the prediction.
+        Get a confidence interval bounding the prediction.
 
         Parameters
         ----------
@@ -1669,7 +1674,6 @@ class _StatsModelsWrapper(BaseEstimator):
         prediction_intervals : {tuple ((n,) array, (n,) array), tuple ((n,p) array, (n,p) array)}
             The lower and upper bounds of the confidence intervals of the predicted mean outcomes
         """
-
         pred = self.predict(X)
         pred_stderr = self.prediction_stderr(X)
 
@@ -1702,7 +1706,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
-
         X, y, sample_weight, freq_weight, sample_var = check_input_arrays(
             X, y, sample_weight, freq_weight, sample_var, dtype='numeric')
         if X is None:
@@ -2033,7 +2036,7 @@ class StatsModelsRLM(_StatsModelsWrapper):
 
 class StatsModels2SLS(_StatsModelsWrapper):
     """
-    Class that solves the moment equation E[(y-theta*T)*Z]=0
+    Class that solves the moment equation E[(y-theta*T)*Z]=0.
 
     Parameters
     ----------
@@ -2048,7 +2051,6 @@ class StatsModels2SLS(_StatsModelsWrapper):
 
     def _check_input(self, Z, T, y, sample_weight):
         """Check dimensions and other assertions."""
-
         # set default values for None
         if sample_weight is None:
             sample_weight = np.ones(y.shape[0])

@@ -33,7 +33,7 @@ class CalibrationEvaluationResults:
 
     def summary(self) -> pd.DataFrame:
         """
-        Constructs dataframe summarizing the results of the calibration test.
+        Construct a dataframe summarizing the results of the calibration test.
 
         Parameters
         ----------
@@ -43,7 +43,6 @@ class CalibrationEvaluationResults:
         -------
         pandas dataframe containing summary of calibration test results
         """
-
         res = pd.DataFrame({
             'treatment': self.treatments[1:],
             'cal_r_squared': self.cal_r_squared,
@@ -52,7 +51,7 @@ class CalibrationEvaluationResults:
 
     def plot_cal(self, tmt: Any):
         """
-        Plots group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
+        Plot group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
 
         Parameters
         ----------
@@ -115,7 +114,7 @@ class BLPEvaluationResults:
 
     def summary(self):
         """
-        Constructs dataframe summarizing the results of the BLP test.
+        Construct a dataframe summarizing the results of the BLP test.
 
         Parameters
         ----------
@@ -173,7 +172,7 @@ class UpliftEvaluationResults:
 
     def summary(self):
         """
-        Constructs dataframe summarizing the results of the QINI test.
+        Construct a dataframe summarizing the results of the QINI test.
 
         Parameters
         ----------
@@ -193,7 +192,7 @@ class UpliftEvaluationResults:
 
     def plot_uplift(self, tmt: Any, err_type: str = None):
         """
-        Plots uplift curves.
+        Plot uplift curves.
 
         Parameters
         ----------
@@ -281,7 +280,7 @@ class EvaluationResults:
 
     def summary(self):
         """
-        Constructs dataframe summarizing the results of all 3 tests.
+        Construct a dataframe summarizing the results of all 3 tests.
 
         Parameters
         ----------
@@ -305,7 +304,7 @@ class EvaluationResults:
 
     def plot_cal(self, tmt: int):
         """
-        Plots group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
+        Plot group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
 
         Parameters
         ----------
@@ -320,7 +319,7 @@ class EvaluationResults:
 
     def plot_qini(self, tmt: int, err_type: str = None):
         """
-        Plots QINI curves.
+        Plot QINI curves.
 
         Parameters
         ----------
@@ -339,7 +338,7 @@ class EvaluationResults:
 
     def plot_toc(self, tmt: int, err_type: str = None):
         """
-        Plots TOC curves.
+        Plot TOC curves.
 
         Parameters
         ----------
