@@ -9,13 +9,22 @@ import warnings
 import numpy as np
 import sparse as sp
 import pytest
-from econml.utilities import (einsum_sparse, todense, tocoo, transpose,
+from econml.utilities import (check_high_dimensional, einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
                               strata_from_discrete_arrays)
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, SplineTransformer
 
 
 class TestUtilities(unittest.TestCase):
+    def test_check_high_dimensional(self):
+        X = np.repeat(
+            a=np.expand_dims(np.arange(3), axis=1),
+            repeats=2,
+            axis=1,
+        )
+        T = np.expand_dims(np.arange(3), axis=1)
+
+        check_high_dimensional(X=X, T=T, threshold=0, featurizer=SplineTransformer())
 
     def test_cross_product(self):
         X = np.array([[1, 2],
