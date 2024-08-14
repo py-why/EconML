@@ -63,7 +63,7 @@ def check_high_dimensional(X, T, *, threshold, featurizer=None, discrete_treatme
     elif featurizer is None:
         d_x = X.shape[1]
     else:
-        d_x = clone(featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
+        d_x = clone(featurizer, safe=False).fit_transform(X).shape[1]
     if discrete_treatment:
         d_t = len(set(T.flatten())) - 1
     else:
