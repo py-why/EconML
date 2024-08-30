@@ -547,12 +547,13 @@ See the <a href="#references">References</a> section for more details.
 <details>
   <summary>First Stage Model Selection (click to expand)</summary>
 
-First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. Unless selecting among a large set of hyperparameters, choosing first stage models externally is the preferred method due to statistical and computational advantages.
+EconML's cross-fitting estimators provide built-in functionality for first-stage model selection.  This support can work with existing sklearn model selection classes such as `LassoCV` or `GridSearchCV`, or you can pass a list of models to choose the best from among them when cross-fitting.
 
 ```Python
 from econml.dml import LinearDML
 from sklearn import clone
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LassoCV
 from sklearn.model_selection import GridSearchCV
 
 cv_model = GridSearchCV(
@@ -564,14 +565,9 @@ cv_model = GridSearchCV(
               },
               cv=5,
            )
-# First stage model selection within EconML
-# This is more direct, but computationally and statistically less efficient
-est = LinearDML(model_y=cv_model, model_t=cv_model)
-# First stage model selection ouside of EconML
-# This is the most efficient, but requires boilerplate code
-model_t = clone(cv_model).fit(W, T).best_estimator_
-model_y = clone(cv_model).fit(W, Y).best_estimator_
-est = LinearDML(model_y=model_t, model_t=model_y)
+
+est = LinearDML(model_y=cv_model, # use sklearn's grid search to select the best Y model 
+                model_t=[RandomForestRegressor(), LassoCV()]) # use built-in model selection to choose between forest and linear models for T model
 ```
 
 
@@ -671,15 +667,15 @@ We rely on some recent features of setuptools, so make sure to upgrade to a rece
 
 We use the [pre-commit](https://pre-commit.com/) framework to enforce code style and run checks before every commit. To install the pre-commit hooks, make sure you have pre-commit installed (`pip install pre-commit`) and then run `pre-commit install` in the root of the repository. This will install the hooks and run them automatically before every commit. If you want to run the hooks manually, you can run `pre-commit run --all-files`.
 
-## Help wanted
+## Finding issues to help with
 
-If you're looking to contribute to the project, we have a number of issues tagged with the [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) label that are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs.
+If you're looking to contribute to the project, we have a number of issues tagged with the [`up for grabs`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22up+for+grabs%22) and [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) labels. "Up for grabs" issues are ones that we think that people without a lot of experience in our codebase may be able to help with, while "Help wanted" issues are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs, but which might be more involved.
 
 ## Running the tests
 
-This project uses [pytest](https://docs.pytest.org/) for testing.  To run all tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
+This project uses [pytest](https://docs.pytest.org/) to run tests for continuous integration.  It is also possible to use `pytest` to run tests locally, but this isn't recommended because it will take an extremely long time and some tests are specific to certain environments or scenarios that have additional dependencies.  However, if you'd like to do this anyway, to run all tests locally after installing the package you can use `pip install pytest pytest-xdist pytest-cov coverage[toml]` (as well as `pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm` for the dependencies to run all of our notebooks as tests) followed by `python -m pytest`.
 
-However, running all tests can be very time-consuming, so you may prefer to run just a relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
+Because running all tests can be very time-consuming, we recommend running only the relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
 
 ## Generating the documentation
 
