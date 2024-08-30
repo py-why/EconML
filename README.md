@@ -669,7 +669,7 @@ We use the [pre-commit](https://pre-commit.com/) framework to enforce code style
 
 ## Finding issues to help with
 
-If you're looking to contribute to the project, we have a number of issues tagged with the [`up for grabs`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22up+for+grabs%22) and [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) labels.  "Up for grabs" issues are ones that we think that people without a lot of experience in our codebase may be able to help with, while "Help wanted" issues are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs, but which might be more invovled.
+If you're looking to contribute to the project, we have a number of issues tagged with the [`up for grabs`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22up+for+grabs%22) and [`help wanted`](https://github.com/py-why/EconML/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) labels. "Up for grabs" issues are ones that we think that people without a lot of experience in our codebase may be able to help with, while "Help wanted" issues are valuable improvements to the library that our team currently does not have time to prioritize where we would greatly appreciate community-initiated PRs, but which might be more involved.
 
 ## Running the tests
 
