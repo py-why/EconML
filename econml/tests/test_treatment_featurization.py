@@ -453,8 +453,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                             assert est.intercept__inference().summary_frame().shape == expected_intercept_inf_shape
 
                         # loose inference checks
-                        # temporarily skip LinearDRIV and SparseLinearDRIV for weird effect shape reasons
-                        if isinstance(est, (KernelDML, LinearDRIV, SparseLinearDRIV)):
+                        if isinstance(est, (KernelDML)):
                             continue
 
                         if est._inference is None:

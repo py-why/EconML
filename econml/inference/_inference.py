@@ -13,7 +13,8 @@ from scipy.stats import norm
 from ._bootstrap import BootstrapEstimator
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
-                         parse_final_model_params, reshape_treatmentwise_effects, shape, filter_none_kwargs)
+                         parse_final_model_params, reshape_treatmentwise_effects, shape, filter_none_kwargs,
+                         reshape_outcomewise_effects)
 
 """Options for performing inference in estimators."""
 
@@ -281,8 +282,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         elif self.featurizer is not None:
             X = self.featurizer.transform(X)
         XT = cross_product(X, T1 - T0)
-        e_pred = self._predict(XT)
-        e_stderr = self._prediction_stderr(XT)
+        e_pred = reshape_outcomewise_effects(self._predict(XT), self._d_y)
+        e_stderr = reshape_outcomewise_effects(self._prediction_stderr(XT), self._d_y)
         d_y = self._d_y[0] if self._d_y else 1
 
         mean_XT = XT.mean(axis=0, keepdims=True)
