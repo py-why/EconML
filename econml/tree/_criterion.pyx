@@ -209,7 +209,9 @@ cdef class Criterion:
         return (- self.weighted_n_right * impurity_right
                 - self.weighted_n_left * impurity_left)
 
-    cdef double impurity_improvement(self, double impurity) nogil:
+    cdef double impurity_improvement(self, double impurity_parent,
+                                     double impurity_left,
+                                     double impurity_right) nogil:
         """Compute the improvement in impurity
         This method computes the improvement in impurity when a split occurs.
         The weighted impurity improvement equation is the following:
@@ -218,22 +220,24 @@ cdef class Criterion:
         where N is the total number of samples, N_t is the number of samples
         at the current node, N_t_L is the number of samples in the left child,
         and N_t_R is the number of samples in the right child,
+
         Parameters
         ----------
-        impurity : double
-            The initial impurity of the node before the split
+        impurity_parent : float64_t
+            The initial impurity of the parent node before the split
+
+        impurity_left : float64_t
+            The impurity of the left child
+
+        impurity_right : float64_t
+            The impurity of the right child
+
         Return
         ------
         double : improvement in impurity after the split occurs
         """
-
-        cdef double impurity_left
-        cdef double impurity_right
-
-        self.children_impurity(&impurity_left, &impurity_right)
-
         return ((self.weighted_n_node_samples / self.weighted_n_samples) *
-                (impurity - (self.weighted_n_right / 
+                (impurity_parent - (self.weighted_n_right / 
                              self.weighted_n_node_samples * impurity_right)
                           - (self.weighted_n_left / 
                              self.weighted_n_node_samples * impurity_left)))
