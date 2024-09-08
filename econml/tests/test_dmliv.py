@@ -267,8 +267,8 @@ class TestDMLIV(unittest.TestCase):
         Z = np.random.normal(size=(n,))
 
         est = NonParamDMLIV(
-            discrete_instrument=False, 
-            discrete_treatment=False, 
+            discrete_instrument=False,
+            discrete_treatment=False,
             model_final=LinearRegression()
         )
         with pytest.raises(ValueError, match=r" examine your instrument variable "):
