@@ -834,6 +834,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 elif not np.array_equal(fitted_inds, new_inds):
                     raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
 
+            if nuisances[1].sum() == 0:
+                raise ValueError(
+                    """
+                    In fitting nuisances, the estimates for E[T|Z,X,W] are identical to E[T|X,W],
+                    resulting in a situation where the rows will all be weighted to zero. Please
+                    examine your instrument variable `Z`. 
+                    """
+                )
+
             if self.mc_iters is not None:
                 if self.mc_agg == 'mean':
                     nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
