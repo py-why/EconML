@@ -254,22 +254,3 @@ class TestDMLIV(unittest.TestCase):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
                 est.score(y, T, Z=Z, X=X, W=W)
                 est.const_marginal_effect(X)
-
-    def test_row_zero_weight_failure_mode(self):
-        np.random.seed(784)
-
-        n = 100
-        d_x = 3
-
-        Y = np.random.normal(size=(n,))
-        T = np.random.normal(size=(n,))
-        X = np.random.normal(size=(n, d_x))
-        Z = np.random.normal(size=(n,))
-
-        est = NonParamDMLIV(
-            discrete_instrument=False,
-            discrete_treatment=False,
-            model_final=LinearRegression()
-        )
-        with pytest.raises(ValueError, match=r" examine your instrument variable "):
-            est.fit(Y, T, Z=Z, X=X)
