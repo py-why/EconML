@@ -764,9 +764,14 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
         if T_res.sum() == 0:
             raise ValueError(
                 """
-                All values of the treatment residual are 0, 
-                which then makes them unsuitable to use as weights 
-                in downstream in econml/dml/dml.py 
+                All values of the treatment residual are 0,
+                which then makes them unsuitable to use as weights.
+                DRIV requires that the instrument Z has an effect on the
+                expected treatment value of at least some rows.
+
+                If you are using regularized models, it's possible that this error is a
+                result of regularizing too strongly, so that all predictions from both
+                models are constant.
                 """
             )
         return Y_res, T_res
