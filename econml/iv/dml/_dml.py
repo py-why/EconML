@@ -761,7 +761,7 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
             TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
         Y_res = Y - Y_pred.reshape(Y.shape)
         T_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
-        if T_res.sum() == 0:
+        if not T_res.any():
             raise ValueError(
                 """
                 All values of the treatment residual are 0,
