@@ -177,7 +177,8 @@ jobs:
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage-${{ env.id_string }}
-        path: .coverage.${{ env.id_string }}    
+        path: .coverage.${{ env.id_string }}  
+        hidden-files: true
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
@@ -278,6 +279,7 @@ jobs:
       with:
         name: coverage-${{ env.id_string }}
         path: .coverage.${{ env.id_string }}
+        hidden-files: true
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
       # Run whether or not the tests passed, but only if they ran at all
