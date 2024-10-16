@@ -770,6 +770,28 @@ def reshape_treatmentwise_effects(A, d_t, d_y):
     else:
         return A
 
+def reshape_outcomewise_effects(A, d_y):
+    """
+    Given an effects matrix, reshape second dimension to be consistent with d_y[0].
+
+    Parameters
+    ----------
+    A : array
+        The effects array to be reshaped. It should have shape (m,) or (m, d_y).
+    d_y : tuple of int
+        Either () if Y was a vector, or a 1-tuple of the number of columns of Y if it was an array.
+
+    Returns
+    -------
+    A : array
+        The reshaped effects array with shape:
+         - (m, ) if d_y is () and Y is a vector,
+         - (m, d_y) if d_y is a 1-tuple and Y is an array.
+    """
+    if np.shape(A)[1:] == d_y or d_y == ():
+        return A
+    else:
+        return A.reshape(-1, d_y[0])
 
 def einsum_sparse(subscripts, *arrs):
     """
