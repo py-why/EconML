@@ -203,13 +203,16 @@ jobs:
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-12]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
-          - os: macos-12
+          - os: macos-latest
             kind: serial
+          # Mac ARM doesn't support tensorflow versions compatible with python 3.8
+          - os: macos-latest
+            python-version: '3.8'        
           # Ray tests run out of memory on Windows
           - os: windows-latest
             kind: ray
@@ -249,6 +252,10 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install libomp
+      # lightgbm needs libomp on mac
+      run: brew install libomp
+      if: matrix.os == 'macos-latest'
     - name: Install uv
       # check if we're running on windows
       run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
@@ -299,7 +306,7 @@ jobs:
     strategy:
       matrix:
         kind: [tests]
-        os: [ubuntu-latest, windows-latest, macos-12]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         extras: ["[tf,plt,dowhy,ray]"]
         include:
