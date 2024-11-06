@@ -74,17 +74,10 @@ def simple_constraint_map(all_combos: frozenset[Combo]) -> tuple[dict[frozenset[
         if i > 0:
             less_than = frozenset({combo for combo in all_combos if combo.py_version < py_version})
             constraint_map[less_than] = f"; python_version<'{py_version}'"
-        # We want to use >= next version instead of > this version
-        #       because otherwise we have pairs like
-        #           somelib==1.2, python_version<'3.9'
-        #           somelib==1.3, python_version>'3.8'
-        #       which is correct but looks more confusing than
-        #           somelib==1.2, python_version<'3.9'
-        #           somelib==1.3, python_version>='3.9'
         if i < len(all_py_versions)-2:
-            next_version = sorted(all_py_versions)[i+1]
-            greater_than = frozenset({combo for combo in all_combos if combo.py_version >= next_version})
-            constraint_map[greater_than] = f"; python_version>='{next_version}'"
+            greater_than = frozenset({combo for combo in all_combos if combo.py_version > py_version})
+            constraint_map[greater_than] = f"; python_version>'{py_version}'"
+
 
     # if every combination is present, we don't need to add any constraint
     constraint_map[all_combos] = ""
