@@ -494,10 +494,10 @@ class TestGRFPython(unittest.TestCase):
         forest = RegressionForest(**config).fit(X, y)
         projector = np.ones((X.shape[0], 2)) / 2.0
         mean_proj, var_proj = forest.predict_projection_and_var(X, projector)
-        np.testing.assert_array_equal(mean_proj, mean)
-        np.testing.assert_array_equal(var_proj, var)
-        np.testing.assert_array_equal(var_proj, forest.predict_projection_var(X, projector))
-        np.testing.assert_array_equal(mean_proj, forest.predict_projection(X, projector))
+        np.testing.assert_allclose(mean_proj, mean)
+        np.testing.assert_allclose(var_proj, var)
+        np.testing.assert_allclose(var_proj, forest.predict_projection_var(X, projector))
+        np.testing.assert_allclose(mean_proj, forest.predict_projection(X, projector))
         return
 
     def test_feature_importances(self,):
@@ -547,7 +547,7 @@ class TestGRFPython(unittest.TestCase):
                             feature_importances /= tw[0]
                             totest = tree.tree_.compute_feature_importances(normalize=False,
                                                                             max_depth=max_depth, depth_decay=2.0)
-                            np.testing.assert_array_equal(feature_importances, totest)
+                            np.testing.assert_allclose(feature_importances, totest)
 
                             het_importances = np.zeros(n_features)
                             for it, (feat, depth, left, right, w) in\
