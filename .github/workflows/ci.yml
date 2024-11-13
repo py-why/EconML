@@ -203,13 +203,16 @@ jobs:
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-12]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
-          - os: macos-12
+          - os: macos-latest
             kind: serial
+          # Mac ARM doesn't support tensorflow versions compatible with python 3.8
+          - os: macos-latest
+            python-version: '3.8'        
           # Ray tests run out of memory on Windows
           - os: windows-latest
             kind: ray
@@ -249,6 +252,10 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install libomp
+      # lightgbm needs libomp on mac
+      run: brew install libomp
+      if: matrix.os == 'macos-latest'
     - name: Install uv
       # check if we're running on windows
       run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
@@ -293,6 +300,56 @@ jobs:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
+  store-reqs-per-env:
+    name: Store requirements for LKG updates
+    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
+    strategy:
+      matrix:
+        kind: [tests]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        extras: ["[tf,plt,dowhy,ray]"]
+        include:
+          # explicitly add the two notebook extras
+          - kind: notebooks
+            os: ubuntu-latest
+            python-version: '3.8'
+            extras: "[tf,plt,ray]"
+          - kind: notebooks
+            os: ubuntu-latest
+            python-version: '3.9'
+            extras: "[plt,dowhy]"
+        exclude:
+          # Mac ARM doesn't support tensorflow versions compatible with python 3.8
+          - os: macos-latest
+            python-version: '3.8'
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.ref }}
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install uv
+      # check if we're running on windows
+      run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
+    - name: Install econml
+      # add all extras used by any of the individual tests, which is a superset of what's actually used anywhere
+      run: uv pip install --system -e .${{ matrix.extras }}
+    - name: Install notebook requirements
+      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+      if: matrix.kind == 'notebooks'
+    - name: Save installed packages
+      run: pip freeze --exclude-editable > lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
+    - name: Upload installed packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}
+        path: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
+
   coverage-report:
     name: "Coverage report"
     needs: [tests, notebooks]
@@ -329,11 +386,11 @@ jobs:
       
   merge-artifacts:
     name: "Merge artifacts"
-    needs: [coverage-report, tests, notebooks]
+    needs: [coverage-report, tests, notebooks, store-reqs-per-env]
     if: success() || failure()
     strategy:
       matrix:
-        artifact: [requirements, tests, coverage, notebooks]
+        artifact: [requirements, tests, coverage, notebooks, lkg-tests, lkg-notebooks]
     runs-on: ubuntu-latest
     steps:
     - name: "Merge artifacts"
@@ -346,7 +403,54 @@ jobs:
       # Unlike with plain upload-artifact, there's no way to ignore the situation where no files are found when using the v4 merge action
       # (see https://github.com/actions/upload-artifact/issues/520), so just continue on error isntead
       continue-on-error: true
+
+  generate-lkg:
+    name: "Generate updated last known good files"
+    needs: [merge-artifacts]
+    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
+    strategy:
+      matrix:
+        kind: [tests, notebooks]
+        include:
+        - kind: tests
+          output-name: lkg
+        - kind: notebooks
+          output-name: lkg-notebook
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.ref }}
+    - name: Setup Python
+      uses: actions/setup-python@v5
+    - name: Download files
+      uses: actions/download-artifact@v4
+      with:
+        name: lkg-${{ matrix.kind }}
+        path: requirements
+    - name: "Generate last known good versions"
+      run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.kind }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
+    - name: "Upload last known good versions"
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.output-name }}
+        path: ${{ matrix.output-name }}.txt
         
+  merge-lkg:
+    name: "Merge last known good versions"
+    needs: [generate-lkg]
+    if: success() || failure()
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Merge last known good versions"
+      uses: actions/upload-artifact/merge@v4
+      with:
+        # can't use just "lkg" for the name since that artifact already exists and merge won't overwrite it even when delete-merged is true
+        name: lkg-files
+        pattern: "lkg*"
+        delete-merged: true
+
   build:
     name: Build package
     needs: [eval]
