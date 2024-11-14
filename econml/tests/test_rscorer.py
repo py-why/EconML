@@ -24,9 +24,12 @@ class TestRScorer(unittest.TestCase):
         X = np.random.normal(0, 1, size=(100000, 2))
         T = np.random.binomial(1, .5, size=(100000,))
         if discrete_outcome:
-            y = (X[:, 0] * T + np.random.normal(size=(100000,)) > 0).astype(int)
+            eps = np.random.normal(size=(100000,))
+            log_odds = X[:, 0]*T + eps
+            y_sigmoid = 1/(1 + np.exp(-log_odds))
+            y = np.array([np.random.binomial(1, p) for p in y_sigmoid])
             # Difference in conditional probabilities P(y=1|X,T=1) - P(y=0|X,T=0)
-            true_eff = (1 / (1 + np.exp(-X[:, 0]))) - (1 / (1 + np.exp(0)))
+            true_eff = (1 / (1 + np.exp(-(X[:, 0]+eps)))) - (1 / (1 + np.exp(-eps)))
         else:
             y = X[:, 0] * T + np.random.normal(size=(100000,))
             true_eff = X[:, 0]
