@@ -28,7 +28,7 @@ class TestRScorer(unittest.TestCase):
             log_odds = X[:, 0]*T + eps
             y_sigmoid = 1/(1 + np.exp(-log_odds))
             y = np.array([np.random.binomial(1, p) for p in y_sigmoid])
-            # Difference in conditional probabilities P(y=1|X,T=1) - P(y=0|X,T=0)
+            # Difference in conditional probabilities P(y=1|X,T=1) - P(y=1|X,T=0)
             true_eff = (1 / (1 + np.exp(-(X[:, 0]+eps)))) - (1 / (1 + np.exp(-eps)))
         else:
             y = X[:, 0] * T + np.random.normal(size=(100000,))
