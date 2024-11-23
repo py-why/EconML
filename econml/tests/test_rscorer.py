@@ -33,6 +33,9 @@ class TestRScorer(unittest.TestCase):
         else:
             y = X[:, 0] * T + np.random.normal(size=(100000,))
             true_eff = X[:, 0]
+
+        y = y.reshape(-1, 1)
+        T = T.reshape(-1, 1)
         return y, T, X, true_eff
 
     def test_comparison(self):
@@ -114,10 +117,6 @@ class TestRScorer(unittest.TestCase):
                                 for _, mdl in models]
                 # Checking neg corr between rscore and rootpehe (precision in estimating heterogeneous effects)
                 assert LinearRegression().fit(np.array(rscore).reshape(-1, 1), np.array(rootpehe_score)).coef_ < 0.5
-
-                if discrete_outcome:
-                    # Removing SLearner. Only utilized for introducting variation in r- & rootpehe score
-                    models = [m for m in models if m[0] != 'slearner']
                 mdl, _ = scorer.best_model([mdl for _, mdl in models])
                 rootpehe_best = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
                 # Checking best model selection behaves as intended
