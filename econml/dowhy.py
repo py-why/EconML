@@ -233,11 +233,14 @@ class DoWhyWrapper:
             raise AttributeError(attr)
         elif attr == "dowhy_":
             if "dowhy_" not in dir(self):
-                raise RuntimeError("Please call DoWhyWrapper.fit first before any other operations")
+                raise AttributeError("Please call `DoWhyWrapper.fit` first before any other operations.")
             else:
                 return self.dowhy_
         elif attr in ['_cate_estimator', 'identified_estimand_', 'estimate_']:
-            return getattr(self, attr)
+            if attr in dir(self):
+                return getattr(self, attr)
+            else:
+                raise AttributeError(f"call `DoWhyWrapper.fit` first before any other operations.")
         elif attr.startswith('dowhy__'):
             return getattr(self.dowhy_, attr[len('dowhy__'):])
         elif hasattr(self.estimate_._estimator_object, attr):
