@@ -240,7 +240,7 @@ class DoWhyWrapper:
             if attr in dir(self):
                 return getattr(self, attr)
             else:
-                raise AttributeError(f"call `DoWhyWrapper.fit` first before any other operations.")
+                raise AttributeError("call `DoWhyWrapper.fit` first before any other operations.")
         elif attr.startswith('dowhy__'):
             return getattr(self.dowhy_, attr[len('dowhy__'):])
         elif hasattr(self.estimate_._estimator_object, attr):
