@@ -36,8 +36,8 @@ class DoWhyWrapper:
 
     def __init__(self, cate_estimator):
         from packaging.version import parse
-        if parse(dowhy.__version__) >= parse('0.12'):
-            warnings.warn("econml has not been tested with dowhy versions >= 0.12")
+        if parse(dowhy.__version__) >= parse('0.13'):
+            warnings.warn("econml has not been tested with dowhy versions >= 0.13")
         self._cate_estimator = cate_estimator
 
     def _get_params(self):
