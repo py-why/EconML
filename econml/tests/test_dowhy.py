@@ -95,3 +95,12 @@ class TestDowhy(unittest.TestCase):
         np.testing.assert_array_equal(est._effect_modifiers, X_name)
         np.testing.assert_array_equal(est._treatment, [T_name])
         np.testing.assert_array_equal(est._outcome, [Y_name])
+
+    def test_dowhy_without_fit(self):
+        with self.assertRaises(AttributeError) as context:
+            LinearDRLearner().dowhy.refute_estimate(method_name="random_common_cause", num_simulations=3)
+        self.assertTrue("Please call `DoWhyWrapper.fit` first before any other operations." in str(context.exception))
+
+        with self.assertRaises(AttributeError) as context:
+            LinearDRLearner().dowhy._estimator_object
+        self.assertTrue("call `DoWhyWrapper.fit` first before any other operations." in str(context.exception))
