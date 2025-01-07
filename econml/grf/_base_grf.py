@@ -8,7 +8,7 @@
 #
 # Copyright (c) 2007-2020 The scikit-learn developers.
 # All rights reserved.
-
+import gc
 import numbers
 from warnings import warn
 from abc import ABCMeta, abstractmethod
@@ -27,6 +27,7 @@ from sklearn.utils.validation import _check_sample_weight, check_is_fitted
 from sklearn.utils import check_X_y
 import scipy.stats
 from scipy.special import erfc
+import tempfile
 
 __all__ = ["BaseGRF"]
 
@@ -384,14 +385,25 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                           for _ in range(n_more_estimators)]
 
+            # Make a memmap for better performance on large number of treatment variables
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
+                filename = temp_file.name
+            np.save(filename, yaug)  # Save array to disk
+            # Remove references to (potentially) large data before Parallel
+            del yaug, pointJ
+            gc.collect()
+            # Create the memmap version
+            yaug_mmap = np.load(filename + '.npy', mmap_mode='r')
+
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
             # making threading more efficient than multiprocessing in
             # that case. However, for joblib 0.12+ we respect any
             # parallel_backend contexts set at a higher level,
             # since correctness does not rely on using threads.
+
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                delayed(t.fit)(X[s], yaug_mmap[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
                                sample_weight=sample_weight[s] if sample_weight is not None else None,
                                check_input=False)
                 for t, s in zip(trees, s_inds))
