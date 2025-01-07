@@ -393,7 +393,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             del yaug, pointJ
             gc.collect()
             # Create the memmap version
-            yaug_mmap = np.load(filename + '.npy', mmap_mode='r')
+            yaug_mmap = np.load(filename, mmap_mode='r')
 
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
