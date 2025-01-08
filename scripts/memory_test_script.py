@@ -27,15 +27,7 @@ logger = logging.getLogger(__name__)
 def causalforestdml_memory_test(
     file_name: str
 ):
-    """
-    Main function for testing DML on high dimensional marketing data sets. Adds pre-processing
-    like scaling and removing highly collinear features. It can cross validates parameters of either
-    first stage model, or the final model.  Saves out the scores of every model to a file.
 
-    :param file_name: File that contains the data, assumed to be joblib
-    :param model_name: Name of the model to use, either SparseLinearDML or CausalForestDML
-
-    """
 
     root_dir = os.environ.get("LOCAL_ANALYSIS_DIR", ".")
     logger.info(f"Using root dir {root_dir} loading data file {file_name}")
@@ -46,7 +38,6 @@ def causalforestdml_memory_test(
     X = data['X_no_act']
     T = data['a_processed']
     y = data['real_reward']
-    # y[y > 1] = 1
 
     logger.info(f"X has a shape of: {X.shape}")
     logger.info(f"T has a shape of: {T.shape}")
@@ -54,13 +45,14 @@ def causalforestdml_memory_test(
 
 
     est = CausalForestDML(
-        model_t=XGBRegressor(n_estimators=50),
-        model_y=XGBClassifier(n_estimators=50),
+        model_t=XGBRegressor(n_estimators=10),
+        model_y=XGBClassifier(n_estimators=10),
         discrete_outcome=True,
-        n_jobs=1
+        n_jobs=2,
+        n_estimators=20
     )
     est.fit(y,T,X=X)
-
+    print(est.summary())
 
 
 
