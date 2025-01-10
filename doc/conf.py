@@ -231,7 +231,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'sklearn': ('https://scikit-learn.org/1.5/', None),
                        'matplotlib': ('https://matplotlib.org/stable/', None),
                        'shap': ('https://shap.readthedocs.io/en/stable/', None),
-                       'dowhy': ('https://www.pywhy.org/dowhy/v0.8/', None),
+                       'dowhy': ('https://www.pywhy.org/dowhy/main/', None),
                        'statsmodels': ('https://www.statsmodels.org/stable/', None)}
 
 
