@@ -54,7 +54,7 @@ class _FirstStageWrapper:
                 raise AttributeError("Cannot use a classifier as a first stage model when the target is continuous!")
             return self._model.predict(_combine(X, W, n_samples))
 
-    def score(self, X, W, Target, sample_weight=None, scoring='mean_squared_error'):
+    def score(self, X, W, Target, scoring='mean_squared_error', sample_weight=None):
         if hasattr(self._model, 'score'):
             if self._discrete_target:
                 # In this case, the Target is the one-hot-encoding of the treatment variable
@@ -62,7 +62,7 @@ class _FirstStageWrapper:
                 # the classifier.
                 Target = inverse_onehot(Target)
             XW_combined = _combine(X, W, Target.shape[0])
-            return _FirstStageWrapper._wrap_scoring(scoring, Y_true=Target, X=XW_combined, est=self._model,
+            return _FirstStageWrapper._wrap_scoring(scoring,Y_true=Target, X=XW_combined, est=self._model,
                                 sample_weight=sample_weight)
         else:
             return None
