@@ -9,9 +9,11 @@ from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
+from sklearn.metrics import get_scorer
+
 
 from .._ortho_learner import _OrthoLearner
-from ._rlearner import _RLearner
+from ._rlearner import _RLearner, _ModelFinal
 from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
                                LinearModelFinalCateEstimatorMixin,
                                StatsModelsCateEstimatorMixin,
@@ -52,20 +54,31 @@ class _FirstStageWrapper:
                 raise AttributeError("Cannot use a classifier as a first stage model when the target is continuous!")
             return self._model.predict(_combine(X, W, n_samples))
 
-    def score(self, X, W, Target, sample_weight=None):
+    def score(self, X, W, Target, sample_weight=None, scoring='mean_squared_error'):
         if hasattr(self._model, 'score'):
             if self._discrete_target:
                 # In this case, the Target is the one-hot-encoding of the treatment variable
                 # We need to go back to the label representation of the one-hot so as to call
                 # the classifier.
                 Target = inverse_onehot(Target)
-            if sample_weight is not None:
-                return self._model.score(_combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
-            else:
-                return self._model.score(_combine(X, W, Target.shape[0]), Target)
+            XW_combined = _combine(X, W, Target.shape[0])
+            return _FirstStageWrapper._wrap_scoring(scoring, Y_true=Target, X=XW_combined, est=self._model,
+                                sample_weight=sample_weight)
         else:
             return None
-
+    @staticmethod
+    def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None):
+        """
+        If there are no weights, use the get_scorer functionality to support ANY sklearn
+        evaluation metrics. Otherwise, use the static class method from _ModelFinal that supports
+        weights. That version takes the estimates, not the estimator.
+        """
+        if sample_weight is None:
+            scorer = get_scorer(scoring)
+            return scorer(est, X, Y_true)
+        else:
+            Y_pred = est(X)
+            return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
 
 class _FirstStageSelector(SingleModelSelector):
     def __init__(self, model: SingleModelSelector, discrete_target):

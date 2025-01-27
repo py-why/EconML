@@ -27,6 +27,13 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 from abc import abstractmethod
 import numpy as np
+from sklearn.metrics import (
+    f1_score,
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+    roc_auc_score
+)
 
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
@@ -54,10 +61,12 @@ class _ModelNuisance(ModelSelector):
                             filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, t_scoring=None, y_scoring=None):
         # note that groups are not passed to score because they are only used for fitting
-        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight))
-        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight))
+        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
+                                       scoring=t_scoring)
+        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight),
+                                      scoring=y_scoring)
         return Y_score, T_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -98,7 +107,7 @@ class _ModelFinal:
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None, scoring='mean_squared_error'):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -106,10 +115,28 @@ class _ModelFinal:
             T_res = T_res.reshape((-1, 1))
         effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-        if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred) ** 2, weights=sample_weight, axis=0))
+        return _ModelFinal.wrap_scoring(Y_true=Y_res, Y_pred=Y_res_pred, scoring=scoring, sample_weight=sample_weight)
+
+    @staticmethod
+    def wrap_scoring(scoring, Y_true, Y_pred=None, sample_weight=None):
+        """
+        Wrap the option to call several sklearn scoring functions that accept sample weighting.
+        Unfortunately there is no utility like get_scorer that is both generic and supports
+        samples weights.
+        """
+
+        if scoring == 'f1_score':
+            return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'mean_absolute_error':
+            return mean_absolute_error(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'mean_squared_error':
+            return mean_squared_error(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'r2_score':
+            return r2_score(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'roc_auc_score':
+            return roc_auc_score(Y_true, Y_pred, sample_weight=sample_weight)
         else:
-            return np.mean((Y_res - Y_res_pred) ** 2)
+            raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
 
 
 class _RLearner(_OrthoLearner):
