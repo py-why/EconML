@@ -1117,6 +1117,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                           sample_weight=sample_weight, groups=groups, scoring=scoring))
 
+    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, t_scoring=None, y_scoring=None):
+        all_res = []
+        for m in self._models_nuisance[0]:
+            score_res = m.score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, t_scoring=t_scoring, y_scoring=y_scoring)
+            all_res.append(score_res)
+        return all_res
+
     @property
     def ortho_learner_model_final_(self):
         if not hasattr(self, '_ortho_learner_model_final'):
