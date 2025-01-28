@@ -29,6 +29,7 @@ from abc import abstractmethod
 import numpy as np
 from sklearn.metrics import (
     f1_score,
+    log_loss,
     mean_absolute_error,
     mean_squared_error,
     r2_score,
@@ -135,6 +136,8 @@ class _ModelFinal:
             return r2_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'roc_auc':
             return roc_auc_score(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'log_loss':
+            return log_loss(Y_true, Y_pred, sample_weight=sample_weight)
         else:
             raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
 
