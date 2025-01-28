@@ -125,15 +125,15 @@ class _ModelFinal:
         samples weights.
         """
 
-        if scoring == 'f1_score':
+        if scoring == 'f1':
             return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'mean_absolute_error':
             return mean_absolute_error(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'mean_squared_error':
             return mean_squared_error(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'r2_score':
+        elif scoring == 'r2':
             return r2_score(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'roc_auc_score':
+        elif scoring == 'roc_auc':
             return roc_auc_score(Y_true, Y_pred, sample_weight=sample_weight)
         else:
             raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
