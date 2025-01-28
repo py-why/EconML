@@ -1027,7 +1027,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -1115,7 +1115,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                          sample_weight=sample_weight, groups=groups))
+                                                                          sample_weight=sample_weight, groups=groups, scoring=scoring))
 
     @property
     def ortho_learner_model_final_(self):
