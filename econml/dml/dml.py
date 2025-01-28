@@ -9,7 +9,7 @@ from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
-from sklearn.metrics import get_scorer
+from sklearn.metrics import get_scorer, get_scorer_names
 
 
 from .._ortho_learner import _OrthoLearner
@@ -77,12 +77,12 @@ class _FirstStageWrapper:
         evaluation metrics. Otherwise, use the static class method from _ModelFinal that supports
         weights. That version takes the estimates, not the estimator.
         """
-        if sample_weight is None:
+        if sample_weight is None and scoring in get_scorer_names() :
             scorer = get_scorer(scoring)
             return scorer(est, X, Y_true)
         else:
-            Y_pred = est(X)
-            return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
+            Y_pred = est.predict(X)
+            return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
 
 class _FirstStageSelector(SingleModelSelector):
     def __init__(self, model: SingleModelSelector, discrete_target):
