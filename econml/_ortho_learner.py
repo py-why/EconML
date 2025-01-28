@@ -1119,8 +1119,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, t_scoring=None, y_scoring=None):
 
-        Y_key = 'Y_smse' if not y_scoring else f"Y_{y_scoring}"
-        T_Key = 'T_smse' if not t_scoring else f"T_{t_scoring}"
+        Y_key = 'Y_defscore' if not y_scoring else f"Y_{y_scoring}"
+        T_Key = 'T_defscore' if not t_scoring else f"T_{t_scoring}"
         all_res = {
             Y_key : [],
             T_Key : []
