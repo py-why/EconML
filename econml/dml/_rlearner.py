@@ -449,7 +449,7 @@ class _RLearner(_OrthoLearner):
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -480,7 +480,7 @@ class _RLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=scoring)
 
     @property
     def rlearner_model_final_(self):
