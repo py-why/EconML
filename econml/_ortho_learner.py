@@ -1118,12 +1118,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                          sample_weight=sample_weight, groups=groups, scoring=scoring))
+                                                                          sample_weight=sample_weight,
+                                                                          groups=groups, scoring=scoring))
 
-    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None, t_scoring=None, t_score_by_dim=False):
+    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None,
+                        t_scoring=None, t_score_by_dim=False):
         """
-        Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring
-        function. Supported scorings depend on whether or not sample weights are sued: If no sample
+        Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring.
+
+        Supported scorings depend on whether or not sample weights are sued: If no sample
         weights are used, then any of those provided by sklearn.metrics.get_scorer_names() are
         available, as well as non-negated versions of mean_squared_error, mean_absolute_error.
         If sample weights are used, then supported scorings are     f1_score, log_loss,
@@ -1156,7 +1159,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             A dictionary where the keys indicate the Y and T scores used and the values are
             lists of scores, one per CV fold model.
         """
-
         Y_key = 'Y_defscore' if not y_scoring else f"Y_{y_scoring}"
         T_Key = 'T_defscore' if not t_scoring else f"T_{t_scoring}"
         score_dict = {
@@ -1165,7 +1167,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         }
         for m in self._models_nuisance[0]:
             Y_score, T_score = m.score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight,
-                                       y_scoring=y_scoring, t_scoring=t_scoring, t_score_by_dim=t_score_by_dim)
+                                       y_scoring=y_scoring, t_scoring=t_scoring,
+                                       t_score_by_dim=t_score_by_dim)
             score_dict[Y_key].append(Y_score)
             score_dict[T_Key].append(T_score)
         return score_dict
