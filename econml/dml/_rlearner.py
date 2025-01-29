@@ -109,7 +109,8 @@ class _ModelFinal:
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None, scoring='mean_squared_error'):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None,
+              scoring='mean_squared_error'):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -123,10 +124,10 @@ class _ModelFinal:
     def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
         """
         Wrap the option to call several sklearn scoring functions that accept sample weighting.
+
         Unfortunately there is no utility like get_scorer that is both generic and supports
         samples weights.
         """
-
         if scoring == 'f1':
             return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'mean_absolute_error':
@@ -145,8 +146,9 @@ class _ModelFinal:
     @staticmethod
     def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):
         """
-        In case the caller wants a score for each dimension of a multiple treatment model,
-        loop over the call to the single score wrapper.
+        In case the caller wants a score for each dimension of a multiple treatment model.
+
+        Loop over the call to the single score wrapper.
         """
         if not score_by_dim:
             return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
