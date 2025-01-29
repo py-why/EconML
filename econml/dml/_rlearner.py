@@ -27,10 +27,17 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 from abc import abstractmethod
 import numpy as np
-from sklearn.metrics import f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score, roc_auc_score
+from sklearn.metrics import (
+    f1_score,
+    log_loss,
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+    roc_auc_score
+)
 
 from ..sklearn_extensions.model_selection import ModelSelector
-from ..utilities import filter_none_kwargs
+from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
 
 
@@ -49,32 +56,19 @@ class _ModelNuisance(ModelSelector):
 
     def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert Z is None, "Cannot accept instrument!"
-        self._model_t.train(
-            is_selecting, folds, X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups)
-        )
-        self._model_y.train(
-            is_selecting, folds, X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups)
-        )
+        self._model_t.train(is_selecting, folds, X, W, T, **
+                            filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_y.train(is_selecting, folds, X, W, Y, **
+                            filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(
-        self,
-        Y,
-        T,
-        X=None,
-        W=None,
-        Z=None,
-        sample_weight=None,
-        groups=None,
-        y_scoring=None,
-        t_scoring=None,
-        t_score_by_dim=False,
-    ):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, y_scoring=None,
+              t_scoring=None, t_score_by_dim=False):
         # note that groups are not passed to score because they are only used for fitting
-        T_score = self._model_t.score(
-            X, W, T, **filter_none_kwargs(sample_weight=sample_weight), scoring=t_scoring, score_by_dim=t_score_by_dim
-        )
-        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight), scoring=y_scoring)
+        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
+                                       scoring=t_scoring, score_by_dim=t_score_by_dim)
+        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight),
+                                      scoring=y_scoring)
         return Y_score, T_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -105,40 +99,17 @@ class _ModelFinal:
     def __init__(self, model_final):
         self._model_final = model_final
 
-    def fit(
-        self,
-        Y,
-        T,
-        X=None,
-        W=None,
-        Z=None,
-        nuisances=None,
-        sample_weight=None,
-        freq_weight=None,
-        sample_var=None,
-        groups=None,
-    ):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
+            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
-        self._model_final.fit(
-            X, T, T_res, Y_res, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var
-        )
+        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight,
+                              freq_weight=freq_weight, sample_var=sample_var)
         return self
 
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(
-        self,
-        Y,
-        T,
-        X=None,
-        W=None,
-        Z=None,
-        nuisances=None,
-        sample_weight=None,
-        groups=None,
-        scoring='mean_squared_error',
-    ):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None, scoring='mean_squared_error'):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -152,10 +123,10 @@ class _ModelFinal:
     def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
         """
         Wrap the option to call several sklearn scoring functions that accept sample weighting.
-
         Unfortunately there is no utility like get_scorer that is both generic and supports
         samples weights.
         """
+
         if scoring == 'f1':
             return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'mean_absolute_error':
@@ -169,23 +140,22 @@ class _ModelFinal:
         elif scoring == 'log_loss':
             return log_loss(Y_true, Y_pred, sample_weight=sample_weight)
         else:
-            raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'")
+            raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
 
     @staticmethod
     def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):
         """
-        In case the caller wants a score for each dimension of a multiple treatment model.
-
-        Loop over the call to the single score wrapper.
+        In case the caller wants a score for each dimension of a multiple treatment model,
+        loop over the call to the single score wrapper.
         """
         if not score_by_dim:
             return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
         else:
             assert Y_true.shape == Y_pred.shape, "Mismatch shape in wrap_scoring"
             n_out = Y_pred.shape[1]
-            res = [None] * Y_pred.shape[1]
+            res = [None]*Y_pred.shape[1]
             for yidx in range(n_out):
-                res[yidx] = _ModelFinal.wrap_scoring(scoring, Y_true[:, yidx], Y_pred[:, yidx], sample_weight)
+                res[yidx]= _ModelFinal.wrap_scoring(scoring, Y_true[:,yidx], Y_pred[:,yidx], sample_weight)
             return res
 
 
@@ -371,35 +341,31 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(
-        self,
-        *,
-        discrete_outcome,
-        discrete_treatment,
-        treatment_featurizer,
-        categories,
-        cv,
-        random_state,
-        mc_iters=None,
-        mc_agg='mean',
-        allow_missing=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
-        super().__init__(
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            treatment_featurizer=treatment_featurizer,
-            discrete_instrument=False,  # no instrument, so doesn't matter
-            categories=categories,
-            cv=cv,
-            random_state=random_state,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+    def __init__(self,
+                 *,
+                 discrete_outcome,
+                 discrete_treatment,
+                 treatment_featurizer,
+                 categories,
+                 cv,
+                 random_state,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+        super().__init__(discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
+                         discrete_instrument=False,  # no instrument, so doesn't matter
+                         categories=categories,
+                         cv=cv,
+                         random_state=random_state,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     @abstractmethod
     def _gen_model_y(self):
@@ -447,9 +413,8 @@ class _RLearner(_OrthoLearner):
             take an extra second argument (the treatment residuals). Predict, on the other hand,
             should just take the features and return the constant marginal effect. More, concretely::
 
-                model_final.fit(
-                    X, T_res, Y_res, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var
-                )
+                model_final.fit(X, T_res, Y_res,
+                                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var)
                 model_final.predict(X)
         """
         raise NotImplementedError("Abstract method")
@@ -460,20 +425,8 @@ class _RLearner(_OrthoLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_rlearner_model_final())
 
-    def fit(
-        self,
-        Y,
-        T,
-        *,
-        X=None,
-        W=None,
-        sample_weight=None,
-        freq_weight=None,
-        sample_var=None,
-        groups=None,
-        cache_values=False,
-        inference=None,
-    ):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -511,18 +464,10 @@ class _RLearner(_OrthoLearner):
         self: _RLearner instance
         """
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().fit(
-            Y,
-            T,
-            X=X,
-            W=W,
-            sample_weight=sample_weight,
-            freq_weight=freq_weight,
-            sample_var=sample_var,
-            groups=groups,
-            cache_values=cache_values,
-            inference=inference,
-        )
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
         """
@@ -591,8 +536,7 @@ class _RLearner(_OrthoLearner):
         if not hasattr(self, '_cached_values'):
             raise AttributeError("Estimator is not fitted yet!")
         if self._cached_values is None:
-            raise AttributeError(
-                "`fit` was called with `cache_values=False`. Set to `True` to enable residual storage."
-            )
+            raise AttributeError("`fit` was called with `cache_values=False`. "
+                                 "Set to `True` to enable residual storage.")
         Y_res, T_res = self._cached_values.nuisances
         return Y_res, T_res, self._cached_values.X, self._cached_values.W
