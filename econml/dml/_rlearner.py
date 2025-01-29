@@ -62,10 +62,11 @@ class _ModelNuisance(ModelSelector):
                             filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, t_scoring=None, y_scoring=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, y_scoring=None,
+              t_scoring=None, t_score_by_dim=False):
         # note that groups are not passed to score because they are only used for fitting
         T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
-                                       scoring=t_scoring)
+                                       scoring=t_scoring, score_by_dim=t_score_by_dim)
         Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight),
                                       scoring=y_scoring)
         return Y_score, T_score
@@ -116,10 +117,10 @@ class _ModelFinal:
             T_res = T_res.reshape((-1, 1))
         effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-        return _ModelFinal.wrap_scoring(Y_true=Y_res, Y_pred=Y_res_pred, scoring=scoring, sample_weight=sample_weight)
+        return _ModelFinal._wrap_scoring(Y_true=Y_res, Y_pred=Y_res_pred, scoring=scoring, sample_weight=sample_weight)
 
     @staticmethod
-    def wrap_scoring(scoring, Y_true, Y_pred=None, sample_weight=None):
+    def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
         """
         Wrap the option to call several sklearn scoring functions that accept sample weighting.
         Unfortunately there is no utility like get_scorer that is both generic and supports
@@ -140,6 +141,22 @@ class _ModelFinal:
             return log_loss(Y_true, Y_pred, sample_weight=sample_weight)
         else:
             raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
+
+    @staticmethod
+    def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):
+        """
+        In case the caller wants a score for each dimension of a multiple treatment model,
+        loop over the call to the single score wrapper.
+        """
+        if not score_by_dim:
+            return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
+        else:
+            assert Y_true.shape == Y_pred.shape, "Mismatch shape in wrap_scoring"
+            n_out = Y_pred.shape[1]
+            res = [None]*Y_pred.shape[1]
+            for yidx in range(n_out):
+                res[yidx]= _ModelFinal.wrap_scoring(scoring, Y_true[:,yidx], Y_pred[:,yidx], sample_weight)
+            return res
 
 
 class _RLearner(_OrthoLearner):
