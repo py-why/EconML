@@ -5,35 +5,26 @@ from warnings import warn
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
-from sklearn.linear_model import ElasticNetCV
+from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
 from sklearn.metrics import get_scorer, get_scorer_names
 
 
 from .._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner, _ModelFinal
-from .._cate_estimator import (
-    DebiasedLassoCateEstimatorMixin,
-    LinearModelFinalCateEstimatorMixin,
-    StatsModelsCateEstimatorMixin,
-    LinearCateEstimator,
-)
+from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
+                               LinearModelFinalCateEstimatorMixin,
+                               StatsModelsCateEstimatorMixin,
+                               LinearCateEstimator)
 from ..inference import GenericSingleTreatmentModelFinalInference
-from ..sklearn_extensions.linear_model import MultiOutputDebiasedLasso, StatsModelsLinearRegression
-from ..utilities import (
-    add_intercept,
-    broadcast_unit_treatments,
-    check_high_dimensional,
-    cross_product,
-    hstack,
-    inverse_onehot,
-    reshape_treatmentwise_effects,
-    shape,
-    get_feature_names_or_default,
-    filter_none_kwargs,
-)
+from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
+                                               StatsModelsLinearRegression)
+from ..utilities import (add_intercept,
+                         broadcast_unit_treatments, check_high_dimensional,
+                         cross_product, hstack, inverse_onehot, reshape_treatmentwise_effects,
+                         shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
 from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
 
@@ -41,7 +32,7 @@ from ..sklearn_extensions.model_selection import get_selector, SingleModelSelect
 def _combine(X, W, n_samples):
     if X is None:
         # if both X and W are None, just return a column of ones
-        return W if W is not None else np.ones((n_samples, 1))
+        return (W if W is not None else np.ones((n_samples, 1)))
     return hstack([X, W]) if W is not None else X
 
 
@@ -77,14 +68,8 @@ class _FirstStageWrapper:
             else:
                 return self._model.score(XW_combined, Target)
         else:
-            return _FirstStageWrapper._wrap_scoring(
-                scoring,
-                Y_true=Target,
-                X=XW_combined,
-                est=self._model,
-                sample_weight=sample_weight,
-                score_by_dim=score_by_dim,
-            )
+            return _FirstStageWrapper._wrap_scoring(scoring,Y_true=Target, X=XW_combined, est=self._model,
+                            sample_weight=sample_weight, score_by_dim=score_by_dim)
 
     @staticmethod
     def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None, score_by_dim=False):
@@ -102,7 +87,6 @@ class _FirstStageWrapper:
             Y_pred = est.predict(X)
             return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight, score_by_dim=score_by_dim)
 
-
 class _FirstStageSelector(SingleModelSelector):
     def __init__(self, model: SingleModelSelector, discrete_target):
         self._model = clone(model, safe=False)
@@ -114,18 +98,12 @@ class _FirstStageSelector(SingleModelSelector):
             # We need to go back to the label representation of the one-hot so as to call
             # the classifier.
             if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
-                raise AttributeError(
-                    "Provided crossfit folds contain training splits that " + "don't contain all treatments"
-                )
+                raise AttributeError("Provided crossfit folds contain training splits that " +
+                                     "don't contain all treatments")
             Target = inverse_onehot(Target)
 
-        self._model.train(
-            is_selecting,
-            folds,
-            _combine(X, W, Target.shape[0]),
-            Target,
-            **filter_none_kwargs(groups=groups, sample_weight=sample_weight),
-        )
+        self._model.train(is_selecting, folds, _combine(X, W, Target.shape[0]), Target,
+                          **filter_none_kwargs(groups=groups, sample_weight=sample_weight))
         return self
 
     @property
@@ -140,9 +118,10 @@ class _FirstStageSelector(SingleModelSelector):
 def _make_first_stage_selector(model, is_discrete, random_state):
     if model == 'auto':
         model = ['forest', 'linear']
-    return _FirstStageSelector(
-        get_selector(model, is_discrete=is_discrete, random_state=random_state), discrete_target=is_discrete
-    )
+    return _FirstStageSelector(get_selector(model,
+                                            is_discrete=is_discrete,
+                                            random_state=random_state),
+                               discrete_target=is_discrete)
 
 
 class _FinalWrapper:
@@ -157,11 +136,11 @@ class _FinalWrapper:
             self._fit_cate_intercept = fit_cate_intercept
             if self._fit_cate_intercept:
                 # data is already validated at initial fit time
-                add_intercept_trans = FunctionTransformer(add_intercept, validate=False)
+                add_intercept_trans = FunctionTransformer(add_intercept,
+                                                          validate=False)
                 if featurizer:
-                    self._featurizer = Pipeline(
-                        [('featurize', self._original_featurizer), ('add_intercept', add_intercept_trans)]
-                    )
+                    self._featurizer = Pipeline([('featurize', self._original_featurizer),
+                                                 ('add_intercept', add_intercept_trans)])
                 else:
                     self._featurizer = add_intercept_trans
             else:
@@ -176,7 +155,8 @@ class _FinalWrapper:
         else:
             if not self._fit_cate_intercept:
                 if self._use_weight_trick:
-                    raise AttributeError("Cannot use this method with X=None. Consider using the LinearDML estimator.")
+                    raise AttributeError("Cannot use this method with X=None. Consider "
+                                         "using the LinearDML estimator.")
                 else:
                     raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
             F = np.ones((T.shape[0], 1))
@@ -188,25 +168,20 @@ class _FinalWrapper:
         self._d_y = shape(Y_res)[1:]
         if not self._use_weight_trick:
             fts = self._combine(X, T_res)
-            filtered_kwargs = filter_none_kwargs(
-                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var
-            )
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=sample_var)
             self._model.fit(fts, Y_res, **filtered_kwargs)
             self._intercept = None
             intercept = self._model.predict(np.zeros_like(fts[0:1]))
-            if np.count_nonzero(intercept) > 0:
-                warn(
-                    "The final model has a nonzero intercept for at least one outcome; "
-                    "it will be subtracted, but consider fitting a model without an intercept if possible.",
-                    UserWarning,
-                )
+            if (np.count_nonzero(intercept) > 0):
+                warn("The final model has a nonzero intercept for at least one outcome; "
+                     "it will be subtracted, but consider fitting a model without an intercept if possible.",
+                     UserWarning)
                 self._intercept = intercept
         elif not self._fit_cate_intercept:
             if (np.ndim(T_res) > 1) and (self._d_t[0] > 1):
-                raise AttributeError(
-                    "This method can only be used with single-dimensional continuous treatment "
-                    "or binary categorical treatment."
-                )
+                raise AttributeError("This method can only be used with single-dimensional continuous treatment "
+                                     "or binary categorical treatment.")
             F = self._combine(X, np.ones(T_res.shape[0]))
             self._intercept = None
             T_res = T_res.ravel()
@@ -218,25 +193,26 @@ class _FinalWrapper:
             target = Y_res / clipped_T_res
             target_var = sample_var / clipped_T_res**2 if sample_var is not None else None
             if sample_weight is not None:
-                sample_weight = sample_weight * T_res.flatten() ** 2
+                sample_weight = sample_weight * T_res.flatten()**2
             else:
-                sample_weight = T_res.flatten() ** 2
-            filtered_kwargs = filter_none_kwargs(
-                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=target_var
-            )
+                sample_weight = T_res.flatten()**2
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=target_var)
             self._model.fit(F, target, **filtered_kwargs)
         else:
             raise AttributeError("This combination is not a feasible one!")
         return self
 
     def predict(self, X):
-        X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)), self._d_t[0] if self._d_t else 1)
+        X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
+                                          self._d_t[0] if self._d_t else 1)
         # This works both with our without the weighting trick as the treatments T are unit vector
         # treatments. And in the case of a weighting trick we also know that treatment is single-dimensional
         prediction = self._model.predict(self._combine(None if X is None else X2, T, fitting=False))
         if self._intercept is not None:
             prediction -= self._intercept
-        return reshape_treatmentwise_effects(prediction, self._d_t, self._d_y)
+        return reshape_treatmentwise_effects(prediction,
+                                             self._d_t, self._d_y)
 
 
 class _BaseDML(_RLearner):
@@ -524,50 +500,44 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     (0.87125..., 1.15207...)
     """
 
-    def __init__(
-        self,
-        *,
-        model_y,
-        model_t,
-        model_final,
-        featurizer=None,
-        treatment_featurizer=None,
-        fit_cate_intercept=True,
-        linear_first_stages="deprecated",
-        discrete_outcome=False,
-        discrete_treatment=False,
-        categories='auto',
-        cv=2,
-        mc_iters=None,
-        mc_agg='mean',
-        random_state=None,
-        allow_missing=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
+    def __init__(self, *,
+                 model_y,
+                 model_t,
+                 model_final,
+                 featurizer=None,
+                 treatment_featurizer=None,
+                 fit_cate_intercept=True,
+                 linear_first_stages="deprecated",
+                 discrete_outcome=False,
+                 discrete_treatment=False,
+                 categories='auto',
+                 cv=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         self.fit_cate_intercept = fit_cate_intercept
         if linear_first_stages != "deprecated":
-            warn(
-                "The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
-                DeprecationWarning,
-            )
+            warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
+                 DeprecationWarning)
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            treatment_featurizer=treatment_featurizer,
-            categories=categories,
-            cv=cv,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            random_state=random_state,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+        super().__init__(discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_allowed_missing_vars(self):
         return ['X', 'W'] if self.allow_missing else []
@@ -588,20 +558,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
-    def fit(
-        self,
-        Y,
-        T,
-        *,
-        X=None,
-        W=None,
-        sample_weight=None,
-        freq_weight=None,
-        sample_var=None,
-        groups=None,
-        cache_values=False,
-        inference='auto',
-    ):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -639,22 +597,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         -------
         self
         """
-        return super().fit(
-            Y,
-            T,
-            X=X,
-            W=W,
-            sample_weight=sample_weight,
-            freq_weight=freq_weight,
-            sample_var=sample_var,
-            groups=groups,
-            cache_values=cache_values,
-            inference=inference,
-        )
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
+                           sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
-
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
@@ -796,46 +745,42 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     (0.87480..., 1.15015...)
     """
 
-    def __init__(
-        self,
-        *,
-        model_y='auto',
-        model_t='auto',
-        featurizer=None,
-        treatment_featurizer=None,
-        fit_cate_intercept=True,
-        linear_first_stages="deprecated",
-        discrete_outcome=False,
-        discrete_treatment=False,
-        categories='auto',
-        cv=2,
-        mc_iters=None,
-        mc_agg='mean',
-        random_state=None,
-        allow_missing=False,
-        enable_federation=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
-        super().__init__(
-            model_y=model_y,
-            model_t=model_t,
-            model_final=None,
-            featurizer=featurizer,
-            treatment_featurizer=treatment_featurizer,
-            fit_cate_intercept=fit_cate_intercept,
-            linear_first_stages=linear_first_stages,
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            categories=categories,
-            cv=cv,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            random_state=random_state,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+    def __init__(self, *,
+                 model_y='auto', model_t='auto',
+                 featurizer=None,
+                 treatment_featurizer=None,
+                 fit_cate_intercept=True,
+                 linear_first_stages="deprecated",
+                 discrete_outcome=False,
+                 discrete_treatment=False,
+                 categories='auto',
+                 cv=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None,
+                 allow_missing=False,
+                 enable_federation=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
+
+        super().__init__(model_y=model_y,
+                         model_t=model_t,
+                         model_final=None,
+                         featurizer=featurizer,
+                         treatment_featurizer=treatment_featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
+                         linear_first_stages=linear_first_stages,
+                         discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
         self.enable_federation = enable_federation
 
     def _gen_allowed_missing_vars(self):
@@ -845,20 +790,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         return StatsModelsLinearRegression(fit_intercept=False, enable_federation=self.enable_federation)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(
-        self,
-        Y,
-        T,
-        *,
-        X=None,
-        W=None,
-        sample_weight=None,
-        freq_weight=None,
-        sample_var=None,
-        groups=None,
-        cache_values=False,
-        inference='auto',
-    ):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -896,18 +829,10 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         -------
         self
         """
-        return super().fit(
-            Y,
-            T,
-            X=X,
-            W=W,
-            sample_weight=sample_weight,
-            freq_weight=freq_weight,
-            sample_var=sample_var,
-            groups=groups,
-            cache_values=cache_values,
-            inference=inference,
-        )
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
 
     @property
     def model_final(self):
@@ -1081,33 +1006,29 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     (0.87620..., 1.15332...)
     """
 
-    def __init__(
-        self,
-        *,
-        model_y='auto',
-        model_t='auto',
-        alpha='auto',
-        n_alphas=100,
-        alpha_cov='auto',
-        n_alphas_cov=10,
-        max_iter=1000,
-        tol=1e-4,
-        n_jobs=None,
-        featurizer=None,
-        treatment_featurizer=None,
-        fit_cate_intercept=True,
-        linear_first_stages="deprecated",
-        discrete_outcome=False,
-        discrete_treatment=False,
-        categories='auto',
-        cv=2,
-        mc_iters=None,
-        mc_agg='mean',
-        random_state=None,
-        allow_missing=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
+    def __init__(self, *,
+                 model_y='auto', model_t='auto',
+                 alpha='auto',
+                 n_alphas=100,
+                 alpha_cov='auto',
+                 n_alphas_cov=10,
+                 max_iter=1000,
+                 tol=1e-4,
+                 n_jobs=None,
+                 featurizer=None,
+                 treatment_featurizer=None,
+                 fit_cate_intercept=True,
+                 linear_first_stages="deprecated",
+                 discrete_outcome=False,
+                 discrete_treatment=False,
+                 categories='auto',
+                 cv=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1115,43 +1036,41 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         self.max_iter = max_iter
         self.tol = tol
         self.n_jobs = n_jobs
-        super().__init__(
-            model_y=model_y,
-            model_t=model_t,
-            model_final=None,
-            featurizer=featurizer,
-            treatment_featurizer=treatment_featurizer,
-            fit_cate_intercept=fit_cate_intercept,
-            linear_first_stages=linear_first_stages,
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            categories=categories,
-            cv=cv,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            random_state=random_state,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+        super().__init__(model_y=model_y,
+                         model_t=model_t,
+                         model_final=None,
+                         featurizer=featurizer,
+                         treatment_featurizer=treatment_featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
+                         linear_first_stages=linear_first_stages,
+                         discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
-        return MultiOutputDebiasedLasso(
-            alpha=self.alpha,
-            n_alphas=self.n_alphas,
-            alpha_cov=self.alpha_cov,
-            n_alphas_cov=self.n_alphas_cov,
-            fit_intercept=False,
-            max_iter=self.max_iter,
-            tol=self.tol,
-            n_jobs=self.n_jobs,
-            random_state=self.random_state,
-        )
+        return MultiOutputDebiasedLasso(alpha=self.alpha,
+                                        n_alphas=self.n_alphas,
+                                        alpha_cov=self.alpha_cov,
+                                        n_alphas_cov=self.n_alphas_cov,
+                                        fit_intercept=False,
+                                        max_iter=self.max_iter,
+                                        tol=self.tol,
+                                        n_jobs=self.n_jobs,
+                                        random_state=self.random_state)
 
-    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None, cache_values=False, inference='auto'):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1183,18 +1102,13 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         self
         """
         # TODO: support freq_weight and sample_var in debiased lasso
-        check_high_dimensional(
-            X,
-            T,
-            threshold=5,
-            featurizer=self.featurizer,
-            discrete_treatment=self.discrete_treatment,
-            msg="The number of features in the final model (< 5) is too small for a sparse model. "
-            "We recommend using the LinearDML estimator for this low-dimensional setting.",
-        )
-        return super().fit(
-            Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups, cache_values=cache_values, inference=inference
-        )
+        check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
+                               discrete_treatment=self.discrete_treatment,
+                               msg="The number of features in the final model (< 5) is too small for a sparse model. "
+                               "We recommend using the LinearDML estimator for this low-dimensional setting.")
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, groups=groups,
+                           cache_values=cache_values, inference=inference)
 
     @property
     def model_final(self):
@@ -1338,45 +1252,39 @@ class KernelDML(DML):
     array([0.63041..., 1.86098..., 0.74218...])
     """
 
-    def __init__(
-        self,
-        model_y='auto',
-        model_t='auto',
-        discrete_outcome=False,
-        discrete_treatment=False,
-        treatment_featurizer=None,
-        categories='auto',
-        fit_cate_intercept=True,
-        dim=20,
-        bw=1.0,
-        cv=2,
-        mc_iters=None,
-        mc_agg='mean',
-        random_state=None,
-        allow_missing=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
+    def __init__(self, model_y='auto', model_t='auto',
+                 discrete_outcome=False,
+                 discrete_treatment=False,
+                 treatment_featurizer=None,
+                 categories='auto',
+                 fit_cate_intercept=True,
+                 dim=20,
+                 bw=1.0,
+                 cv=2,
+                 mc_iters=None, mc_agg='mean',
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.dim = dim
         self.bw = bw
-        super().__init__(
-            model_y=model_y,
-            model_t=model_t,
-            model_final=None,
-            featurizer=None,
-            treatment_featurizer=treatment_featurizer,
-            fit_cate_intercept=fit_cate_intercept,
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            categories=categories,
-            cv=cv,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            random_state=random_state,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+        super().__init__(model_y=model_y,
+                         model_t=model_t,
+                         model_final=None,
+                         featurizer=None,
+                         treatment_featurizer=treatment_featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
+                         discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -1387,7 +1295,8 @@ class KernelDML(DML):
     def _gen_featurizer(self):
         return _RandomFeatures(dim=self.dim, bw=self.bw, random_state=self.random_state)
 
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None, cache_values=False, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1418,9 +1327,9 @@ class KernelDML(DML):
         -------
         self
         """
-        return super().fit(
-            Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups, cache_values=cache_values, inference=inference
-        )
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, groups=groups,
+                           cache_values=cache_values, inference=inference)
 
     @property
     def featurizer(self):
@@ -1567,44 +1476,38 @@ class NonParamDML(_BaseDML):
     array([0.35318..., 1.28760..., 0.83506...])
     """
 
-    def __init__(
-        self,
-        *,
-        model_y,
-        model_t,
-        model_final,
-        featurizer=None,
-        discrete_outcome=False,
-        discrete_treatment=False,
-        treatment_featurizer=None,
-        categories='auto',
-        cv=2,
-        mc_iters=None,
-        mc_agg='mean',
-        random_state=None,
-        allow_missing=False,
-        use_ray=False,
-        ray_remote_func_options=None,
-    ):
+    def __init__(self, *,
+                 model_y, model_t, model_final,
+                 featurizer=None,
+                 discrete_outcome=False,
+                 discrete_treatment=False,
+                 treatment_featurizer=None,
+                 categories='auto',
+                 cv=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(
-            discrete_outcome=discrete_outcome,
-            discrete_treatment=discrete_treatment,
-            treatment_featurizer=treatment_featurizer,
-            categories=categories,
-            cv=cv,
-            mc_iters=mc_iters,
-            mc_agg=mc_agg,
-            random_state=random_state,
-            allow_missing=allow_missing,
-            use_ray=use_ray,
-            ray_remote_func_options=ray_remote_func_options,
-        )
+        super().__init__(discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_allowed_missing_vars(self):
         return ['X', 'W'] if self.allow_missing else []
@@ -1619,14 +1522,12 @@ class NonParamDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(
-            self.model_y, is_discrete=self.discrete_outcome, random_state=self.random_state
-        )
+        return _make_first_stage_selector(self.model_y, is_discrete=self.discrete_outcome,
+                                          random_state=self.random_state)
 
     def _gen_model_t(self):
-        return _make_first_stage_selector(
-            self.model_t, is_discrete=self.discrete_treatment, random_state=self.random_state
-        )
+        return _make_first_stage_selector(self.model_t, is_discrete=self.discrete_treatment,
+                                          random_state=self.random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1636,20 +1537,8 @@ class NonParamDML(_BaseDML):
 
     # override only so that we can update the docstring to indicate
     # support for `GenericSingleTreatmentModelFinalInference`
-    def fit(
-        self,
-        Y,
-        T,
-        *,
-        X=None,
-        W=None,
-        sample_weight=None,
-        freq_weight=None,
-        sample_var=None,
-        groups=None,
-        cache_values=False,
-        inference='auto',
-    ):
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1687,37 +1576,21 @@ class NonParamDML(_BaseDML):
         -------
         self
         """
-        return super().fit(
-            Y,
-            T,
-            X=X,
-            W=W,
-            sample_weight=sample_weight,
-            freq_weight=freq_weight,
-            sample_var=sample_var,
-            groups=groups,
-            cache_values=cache_values,
-            inference=inference,
-        )
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var,
+                           groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
-
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_model_cate(
-            self.const_marginal_effect,
-            self.model_cate,
-            X,
-            self._d_t,
-            self._d_y,
-            featurizer=self.featurizer_,
-            feature_names=feature_names,
-            treatment_names=treatment_names,
-            output_names=output_names,
-            input_names=self._input_names,
-            background_samples=background_samples,
-        )
-
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,
+                                        featurizer=self.featurizer_,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        input_names=self._input_names,
+                                        background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
