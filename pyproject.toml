@@ -22,7 +22,7 @@ classifiers = [
 dependencies = [
     "numpy<2",
     "scipy > 1.4.0",
-    "scikit-learn >= 1.0, < 1.6",
+    "scikit-learn >= 1.0, < 1.7",
     "sparse",
     "joblib >= 0.13.0",
     "statsmodels >= 0.10",
@@ -59,7 +59,7 @@ plt = [
 ]
 dowhy = [
     # when updating this, also update the version check in dowhy.py
-    "dowhy < 0.12; python_version > '3.8'",
+    "dowhy < 0.13; python_version > '3.8'",
     # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
     "dowhy < 0.11; python_version <= '3.8'"
 ]
@@ -79,7 +79,7 @@ all = [
     "numpy < 1.24; python_version < '3.9'",
     "graphviz",
     "matplotlib",    
-    "dowhy < 0.12; python_version > '3.8'",
+    "dowhy < 0.13; python_version > '3.8'",
     # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
     "dowhy < 0.11; python_version <= '3.8'",
     "ray > 2.2.0"
