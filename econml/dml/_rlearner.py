@@ -126,7 +126,6 @@ class _ModelFinal:
         Unfortunately there is no utility like get_scorer that is both generic and supports
         samples weights.
         """
-
         if scoring == 'f1':
             return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'mean_absolute_error':
