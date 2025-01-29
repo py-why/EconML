@@ -1120,7 +1120,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                           sample_weight=sample_weight, groups=groups, scoring=scoring))
 
-    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, t_scoring=None, y_scoring=None):
+    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None, t_scoring=None, t_score_by_dim=False):
         """
         Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring
         function. Supported scorings depend on whether or not sample weights are sued: If no sample
@@ -1147,7 +1147,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Name of an sklearn scoring function to use instead of the default for model_t
         y_scoring: str, optional
             Name of an sklearn scoring function to use instead of the default for model_y
-
+        t_score_by_dim: bool, default=False
+            Score prediction of treatment dimensions separately
 
         Returns
         -------
@@ -1163,7 +1164,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             T_Key : []
         }
         for m in self._models_nuisance[0]:
-            Y_score, T_score = m.score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, t_scoring=t_scoring, y_scoring=y_scoring)
+            Y_score, T_score = m.score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight,
+                                       y_scoring=y_scoring, t_scoring=t_scoring, t_score_by_dim=t_score_by_dim)
             score_dict[Y_key].append(Y_score)
             score_dict[T_Key].append(T_score)
         return score_dict
