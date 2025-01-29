@@ -497,3 +497,9 @@ class GRFTree(BaseTree):
     @property
     def feature_importances_(self):
         return self.feature_importances()
+
+
+# HACK: sklearn 1.3 enforces that the input to plot_tree is a DecisionTreeClassifier or DecisionTreeRegressor
+#       This is a hack to get around that restriction by declaring that GRFTree inherits from DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier  # noqa: E402
+DecisionTreeClassifier.register(GRFTree)

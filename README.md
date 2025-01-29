@@ -49,7 +49,7 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-If you'd like to contribute to this project, see the [Help Wanted](#help-wanted) section below.
+If you'd like to contribute to this project, see the [Help Wanted](#finding-issues-to-help-with) section below.
 
 **July 3, 2024:** Release v0.15.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.1)
 
@@ -729,9 +729,7 @@ BibTex:
 
 This project welcomes contributions and suggestions.  We use the [DCO bot](https://github.com/apps/dco) to enforce a [Developer Certificate of Origin](https://developercertificate.org/) which requires users to sign-off on their commits.  This is a simple way to certify that you wrote or otherwise have the right to submit the code you are contributing to the project.  Git provides a `-s` command line option to include this automatically when you commit via `git commit`.
 
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+If you forget to sign one of your commits, the DCO bot will provide specific instructions along with the failed check; alternatively you can use `git commit --amend -s` to add the sign-off to your last commit if you forgot it or `git rebase --signoff` to sign all of the commits in the branch, after which you can force push the changes to your branch with `git push --force-with-lease`.
 
 This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md).
 

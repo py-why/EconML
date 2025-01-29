@@ -51,6 +51,9 @@ class RScorer:
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    discrete_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -104,6 +107,7 @@ class RScorer:
                  model_y,
                  model_t,
                  discrete_treatment=False,
+                 discrete_outcome=False,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -112,6 +116,7 @@ class RScorer:
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
+        self.discrete_outcome = discrete_outcome
         self.cv = cv
         self.categories = categories
         self.random_state = random_state
@@ -150,6 +155,7 @@ class RScorer:
                                     model_t=self.model_t,
                                     cv=self.cv,
                                     discrete_treatment=self.discrete_treatment,
+                                    discrete_outcome=self.discrete_outcome,
                                     categories=self.categories,
                                     random_state=self.random_state,
                                     mc_iters=self.mc_iters,
