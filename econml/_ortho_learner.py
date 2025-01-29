@@ -1156,7 +1156,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             A dictionary where the keys indicate the Y and T scores used and the values are
             lists of scores, one per CV fold model.
         """
-
         Y_key = 'Y_defscore' if not y_scoring else f"Y_{y_scoring}"
         T_Key = 'T_defscore' if not t_scoring else f"T_{t_scoring}"
         score_dict = {
