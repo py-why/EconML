@@ -27,7 +27,7 @@ dependencies = [
     "joblib >= 0.13.0",
     "statsmodels >= 0.10",
     "pandas > 1.0",
-    "shap >= 0.38.1, < 0.44.0",
+    "shap >= 0.38.1, < 0.47.0",
     "lightgbm",
     "packaging"
 ]
