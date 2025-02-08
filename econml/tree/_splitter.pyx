@@ -619,7 +619,6 @@ cdef class BestSplitter(Splitter):
             # passed here by the TreeBuilder. The TreeBuilder uses the proxy_node_impurity() to calculate
             # this baseline if self.is_children_impurity_proxy(), else uses the call to children_impurity()
             # on the parent node, when that node was split.
-            best.improvement = self.criterion.impurity_improvement(impurity)
             # if we need children impurities by the builder, then we populate these entries
             # otherwise, we leave them blank to avoid the extra computation.
             if not self.is_children_impurity_proxy():
@@ -630,6 +629,9 @@ cdef class BestSplitter(Splitter):
                 else:
                     best.impurity_left_val = best.impurity_left
                     best.impurity_right_val = best.impurity_right
+                
+            best.improvement = self.criterion.impurity_improvement(impurity, 
+            best.impurity_left, best.impurity_right)                    
 
         # Respect invariant for constant features: the original order of
         # element in features[:n_known_constants] must be preserved for sibling

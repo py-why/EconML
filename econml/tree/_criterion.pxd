@@ -78,7 +78,9 @@ cdef class Criterion:
     cdef void node_value(self, double* dest) nogil
     cdef void node_jacobian(self, double* dest) nogil
     cdef void node_precond(self, double* dest) nogil
-    cdef double impurity_improvement(self, double impurity) nogil
+    cdef double impurity_improvement(self, double impurity_parent,
+                                     double impurity_left,
+                                     double impurity_right) nogil
     cdef double proxy_impurity_improvement(self) nogil
     cdef double min_eig_left(self) nogil
     cdef double min_eig_right(self) nogil
