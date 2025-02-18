@@ -29,6 +29,7 @@ from abc import abstractmethod
 from typing import List, Union
 
 import numpy as np
+import pandas as pd
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
 from sklearn.preprocessing import (LabelEncoder)
@@ -1165,8 +1166,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Y_key : [],
             T_Key : []
         }
+
+        # For discrete treatments, these will have to be one hot encoded
+        Y_2_score = pd.get_dummies(Y) if self.discrete_outcome and (len(Y.shape) == 1 or Y.shape[1] == 1) else Y
+        T_2_score = pd.get_dummies(T) if self.discrete_treatment and (len(T.shape) == 1 or T.shape[1] == 1) else T
+
         for m in self._models_nuisance[0]:
-            Y_score, T_score = m.score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight,
+            Y_score, T_score = m.score(Y_2_score, T_2_score, X=X, W=W, Z=Z, sample_weight=sample_weight,
                                        y_scoring=y_scoring, t_scoring=t_scoring,
                                        t_score_by_dim=t_score_by_dim)
             score_dict[Y_key].append(Y_score)
