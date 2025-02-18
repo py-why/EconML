@@ -713,6 +713,63 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(lb - .01, truth)
                 np.testing.assert_array_less(truth, ub + .01)
 
+    def test_aaa_forest_dml_scores(self):
+        np.random.seed(1234)
+        n = 20000  # number of raw samples
+        d = 10
+
+        Z = np.random.binomial(1, .5, size=(n, d))
+        T = np.random.binomial(1, .5, size=(n,))
+
+        def true_fn(x):
+            return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+
+        y = true_fn(Z) * T + Z[:, 0] + (1 * Z[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
+        X = Z[:, :4]
+        W = Z[:, 4:]
+
+        est = CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                              model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                              discrete_treatment=True,
+                              cv=2,
+                              n_jobs=None,
+                              n_estimators=1000,
+                              max_samples=.4,
+                              min_samples_leaf=10,
+                              min_impurity_decrease=0.001,
+                              verbose=0, min_var_fraction_leaf=.1,
+                              fit_intercept=False,
+                              random_state=12345)
+
+        est.fit(y, T, X=X, W=W)
+
+        s1 = est.score(Y=y,T=T,X=X, W=W, scoring='mean_squared_error')
+        s2 = est.score(Y=y,T=T,X=X, W=W)
+        assert s1 == s2
+        np.testing.assert_allclose(s1, 2.50, rtol=0, atol=.01)
+        s3 = est.score(Y=y, T=T, X=X, W=W, scoring='mean_absolute_error')
+        np.testing.assert_allclose(s3, 1.19, rtol=0, atol=.01)
+        s4 = est.score(Y=y, T=T, X=X, W=W, scoring='r2')
+        np.testing.assert_allclose(s4, 0.113, rtol=0, atol=.001)
+
+        # TODO: Should this dummyization go inside score_nuisances?
+        T_dum = pd.get_dummies(T)
+        sn1 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='mean_squared_error',
+                                   y_scoring='mean_squared_error')
+        sn2 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='mean_absolute_error',
+                                   y_scoring='mean_absolute_error')
+        sn3 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='r2',
+                                   y_scoring='r2')
+        np.testing.assert_allclose(sn1['Y_mean_squared_error'], [2.8,2.8], rtol=0, atol=.1)
+        np.testing.assert_allclose(sn1['T_mean_squared_error'], [1.5,1.5], rtol=0, atol=.1)
+
+        np.testing.assert_allclose(sn2['Y_mean_absolute_error'], [1.3,1.3], rtol=0, atol=.1)
+        np.testing.assert_allclose(sn2['T_mean_absolute_error'], [1.0,1.0], rtol=0, atol=.1)
+
+        np.testing.assert_allclose(sn3['Y_r2'], [0.27,0.27], rtol=0, atol=.005)
+        np.testing.assert_allclose(sn3['T_r2'], [-5.1,-5.1], rtol=0, atol=0.25)
+
+
     def test_aaforest_pandas(self):
         """Test that we can use CausalForest with pandas inputs."""
         df = pd.DataFrame({'a': np.random.normal(size=500),
