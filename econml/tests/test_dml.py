@@ -713,7 +713,7 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(lb - .01, truth)
                 np.testing.assert_array_less(truth, ub + .01)
 
-    def test_aaa_forest_dml_scores(self):
+    def test_forest_dml_score_fns(self):
         np.random.seed(1234)
         n = 20000  # number of raw samples
         d = 10
