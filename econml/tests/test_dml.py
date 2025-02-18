@@ -756,12 +756,13 @@ class TestDML(unittest.TestCase):
         T_dum = pd.get_dummies(T)
         sn1 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
                                   t_scoring='mean_squared_error',
-                                   y_scoring='mean_squared_error')
+                                  y_scoring='mean_squared_error')
         sn2 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
                                   t_scoring='mean_absolute_error',
-                                   y_scoring='mean_absolute_error')
-        sn3 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='r2',
-                                   y_scoring='r2')
+                                  y_scoring='mean_absolute_error')
+        sn3 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
+                                  t_scoring='r2',
+                                  y_scoring='r2')
         # T is binary, and can be used to check binary eval functions
         sn4 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='roc_auc')
         sn5 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='log_loss')
