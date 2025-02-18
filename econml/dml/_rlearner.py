@@ -35,7 +35,7 @@ from sklearn.metrics import (
     r2_score,
     roc_auc_score
 )
-
+from scipy.stats import pearsonr
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
@@ -140,6 +140,10 @@ class _ModelFinal:
             return roc_auc_score(Y_true, Y_pred, sample_weight=sample_weight)
         elif scoring == 'log_loss':
             return log_loss(Y_true, Y_pred, sample_weight=sample_weight)
+        elif scoring == 'pearsonr':
+            if sample_weight is not None:
+                raise NotImplementedError("pearsonr score does not support sample weighting")
+            return pearsonr(Y_true, Y_pred)
         else:
             raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
 

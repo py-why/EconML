@@ -751,33 +751,42 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(s3, 1.19, rtol=0, atol=.01)
         s4 = est.score(Y=y, T=T, X=X, W=W, scoring='r2')
         np.testing.assert_allclose(s4, 0.113, rtol=0, atol=.001)
+        s5 = est.score(Y=y, T=T, X=X, W=W, scoring='pearsonr')
+        np.testing.assert_allclose(s5[0], 0.337, rtol=0, atol=0.005 )
 
-        # TODO: Should this dummyization go inside score_nuisances?
-        T_dum = pd.get_dummies(T)
-        sn1 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
+        sn1 = est.score_nuisances(Y=y, T=T, X=X, W=W,
                                   t_scoring='mean_squared_error',
                                   y_scoring='mean_squared_error')
-        sn2 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
-                                  t_scoring='mean_absolute_error',
-                                  y_scoring='mean_absolute_error')
-        sn3 = est.score_nuisances(Y=y, T=T_dum, X=X, W=W,
-                                  t_scoring='r2',
-                                  y_scoring='r2')
-        # T is binary, and can be used to check binary eval functions
-        sn4 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='roc_auc')
-        sn5 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='log_loss')
-
         np.testing.assert_allclose(sn1['Y_mean_squared_error'], [2.8,2.8], rtol=0, atol=.1)
         np.testing.assert_allclose(sn1['T_mean_squared_error'], [1.5,1.5], rtol=0, atol=.1)
 
+        sn2 = est.score_nuisances(Y=y, T=T, X=X, W=W,
+                                  t_scoring='mean_absolute_error',
+                                  y_scoring='mean_absolute_error')
         np.testing.assert_allclose(sn2['Y_mean_absolute_error'], [1.3,1.3], rtol=0, atol=.1)
         np.testing.assert_allclose(sn2['T_mean_absolute_error'], [1.0,1.0], rtol=0, atol=.1)
 
+        sn3 = est.score_nuisances(Y=y, T=T, X=X, W=W,
+                                  t_scoring='r2',
+                                  y_scoring='r2')
         np.testing.assert_allclose(sn3['Y_r2'], [0.27,0.27], rtol=0, atol=.005)
         np.testing.assert_allclose(sn3['T_r2'], [-5.1,-5.1], rtol=0, atol=0.25)
 
-        np.testing.assert_allclose(sn4['T_roc_auc'], [0.526,0.526], rtol=0, atol=.005)
-        np.testing.assert_allclose(sn5['T_log_loss'], [17.4,17.4], rtol=0, atol=0.1)
+        sn4 = est.score_nuisances(Y=y, T=T, X=X, W=W,
+                                  t_scoring='pearsonr',
+                                  y_scoring='pearsonr')
+        # Ignoring the p-values returned with the score
+        y_pearsonr = [s[0] for s in sn4['Y_pearsonr']]
+        t_pearsonr = [s[0] for s in sn4['T_pearsonr']]
+        np.testing.assert_allclose(y_pearsonr, [0.52, 0.52], rtol=0, atol=.01)
+        np.testing.assert_allclose(t_pearsonr, [.035, .035], rtol=0, atol=0.005)
+
+        # T is binary, and can be used to check binary eval functions
+        sn5 = est.score_nuisances(Y=y, T=T, X=X, W=W, t_scoring='roc_auc')
+        np.testing.assert_allclose(sn5['T_roc_auc'], [0.526,0.526], rtol=0, atol=.005)
+
+        sn6 = est.score_nuisances(Y=y, T=T, X=X, W=W, t_scoring='log_loss')
+        np.testing.assert_allclose(sn6['T_log_loss'], [17.4,17.4], rtol=0, atol=0.1)
 
     def test_aaforest_pandas(self):
         """Test that we can use CausalForest with pandas inputs."""
