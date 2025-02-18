@@ -760,6 +760,10 @@ class TestDML(unittest.TestCase):
                                    y_scoring='mean_absolute_error')
         sn3 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='r2',
                                    y_scoring='r2')
+        # T is binary, and can be used to check binary eval functions
+        sn4 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='roc_auc')
+        sn5 = est.score_nuisances(Y=y,T=T_dum,X=X, W=W,t_scoring='log_loss')
+
         np.testing.assert_allclose(sn1['Y_mean_squared_error'], [2.8,2.8], rtol=0, atol=.1)
         np.testing.assert_allclose(sn1['T_mean_squared_error'], [1.5,1.5], rtol=0, atol=.1)
 
@@ -769,6 +773,8 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(sn3['Y_r2'], [0.27,0.27], rtol=0, atol=.005)
         np.testing.assert_allclose(sn3['T_r2'], [-5.1,-5.1], rtol=0, atol=0.25)
 
+        np.testing.assert_allclose(sn4['T_roc_auc'], [0.526,0.526], rtol=0, atol=.005)
+        np.testing.assert_allclose(sn5['T_log_loss'], [17.4,17.4], rtol=0, atol=0.1)
 
     def test_aaforest_pandas(self):
         """Test that we can use CausalForest with pandas inputs."""
