@@ -63,8 +63,8 @@ class _ModelNuisance(ModelSelector):
                             filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, y_scoring=None,
-              t_scoring=None, t_score_by_dim=False):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None,
+              y_scoring='mean_squared_error', t_scoring='mean_squared_error', t_score_by_dim=False):
         # note that groups are not passed to score because they are only used for fitting
         T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
                                        scoring=t_scoring, score_by_dim=t_score_by_dim)
