@@ -29,7 +29,6 @@ from abc import abstractmethod
 from typing import List, Union
 
 import numpy as np
-import pandas as pd
 from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
 from sklearn.preprocessing import (LabelEncoder)
@@ -1121,63 +1120,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                      **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                           sample_weight=sample_weight,
                                                                           groups=groups, scoring=scoring))
-
-    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None,
-                        t_scoring=None, t_score_by_dim=False):
-        """
-        Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring.
-
-        Supported scorings depend on whether or not sample weights are sued: If no sample
-        weights are used, then any of those provided by sklearn.metrics.get_scorer_names() are
-        available, as well as non-negated versions of mean_squared_error, mean_absolute_error.
-        If sample weights are used, then supported scorings are     f1_score, log_loss,
-        mean_absolute_error, mean_squared_error, r2_score, roc_auc_score.
-
-        Parameters
-        ----------
-        Y: (n, d_y) matrix or vector of length n
-            Outcomes for each sample
-        T: (n, d_t) matrix or vector of length n
-            Treatments for each sample
-        X: (n, d_x) matrix, optional
-            Features for each sample
-        W: (n, d_w) matrix, optional
-            Controls for each sample
-        Z: (n, d_z) matrix, optional
-            Instruments for each sample
-        sample_weight:(n,) vector, optional
-            Weights for each samples
-        t_scoring: str, optional
-            Name of an sklearn scoring function to use instead of the default for model_t
-        y_scoring: str, optional
-            Name of an sklearn scoring function to use instead of the default for model_y
-        t_score_by_dim: bool, default=False
-            Score prediction of treatment dimensions separately
-
-        Returns
-        -------
-        score_dict : dict[str,list[float]]
-            A dictionary where the keys indicate the Y and T scores used and the values are
-            lists of scores, one per CV fold model.
-        """
-        Y_key = 'Y_defscore' if not y_scoring else f"Y_{y_scoring}"
-        T_Key = 'T_defscore' if not t_scoring else f"T_{t_scoring}"
-        score_dict = {
-            Y_key : [],
-            T_Key : []
-        }
-
-        # For discrete treatments, these will have to be one hot encoded
-        Y_2_score = pd.get_dummies(Y) if self.discrete_outcome and (len(Y.shape) == 1 or Y.shape[1] == 1) else Y
-        T_2_score = pd.get_dummies(T) if self.discrete_treatment and (len(T.shape) == 1 or T.shape[1] == 1) else T
-
-        for m in self._models_nuisance[0]:
-            Y_score, T_score = m.score(Y_2_score, T_2_score, X=X, W=W, Z=Z, sample_weight=sample_weight,
-                                       y_scoring=y_scoring, t_scoring=t_scoring,
-                                       t_score_by_dim=t_score_by_dim)
-            score_dict[Y_key].append(Y_score)
-            score_dict[T_Key].append(T_score)
-        return score_dict
 
     @property
     def ortho_learner_model_final_(self):
