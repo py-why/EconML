@@ -9,7 +9,7 @@ from collections import OrderedDict, namedtuple
 import joblib
 import lightgbm as lgb
 import numpy as np
-from numpy.lib.function_base import iterable
+from numpy import iterable
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer

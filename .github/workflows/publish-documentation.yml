@@ -79,14 +79,14 @@ jobs:
       - name: Install graphviz
         run: sudo apt-get -yq install graphviz
       - name: Build documentation
-        run: pip install "sphinx~=4.4.0" "sphinx_rtd_theme~=1.0.0" && python setup.py build_sphinx -W
+        run: pip install "sphinx~=7.0" "sphinx_rtd_theme~=2.0.0" && sphinx-build ./doc/ ./build/sphinx/html/ -W
       - name: Upload docs as artifact
         uses: actions/upload-artifact@v4
         with:
           name: docs
           path: build/sphinx/html/
       - name: Run doctests
-        run: python setup.py build_sphinx -b doctest
+        run: sphinx-build ./doc/ ./build/sphinx/doctest/ -b doctest
         if : ${{ inputs.run_doctests }}
         
   publish-docs:
