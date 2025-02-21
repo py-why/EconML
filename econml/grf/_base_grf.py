@@ -197,7 +197,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return sparse_hstack(indicators).tocsr(), n_nodes_ptr
 
-    def fit(self, X, T, y, *, sample_weight=None, **kwargs):
+    def fit(self, X, T, y, *, sample_weight=None, use_memmap: bool=False, **kwargs):
         """
         Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
 
@@ -214,6 +214,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
+        use_memmap: Whether to use a numpy memmap to pass data to parallel training. Helps
+            reduce memory overhead for large data sets. For details on memmap see:
+            https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         **kwargs : dictionary of array_like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
@@ -385,15 +388,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                           for _ in range(n_more_estimators)]
 
-            # Make a memmap for better performance on large number of treatment variables
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
-                filename = temp_file.name
-            np.save(filename, yaug)  # Save array to disk
-            # Remove references to (potentially) large data before Parallel
-            del yaug, pointJ
-            gc.collect()
-            # Create the memmap version
-            yaug_mmap = np.load(filename, mmap_mode='r')
+            if use_memmap:
+                # Make a memmap for better performance on large number of treatment variables
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
+                    filename = temp_file.name
+                np.save(filename, yaug)  # Save array to disk
+                # Remove references to (potentially) large data before Parallel
+                del yaug, pointJ
+                gc.collect()
+                # Create the memmap version
+                yaug = np.load(filename, mmap_mode='r')
 
             # Parallel loop: we prefer the threading backend as the Cython code
             # for fitting the trees is internally releasing the Python GIL
@@ -403,7 +407,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # since correctness does not rely on using threads.
 
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(t.fit)(X[s], yaug_mmap[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
                                sample_weight=sample_weight[s] if sample_weight is not None else None,
                                check_input=False)
                 for t, s in zip(trees, s_inds))
