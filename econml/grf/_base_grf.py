@@ -52,6 +52,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     Warning: This class should not be used directly. Use derived classes
     instead.
+
+
+    use_memmap: Whether to use a numpy memmap to pass data to parallel training. Helps
+        reduce memory overhead for large data sets. For details on memmap see:
+        https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
     """
 
     def __init__(self,
@@ -74,7 +79,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  n_jobs=-1,
                  random_state=None,
                  verbose=0,
-                 warm_start=False):
+                 warm_start=False,
+                 use_memmap=False):
         super().__init__(
             base_estimator=GRFTree(),
             n_estimators=n_estimators,
@@ -104,6 +110,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.verbose = verbose
         self.warm_start = warm_start
         self.max_samples = max_samples
+        self.use_memmap = use_memmap
 
     @abstractmethod
     def _get_alpha_and_pointJ(self, X, T, y, **kwargs):
@@ -197,7 +204,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return sparse_hstack(indicators).tocsr(), n_nodes_ptr
 
-    def fit(self, X, T, y, *, sample_weight=None, use_memmap: bool=False, **kwargs):
+    def fit(self, X, T, y, *, sample_weight=None, **kwargs):
         """
         Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
 
@@ -214,9 +221,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
-        use_memmap: Whether to use a numpy memmap to pass data to parallel training. Helps
-            reduce memory overhead for large data sets. For details on memmap see:
-            https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         **kwargs : dictionary of array_like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
@@ -388,7 +392,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                           for _ in range(n_more_estimators)]
 
-            if use_memmap:
+            if self.use_memmap:
                 # Make a memmap for better performance on large number of treatment variables
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
                     filename = temp_file.name
