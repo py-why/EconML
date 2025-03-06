@@ -144,7 +144,8 @@ class _ModelFinal:
         elif scoring == 'pearsonr':
             if sample_weight is not None:
                 raise NotImplementedError("pearsonr score does not support sample weighting")
-            return pearsonr(Y_true, Y_pred)
+            # Note earlier numpy versions require removal of singleton dimensions
+            return pearsonr(np.squeeze(Y_true), np.squeeze(Y_pred))
         else:
             raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
 
