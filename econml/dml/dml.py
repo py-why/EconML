@@ -67,9 +67,11 @@ class _FirstStageWrapper:
                 return self._model.score(XW_combined, Target, sample_weight=sample_weight)
             else:
                 return self._model.score(XW_combined, Target)
-        else:
+        elif hasattr(self._model, 'score'):
             return _FirstStageWrapper._wrap_scoring(scoring,Y_true=Target, X=XW_combined, est=self._model,
                             sample_weight=sample_weight, score_by_dim=score_by_dim)
+        else:
+            return None
 
     @staticmethod
     def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None, score_by_dim=False):
