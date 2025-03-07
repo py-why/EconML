@@ -19,7 +19,8 @@ pyx_files = [file for file in pyx_files if (os.path.splitext(file)[0] + ".c") no
 
 c_extensions = [Extension(os.path.splitext(file)[0].replace(os.sep, '.'),
                           [file],
-                          include_dirs=[np.get_include()])
+                          include_dirs=[np.get_include()],
+                          define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")])
                 for file in c_files]
 
 if pyx_files:
