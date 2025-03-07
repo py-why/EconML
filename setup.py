@@ -24,6 +24,8 @@ c_extensions = [Extension(os.path.splitext(file)[0].replace(os.sep, '.'),
 
 if pyx_files:
     from Cython.Build import cythonize
+    from Cython.Compiler import Options
+    Options.warning_errors = True  # Treat Cython warnings as errors
     pyx_extensions = cythonize([Extension("*",
                                           pyx_files,
                                           include_dirs=[np.get_include()])],
