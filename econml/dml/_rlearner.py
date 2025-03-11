@@ -126,22 +126,19 @@ class _ModelFinal:
 
         A special case is written for using pearsonr as a score, with unweighted samples.
         """
-        Y_true_score = Y_true
-        Y_pred_score = Y_pred
+
         if scoring in get_scorer_names():
             score_fn = get_scorer(scoring)._score_func
         elif 'neg_' + scoring in get_scorer_names():
             score_fn = get_scorer('neg_' + scoring)._score_func
         elif scoring == 'pearsonr':
             if sample_weight is not None:
-                raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
-            score_fn = pearsonr
-            Y_true_score = np.squeeze(Y_true)
-            Y_pred_score = np.squeeze(Y_pred)
+                raise NotImplementedError("scoring does not support pearsonr with sample_weight" )
+            return pearsonr(np.squeeze(Y_true), np.squeeze(Y_pred))
         else:
             raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
 
-        res = score_fn(Y_true_score, Y_pred_score, sample_weight=sample_weight)
+        res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
         return res
 
 
