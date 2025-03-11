@@ -126,7 +126,6 @@ class _ModelFinal:
 
         A special case is written for using pearsonr as a score, with unweighted samples.
         """
-
         if scoring in get_scorer_names():
             score_fn = get_scorer(scoring)._score_func
         elif 'neg_' + scoring in get_scorer_names():
