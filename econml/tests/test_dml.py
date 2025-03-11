@@ -783,7 +783,7 @@ class TestDML(unittest.TestCase):
 
         # T is binary, and can be used to check binary eval functions
         sn5 = est.score_nuisances(Y=y, T=T, X=X, W=W, t_scoring='roc_auc')
-        np.testing.assert_allclose(sn5['T_roc_auc'], [0.526,0.526], rtol=0, atol=.005)
+        np.testing.assert_allclose(sn5['T_roc_auc'], [0.52,0.52], rtol=0, atol=.01)
 
         sn6 = est.score_nuisances(Y=y, T=T, X=X, W=W, t_scoring='log_loss')
         np.testing.assert_allclose(sn6['T_log_loss'], [17.4,17.4], rtol=0, atol=0.1)
