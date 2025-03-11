@@ -29,12 +29,8 @@ from abc import abstractmethod
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
-    f1_score,
-    log_loss,
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score,
-    roc_auc_score
+    get_scorer,
+    get_scorer_names
 )
 from scipy.stats import pearsonr
 from ..sklearn_extensions.model_selection import ModelSelector
@@ -124,30 +120,30 @@ class _ModelFinal:
     @staticmethod
     def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
         """
-        Wrap the option to call several sklearn scoring functions that accept sample weighting.
+        Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
+        Standard score names like "mean_squared_error" are present in sklearn scoring as
+        "neg_..." so score names are accepted either with or without the "neg_" prefix.
 
-        Unfortunately there is no utility like get_scorer that is both generic and supports
-        samples weights.
+        A special case is written for using pearsonr as a score, with unweighted samples.
         """
-        if scoring == 'f1':
-            return f1_score(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'mean_absolute_error':
-            return mean_absolute_error(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'mean_squared_error':
-            return mean_squared_error(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'r2':
-            return r2_score(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'roc_auc':
-            return roc_auc_score(Y_true, Y_pred, sample_weight=sample_weight)
-        elif scoring == 'log_loss':
-            return log_loss(Y_true, Y_pred, sample_weight=sample_weight)
+        Y_true_score = Y_true
+        Y_pred_score = Y_pred
+        if scoring in get_scorer_names():
+            score_fn = get_scorer(scoring)._score_func
+        elif 'neg_' + scoring in get_scorer_names():
+            score_fn = get_scorer('neg_' + scoring)._score_func
         elif scoring == 'pearsonr':
             if sample_weight is not None:
-                raise NotImplementedError("pearsonr score does not support sample weighting")
-            # Note earlier numpy versions require removal of singleton dimensions
-            return pearsonr(np.squeeze(Y_true), np.squeeze(Y_pred))
+                raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
+            score_fn = pearsonr
+            Y_true_score = np.squeeze(Y_true)
+            Y_pred_score = np.squeeze(Y_pred)
         else:
-            raise NotImplementedError(f"wrap_weighted_scoring does not support '{scoring}'" )
+            raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
+
+        res = score_fn(Y_true_score, Y_pred_score, sample_weight=sample_weight)
+        return res
+
 
     @staticmethod
     def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):

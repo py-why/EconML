@@ -10,6 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
 from sklearn.metrics import get_scorer, get_scorer_names
+from scipy.stats import pearsonr
 
 
 from .._ortho_learner import _OrthoLearner
@@ -76,18 +77,10 @@ class _FirstStageWrapper:
     @staticmethod
     def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None, score_by_dim=False):
         """
-        Wrap the alternative scoring functions get_scorer and _ModelFinal.wrap_scoring.
-
-        If there are no weights, use the get_scorer functionality to support ANY sklearn
-        evaluation metrics. Otherwise, use the static class method from _ModelFinal that supports
-        weights. That version takes the estimates, not the estimator.
+        Makes predictions from the estimator, and uses the _ModelFinal.wrap_scoring function.
         """
-        if sample_weight is None and not score_by_dim and scoring in get_scorer_names():
-            scorer = get_scorer(scoring)
-            return scorer(est, X, Y_true)
-        else:
-            Y_pred = est.predict(X)
-            return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight, score_by_dim=score_by_dim)
+        Y_pred = est.predict(X)
+        return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight, score_by_dim=score_by_dim)
 
 class _FirstStageSelector(SingleModelSelector):
     def __init__(self, model: SingleModelSelector, discrete_target):
