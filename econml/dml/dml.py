@@ -9,8 +9,6 @@ from sklearn.linear_model import (ElasticNetCV)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer)
 from sklearn.utils import check_random_state
-from sklearn.metrics import get_scorer, get_scorer_names
-from scipy.stats import pearsonr
 
 
 from .._ortho_learner import _OrthoLearner
