@@ -74,9 +74,7 @@ class _FirstStageWrapper:
 
     @staticmethod
     def _wrap_scoring(scoring, Y_true, X, est, sample_weight=None, score_by_dim=False):
-        """
-        Makes predictions from the estimator, and uses the _ModelFinal.wrap_scoring function.
-        """
+        """Predict from the estimator, and use the _ModelFinal.wrap_scoring function."""
         Y_pred = est.predict(X)
         return _ModelFinal.wrap_scoring(scoring, Y_true, Y_pred, sample_weight, score_by_dim=score_by_dim)
 
