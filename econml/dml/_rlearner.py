@@ -108,6 +108,24 @@ class _ModelFinal:
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None,
               scoring='mean_squared_error'):
+        """
+        Score final model fit of residualized outcomes from residualized treatments and nuisances.
+
+        The default scoring method "mean_squared_error" is the score used to fit residualized
+        outcomes from residualized treatments and nuisances, and reproduces the behavior of this
+        score function from before the scoring method option.
+
+        :param Y: Unused
+        :param T: Unused
+        :param X: Combined nuisances, treatments and instruments to call _model_final.predict
+        :param W: Unused
+        :param Z: Unused
+        :param nuisances: tuple of the outcome (Y) residuals and treatment (T) residuals
+        :param sample_weight: Optional weighting on the samples
+        :param groups: Unused
+        :param scoring: Optional alternative scoring metric from sklearn.get_scorer
+        :return: Float score
+        """
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -121,10 +139,23 @@ class _ModelFinal:
     def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
         """
         Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
+
         Standard score names like "mean_squared_error" are present in sklearn scoring as
         "neg_..." so score names are accepted either with or without the "neg_" prefix.
+        The function is used directly because the scorer objects from get_scorer() do not
+        accept a sample_weight parameter.
 
-        A special case is written for using pearsonr as a score, with unweighted samples.
+        A special case is written for using 'pearsonr' as a score function, with unweighted samples.
+        pearsonr is a useful score function for "Zero Inflated" regression problems, in which
+        a regression problem has mainly zero outcomes. In that case the MSE is typically a very
+        small number and the r-squared may be negative; a statistically significant correlation
+        between predictions and outcomes is the best evidence the model fit is meaningful.
+
+        :param scoring: A string name of a scoring function from sklearn
+        :param Y_true: True Y values
+        :param Y_pred: Predicted Y values
+        :param sample_weight: Optional weighting on the examples
+        :return: Float score
         """
         if scoring in get_scorer_names():
             score_fn = get_scorer(scoring)._score_func
