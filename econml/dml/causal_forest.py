@@ -578,6 +578,10 @@ class CausalForestDML(_BaseDML):
         at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
         for a method that allows one to change these defaults.
 
+    use_memmap: Whether to use a numpy memmap to pass data to parallel training. Helps
+        reduce memory overhead for large data sets. For details on memmap see:
+        https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
+
     References
     ----------
     .. [cfdml1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
@@ -619,7 +623,8 @@ class CausalForestDML(_BaseDML):
                  verbose=0,
                  allow_missing=False,
                  use_ray=False,
-                 ray_remote_func_options=None):
+                 ray_remote_func_options=None,
+                 use_memmap=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -647,6 +652,7 @@ class CausalForestDML(_BaseDML):
         self.fit_intercept = fit_intercept
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
+        self.use_memmap = use_memmap
         self.verbose = verbose
         super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
@@ -698,7 +704,8 @@ class CausalForestDML(_BaseDML):
                                            n_jobs=self.n_jobs,
                                            random_state=self.random_state,
                                            verbose=self.verbose,
-                                           warm_start=False))
+                                           warm_start=False,
+                                           use_memmap=self.use_memmap))
 
     def _gen_rlearner_model_final(self):
         return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(),
