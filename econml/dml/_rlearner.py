@@ -579,12 +579,6 @@ class _RLearner(_OrthoLearner):
         """
         Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring.
 
-        Supported scorings depend on whether or not sample weights are sued: If no sample
-        weights are used, then any of those provided by sklearn.metrics.get_scorer_names() are
-        available, as well as non-negated versions of mean_squared_error, mean_absolute_error.
-        If sample weights are used, then supported scorings are     f1_score, log_loss,
-        mean_absolute_error, mean_squared_error, r2_score, roc_auc_score.
-
         Parameters
         ----------
         Y: (n, d_y) matrix or vector of length n
@@ -600,9 +594,11 @@ class _RLearner(_OrthoLearner):
         sample_weight:(n,) vector, optional
             Weights for each samples
         t_scoring: str, optional
-            Name of an sklearn scoring function to use instead of the default for model_t
+            Name of an sklearn scoring function to use instead of the default for model_t, choices
+            are from sklearn.get_scoring_names() plus pearsonr
         y_scoring: str, optional
-            Name of an sklearn scoring function to use instead of the default for model_y
+            Name of an sklearn scoring function to use instead of the default for model_y, choices
+            are from sklearn.get_scoring_names() plus pearsonr
         t_score_by_dim: bool, default=False
             Score prediction of treatment dimensions separately
 
