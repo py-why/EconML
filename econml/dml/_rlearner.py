@@ -142,8 +142,9 @@ class _ModelFinal:
 
         Standard score names like "mean_squared_error" are present in sklearn scoring as
         "neg_..." so score names are accepted either with or without the "neg_" prefix.
-        The function is used directly because the scorer objects from get_scorer() do not
-        accept a sample_weight parameter.
+        The function _score_func is called directly because the scorer objects from get_scorer()
+        do not accept a sample_weight parameter. The _score_func member has been available in
+        sklearn scorers since before sklearn 1.0.
 
         A special case is written for using 'pearsonr' as a score function, with unweighted samples.
         pearsonr is a useful score function for "Zero Inflated" regression problems, in which
