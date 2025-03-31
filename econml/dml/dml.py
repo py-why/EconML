@@ -54,6 +54,18 @@ class _FirstStageWrapper:
             return self._model.predict(_combine(X, W, n_samples))
 
     def score(self, X, W, Target, sample_weight=None, scoring=None, score_by_dim=False):
+        """
+        Score the first stage model on provided data.
+
+        :param X: Nuisances
+        :param W: Treatments
+        :param Target: The true targets
+        :param sample_weight: optional sample weights
+        :param scoring: non-standard scoring function name from sklearn get_scorer. Results in
+            call to _rlearner._wrap_scoring
+        :param score_by_dim: If a multi-dimension treatment, score each treatment separately.
+        :return:
+        """
         XW_combined = _combine(X, W, Target.shape[0])
         if self._discrete_target:
             # In this case, the Target is the one-hot-encoding of the treatment variable
