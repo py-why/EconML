@@ -396,6 +396,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # Make a memmap for better performance on large number of treatment variables
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".npy") as temp_file:
                     filename = temp_file.name
+                print(f"BaseGRF.fit Making memmap with temp file {filename}")
                 np.save(filename, yaug)  # Save array to disk
                 # Remove references to (potentially) large data before Parallel
                 del yaug, pointJ
