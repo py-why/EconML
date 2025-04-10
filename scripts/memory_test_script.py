@@ -5,6 +5,7 @@ import sklearn.metrics
 import argparse
 from econml.dml import SparseLinearDML, CausalForestDML
 from econml.validate import DRTester
+from memory_profiler import memory_usage
 import collinearity
 from itertools import product
 import joblib
@@ -56,9 +57,23 @@ def causalforestdml_memory_test(
         n_estimators=n_est_2,
         use_memmap=use_memmap
     )
-    logger.info(f"Calling fit: njobs={n_jobs}, MemMap={use_memmap}")
-    est.fit(y,T,X=X)
-    print(est.summary())
+    logger.info(f"Calling fit: njobs={n_jobs}, MemMap={use_memmap}," 
+                f"N estimators y={n_est_y}, t={n_est_t}, 2={n_est_2}")
+    # est.fit(y,T,X=X)
+
+    mem_usage = memory_usage(
+        (est.fit, [y,T], {"X":X}),
+        interval=0.1,  # Sample every 0.1 seconds
+        timeout=None,  # No timeout
+        max_usage=True,  # Get maximum memory used
+        retval=True,  # Return the fitted model too
+        include_children=True  # Include joblib's child processes
+    )
+
+    # Extract results
+    max_memory, fitted_model = mem_usage
+
+    print(f"Maximum memory usage: {max_memory} MiB")
 
 
 
