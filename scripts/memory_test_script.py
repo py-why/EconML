@@ -1,25 +1,12 @@
-import json
-from datetime import datetime
 
-import sklearn.metrics
 import argparse
-from econml.dml import SparseLinearDML, CausalForestDML
-from econml.validate import DRTester
+from econml.dml import CausalForestDML
 from memory_profiler import memory_usage
-import collinearity
-from itertools import product
 import joblib
-import numpy as np
 import os
-import pandas as pd
-import scipy
-from sklearn.preprocessing import StandardScaler, FunctionTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import roc_auc_score
 from xgboost import XGBRegressor, XGBClassifier
 import sys
 import logging
-from sklearn.model_selection import KFold
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
@@ -57,7 +44,7 @@ def causalforestdml_memory_test(
         n_estimators=n_est_2,
         use_memmap=use_memmap
     )
-    logger.info(f"Calling fit: njobs={n_jobs}, MemMap={use_memmap}," 
+    logger.info(f"Calling fit: njobs={n_jobs}, MemMap={use_memmap},"
                 f"N estimators y={n_est_y}, t={n_est_t}, 2={n_est_2}")
     # est.fit(y,T,X=X)
 
