@@ -52,6 +52,7 @@ from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelec
 from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
+from ..validate import sensitivity_interval, RV, dr_sensitivity_values
 
 
 class _ModelNuisance(ModelSelector):
@@ -118,9 +119,7 @@ class _ModelNuisance(ModelSelector):
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        propensities_weight = np.sum(propensities * T_complete, axis=1)
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -143,9 +142,15 @@ class _ModelFinal:
 
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
-        Y_pred, propensities = nuisances
+        Y_pred, T_pred = nuisances
+        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
+        propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
+
+        self.sensitivity_params = dr_sensitivity_values(Y, T_complete, Y_pred, T_pred)
+
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
 
@@ -750,6 +755,15 @@ class DRLearner(_OrthoLearner):
                                             input_names=self._input_names,
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
+    def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+        sensitivity_params = {k: v[T] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
+        return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
+
+
+    def robustness_value(self, T, alpha=0.05):
+        sensitivity_params = {k: v[T] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
+        return RV(**sensitivity_params, alpha=alpha)
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):

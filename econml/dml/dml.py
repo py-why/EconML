@@ -25,6 +25,7 @@ from ..utilities import (add_intercept,
                          shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
 from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
+from ..validate import sensitivity_interval, RV, dml_sensitivity_values
 
 
 def _combine(X, W, n_samples):
@@ -147,6 +148,11 @@ class _FinalWrapper:
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
         if not self._use_weight_trick:
+
+            # if binary/continuous treatment and single outcome, can calculate sensitivity params
+            if not ((self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1)):
+                self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
+
             fts = self._combine(X, T_res)
             filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                                  freq_weight=freq_weight, sample_var=sample_var)
@@ -593,6 +599,20 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     @property
     def fit_cate_intercept_(self):
         return self.rlearner_model_final_._fit_cate_intercept
+
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
+
+    def robustness_value(self, alpha=0.05):
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return RV(**sensitivity_params, alpha=alpha)
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
