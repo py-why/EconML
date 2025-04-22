@@ -106,10 +106,12 @@ def _make_first_stage_selector(model, is_discrete, random_state):
 
 
 class _FinalWrapper:
-    def __init__(self, model_final, fit_cate_intercept, featurizer, use_weight_trick):
+    def __init__(self, model_final, fit_cate_intercept, featurizer,
+                 use_weight_trick, allow_sensitivity_analysis=False):
         self._model = clone(model_final, safe=False)
         self._use_weight_trick = use_weight_trick
         self._original_featurizer = clone(featurizer, safe=False)
+        self.allow_sensitivity_analysis = allow_sensitivity_analysis
         if self._use_weight_trick:
             self._fit_cate_intercept = False
             self._featurizer = self._original_featurizer
@@ -150,7 +152,10 @@ class _FinalWrapper:
         if not self._use_weight_trick:
 
             # if binary/continuous treatment and single outcome, can calculate sensitivity params
-            if not ((self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1)):
+            if self.allow_sensitivity_analysis and not (
+                (self._d_t and self._d_t[0] > 1) or (
+                    self._d_y and self._d_y[0] > 1)
+            ):
                 self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
 
             fts = self._combine(X, T_res)
@@ -541,7 +546,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.model_final, safe=False)
 
     def _gen_rlearner_model_final(self):
-        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
+        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept,
+                             self._gen_featurizer(), False, allow_sensitivity_analysis=True)
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
