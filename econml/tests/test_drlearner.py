@@ -142,6 +142,28 @@ class TestDRLearner(unittest.TestCase):
                                     # ensure that we can serialize fit estimator
                                     pickle.dumps(est)
 
+                                    est.sensitivity_interval(T='b')
+                                    est.robustness_value(T='b')
+
+                                    est.sensitivity_interval(T='c')
+                                    est.robustness_value(T='c')
+
+                                    # ensure sensitivity analysis fails on control
+                                    with pytest.raises(AssertionError):
+                                        est.sensitivity_interval(T='a')
+
+                                    with pytest.raises(AssertionError):
+                                        est.robustness_value(T='a')
+
+                                    # ensure failure on unknown treatment values
+                                    with pytest.raises(ValueError):
+                                        est.sensitivity_interval(T=1)
+
+                                    with pytest.raises(ValueError):
+                                        est.robustness_value(T=1)
+
+
+
                                     # make sure we can call the marginal_effect and effect methods
                                     const_marg_eff = est.const_marginal_effect(
                                         X)

@@ -1,8 +1,11 @@
+# Copyright (c) PyWhy contributors. All rights reserved.
+# Licensed under the MIT License.
+
 import numpy as np
 from econml.utilities import _safe_norm_ppf
 
 def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho):
-    """Calculate the sensitivity interval for a doubly-robust learner."""
+    """Calculate the sensitivity interval."""
     C = np.abs(rho) * np.sqrt(c_y) * np.sqrt(c_t/(1-c_t))/2
     ests = np.array([theta, sigma, nu])
 
@@ -19,12 +22,28 @@ def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho):
 
 
 def RV(theta, sigma, nu, cov, alpha):
-    # The robustness value is the degree of confounding of *both* the
-    # treatment and the outcome that still produces an interval
-    # that excludes zero.
+    """
+    Calculate the robustness value.
 
-    # We're looking for a value of r such that the sensitivity bounds just touch zero
+    The robustness value is the degree of confounding of *both* the
+    treatment and the outcome that still produces an interval
+    that excludes zero.
 
+    We're looking for a value of r such that the sensitivity bounds just touch zero
+
+    Returns
+    -------
+    float
+        The robustness value - the level of confounding (between 0 and 1) that would make
+        the ATE not statistically significant. A higher value indicates
+        a more robust estimate.
+        Returns 0 if the original interval already includes zero.
+
+    Notes
+    -----
+    This function uses a binary search approach to find the value of r where the
+    sensitivity interval just touches zero.
+    """
     r = 0
     r_up = 1
     r_down = 0

@@ -601,6 +601,32 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return self.rlearner_model_final_._fit_cate_intercept
 
     def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+        """
+        Calculate the sensitivity interval for the ATE.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE
+        """
         if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
@@ -608,6 +634,29 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
 
     def robustness_value(self, alpha=0.05):
+        """
+        Calculate the robustness value for the ATE.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would make
+        the ATE not statistically significant. A higher value indicates
+        a more robust estimate.
+        Returns 0 if the original interval already includes zero.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
         if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")

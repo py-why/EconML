@@ -247,6 +247,19 @@ class TestDML(unittest.TestCase):
                                                         with pytest.raises(AttributeError):
                                                             self.assertEqual(shape(est.intercept_), intercept_shape)
 
+                                                if d_y > 1 or is_discrete or d_t > 1:
+                                                    # sensitivity interval should not calculate
+                                                    # when d_y > 1 or t is multi category discrete / multi dim cont
+                                                    with pytest.raises(ValueError):
+                                                        est.sensitivity_interval()
+
+                                                    with pytest.raises(ValueError):
+                                                        est.robustness_value()
+
+                                                else:
+                                                    est.sensitivity_interval()
+                                                    est.robustness_value()
+
                                                 if inf is not None:
                                                     const_marg_eff_int = est.const_marginal_effect_interval(X)
                                                     marg_eff_int = est.marginal_effect_interval(T, X)

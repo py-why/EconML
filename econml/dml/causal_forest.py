@@ -17,6 +17,7 @@ from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
 from .._ortho_learner import _OrthoLearner
+from ..validate import sensitivity_interval, RV, dml_sensitivity_values
 
 
 class _CausalForestFinalWrapper:
@@ -56,6 +57,11 @@ class _CausalForestFinalWrapper:
             T_res = T_res.reshape((-1, 1))
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
+
+        # if binary/continuous treatment and single outcome, can calculate sensitivity params
+        if not ((self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1)):
+            self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
+
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
         # Fit a doubly robust average effect
         if self._discrete_treatment and self._drate:
@@ -810,6 +816,69 @@ class CausalForestDML(_BaseDML):
             setattr(self, key, value)
 
         return self
+
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+        """
+        Calculate the sensitivity interval for the ATE.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
+
+    def robustness_value(self, alpha=0.05):
+        """
+        Calculate the robustness value for the ATE.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would make
+        the ATE not statistically significant. A higher value indicates
+        a more robust estimate.
+        Returns 0 if the original interval already includes zero.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return RV(**sensitivity_params, alpha=alpha)
 
     # override only so that we can update the docstring to indicate support for `blb`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,

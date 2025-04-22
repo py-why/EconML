@@ -757,12 +757,75 @@ class DRLearner(_OrthoLearner):
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
-        sensitivity_params = {k: v[T] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
+        """
+        Calculate the sensitivity interval for the ATE for a given treatment category.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the sensitivity interval.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE for treatment T
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
         return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
 
 
     def robustness_value(self, T, alpha=0.05):
-        sensitivity_params = {k: v[T] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
+        """
+        Calculate the robustness value for the ATE for a given treatment category.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would make
+        the ATE not statistically significant. A higher value indicates
+        a more robust estimate.
+        Returns 0 if the original interval already includes zero.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the robustness value.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
         return RV(**sensitivity_params, alpha=alpha)
 
 
