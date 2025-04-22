@@ -1,0 +1,82 @@
+# Copyright (c) PyWhy contributors. All rights reserved.
+# Licensed under the MIT License.
+
+import unittest
+
+from econml.dml import LinearDML, CausalForestDML
+from econml.dr import LinearDRLearner
+from sklearn.linear_model import LinearRegression, LogisticRegression
+import numpy as np
+
+
+
+class TestSensitivityAnalysis(unittest.TestCase):
+
+    def test_params(self):
+        # test alpha when calling through lineardml
+
+        n = 1000
+        a = np.random.normal(size=5)
+        X = np.random.normal(size=(n,5), loc=[1,0.5,0,0,0])/3 # closest to center 1, then 2, then 3
+        centers = np.array([[1,0,0,0,0], [0,1,0,0,0]]) # uncomment for binary treatment
+
+        ds = X[:,None,:]-centers[None,:,:]
+        ds = np.einsum("nci,nci->nc", ds, ds)
+
+        ps_r = np.exp(-ds)
+        ps = ps_r / np.sum(ps_r, axis=1, keepdims=True)
+
+        T = np.random.default_rng().multinomial(1, ps) @ np.arange(len(centers))
+        Y = np.random.normal(size=n) + 3*(T == 1)*X[:,1] - (T == 2) + 2 * X @ a
+
+        ests = [
+            LinearDML(
+                model_y=LinearRegression(),
+                model_t=LogisticRegression(),
+                # implicitly test that discrete binary treatment works for dml
+                # other permutations are tested in test_dml
+                discrete_treatment=True,
+                cv=3,
+                random_state=0,
+            ),
+            CausalForestDML(
+                model_y=LinearRegression(),
+                model_t=LogisticRegression(),
+                discrete_treatment=True,
+                cv=3,
+                random_state=0,
+            ),
+            LinearDRLearner(
+                model_regression=LinearRegression(),
+                model_propensity=LogisticRegression(),
+                cv=3,
+                random_state=0,
+            )
+        ]
+
+        for est in ests:
+
+            est.fit(Y, T, X=X, W=None)
+
+            T_arg = {}
+            if isinstance(est, LinearDRLearner):
+                T_arg = {'T': 1}
+
+            # baseline sensitivity results
+            lb, ub = est.sensitivity_interval(**T_arg, alpha=0.05, c_y=0.05, c_t=0.05, rho=1)
+            rv = est.robustness_value(**T_arg, alpha=0.05)
+
+            # check that alpha is passed through
+            lb2, ub2 = est.sensitivity_interval(**T_arg, alpha=0.5, c_y=0.05, c_t=0.05, rho=1)
+            self.assertTrue(lb < ub)
+            self.assertTrue(lb2 < ub2)
+            self.assertTrue(lb2 > lb)
+            self.assertTrue(ub2 < ub)
+
+            rv2 = est.robustness_value(**T_arg, alpha=0.5)
+            self.assertTrue(rv2 > rv)
+
+            # check that c_y, c_d are passed through
+            lb3, ub3 = est.sensitivity_interval(**T_arg, alpha=0.05, c_y=0.3, c_t=0.3, rho=1)
+            self.assertTrue(lb3 < lb)
+            self.assertTrue(ub3 > ub)
