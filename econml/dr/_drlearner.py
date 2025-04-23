@@ -756,7 +756,7 @@ class DRLearner(_OrthoLearner):
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
-    def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+    def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
         """
         Calculate the sensitivity interval for the ATE for a given treatment category.
 
@@ -779,6 +779,9 @@ class DRLearner(_OrthoLearner):
         c_d: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
 
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
         Returns
         -------
         (lb, ub): tuple of floats
@@ -791,10 +794,11 @@ class DRLearner(_OrthoLearner):
         T_ind = inverse_onehot(T).item() - 1
         assert T_ind >= 0, "No model was fitted for the control"
         sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
-        return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
+        return sensitivity_interval(**sensitivity_params, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
 
 
-    def robustness_value(self, T, alpha=0.05):
+    def robustness_value(self, T, alpha=0.05, interval_type='ci'):
         """
         Calculate the robustness value for the ATE for a given treatment category.
 
@@ -814,6 +818,9 @@ class DRLearner(_OrthoLearner):
         alpha: float, default 0.05
             The significance level for the robustness value.
 
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
         Returns
         -------
         float
@@ -826,7 +833,7 @@ class DRLearner(_OrthoLearner):
         T_ind = inverse_onehot(T).item() - 1
         assert T_ind >= 0, "No model was fitted for the control"
         sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
-        return RV(**sensitivity_params, alpha=alpha)
+        return RV(**sensitivity_params, alpha=alpha, interval_type=interval_type)
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):

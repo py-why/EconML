@@ -4,24 +4,33 @@
 import numpy as np
 from econml.utilities import _safe_norm_ppf
 
-def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho):
+def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho, interval_type='ci'):
     """Calculate the sensitivity interval."""
+    if interval_type not in ['theta', 'ci']:
+        raise ValueError(
+            f"interval_type for sensitivity_interval must be 'theta' or 'ci'. Received {interval_type}")
+
     C = np.abs(rho) * np.sqrt(c_y) * np.sqrt(c_t/(1-c_t))/2
     ests = np.array([theta, sigma, nu])
 
     coefs_p = np.array([1, C*np.sqrt(nu/sigma), C*np.sqrt(sigma/nu)])
     coefs_n = np.array([1, -C*np.sqrt(nu/sigma), -C*np.sqrt(sigma/nu)])
-    # One dimensional normal distribution:
-    sigma_p = coefs_p @ cov @ coefs_p
-    sigma_n = coefs_n @ cov @ coefs_n
 
-    lb = _safe_norm_ppf(alpha / 2, loc=ests @ coefs_n, scale=np.sqrt(sigma_n))
-    ub = _safe_norm_ppf(1 - alpha / 2, loc=ests @ coefs_p, scale=np.sqrt(sigma_p))
+    lb = ests @ coefs_n
+    ub = ests @ coefs_p
+
+    if interval_type == 'ci':
+        # One dimensional normal distribution:
+        sigma_p = coefs_p @ cov @ coefs_p
+        sigma_n = coefs_n @ cov @ coefs_n
+
+        lb = _safe_norm_ppf(alpha / 2, loc=lb, scale=np.sqrt(sigma_n))
+        ub = _safe_norm_ppf(1 - alpha / 2, loc=ub, scale=np.sqrt(sigma_p))
 
     return (lb, ub)
 
 
-def RV(theta, sigma, nu, cov, alpha):
+def RV(theta, sigma, nu, cov, alpha, interval_type='ci'):
     """
     Calculate the robustness value.
 
@@ -44,10 +53,15 @@ def RV(theta, sigma, nu, cov, alpha):
     This function uses a binary search approach to find the value of r where the
     sensitivity interval just touches zero.
     """
+    if interval_type not in ['theta', 'ci']:
+        raise ValueError(
+            f"interval_type for sensitivity_interval must be 'theta' or 'ci'. Received {interval_type}")
+
     r = 0
     r_up = 1
     r_down = 0
-    lb, ub = sensitivity_interval(theta, sigma, nu, cov, alpha, 0, 0, 1)
+    lb, ub = sensitivity_interval(theta, sigma, nu, cov,
+                                  alpha, 0, 0, 1, interval_type=interval_type)
     if lb < 0 and ub > 0:
         return 0
 
@@ -62,7 +76,8 @@ def RV(theta, sigma, nu, cov, alpha):
             d = ub
 
     while abs(d) > 1e-6:
-        d = mult * sensitivity_interval(theta, sigma, nu, cov, alpha, r, r, 1)[target]
+        d = mult * sensitivity_interval(theta, sigma, nu, cov,
+                                        alpha, r, r, 1, interval_type=interval_type)[target]
         if d > 0:
             r_down = r
         else:

@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import unittest
+import pytest
 
 from econml.dml import LinearDML, CausalForestDML
 from econml.dr import LinearDRLearner
@@ -80,3 +81,18 @@ class TestSensitivityAnalysis(unittest.TestCase):
             lb3, ub3 = est.sensitivity_interval(**T_arg, alpha=0.05, c_y=0.3, c_t=0.3, rho=1)
             self.assertTrue(lb3 < lb)
             self.assertTrue(ub3 > ub)
+
+            # check that interval_type is passed through
+            lb4, ub4 = est.sensitivity_interval(**T_arg, alpha=0.05,
+                                                c_y=0.05, c_t=0.05, rho=1, interval_type='theta')
+            self.assertTrue(lb4 > lb)
+            self.assertTrue(ub4 < ub)
+            self.assertTrue(lb4 < ub4)
+
+            rv4 = est.robustness_value(**T_arg, alpha=0.05, interval_type='theta')
+            self.assertTrue(rv4 > rv)
+
+            # ensure failure on invalid interval_type
+            with pytest.raises(ValueError):
+                est.sensitivity_interval(**T_arg, alpha=0.05,
+                                         c_y=0.05, c_t=0.05, rho=1, interval_type='foo')
