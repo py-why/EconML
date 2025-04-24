@@ -817,7 +817,7 @@ class CausalForestDML(_BaseDML):
 
         return self
 
-    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1.):
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
         """
         Calculate the sensitivity interval for the ATE.
 
@@ -839,6 +839,9 @@ class CausalForestDML(_BaseDML):
         c_d: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
 
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
         Returns
         -------
         (lb, ub): tuple of floats
@@ -848,9 +851,10 @@ class CausalForestDML(_BaseDML):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
         sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
-        return sensitivity_interval(**sensitivity_params, alpha=alpha, c_y=c_y, c_t=c_t, rho=rho)
+        return sensitivity_interval(**sensitivity_params, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
 
-    def robustness_value(self, alpha=0.05):
+    def robustness_value(self, alpha=0.05, interval_type='ci'):
         """
         Calculate the robustness value for the ATE.
 
@@ -869,6 +873,9 @@ class CausalForestDML(_BaseDML):
         alpha: float, default 0.05
             The significance level for the robustness value.
 
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
         Returns
         -------
         float
@@ -878,7 +885,7 @@ class CausalForestDML(_BaseDML):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
         sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
-        return RV(**sensitivity_params, alpha=alpha)
+        return RV(**sensitivity_params, alpha=alpha, interval_type=interval_type)
 
     # override only so that we can update the docstring to indicate support for `blb`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
