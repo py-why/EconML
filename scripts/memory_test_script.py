@@ -1,7 +1,6 @@
 
 import argparse
 import datetime
-import gc
 
 from econml.dml import CausalForestDML
 from memory_profiler import memory_usage
@@ -27,7 +26,7 @@ def causalforestdml_memory_test(
     use_memmap: bool
 ):
 
-    if not estimator.lower() in ('causalforest','catboost'):
+    if estimator.lower() not in ('causalforest','catboost'):
         raise NotImplementedError(f"Estimator must be in 'causalforest','catboost', got {estimator}")
 
     root_dir = os.environ.get("LOCAL_ANALYSIS_DIR", ".")
