@@ -101,7 +101,7 @@ def causalforestdml_memory_test(
             output.write("data,N_examples,N_nuisances,N_treatments,CFDML_max_memory,CFDML_fit_time,CB_max_memory,CB_fit_time\n")
 
     with open(result_file_name,"a") as output:
-        output.write(f"{file_name},{X.shape[0]},{X.shape[1]},{T.shape[1]},{max_memory},{elapsed_time},{max_memory2},{elapsed_time2}\n")
+        output.write(f"{file_name},{X.shape[0]},{X.shape[1]},{T.shape[1]},{max_memory:.1f},{elapsed_time:.1f},{max_memory2:.1f},{elapsed_time2:.1f}\n")
 
 
 if __name__ == "__main__":
