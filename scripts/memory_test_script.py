@@ -5,7 +5,7 @@ from memory_profiler import memory_usage
 import joblib
 import os
 from catboost import CatBoostRegressor
-from xgboost import XGBRegressor, XGBClassifier
+from xgboost import XGBRegressor
 import sys
 import time
 import logging
