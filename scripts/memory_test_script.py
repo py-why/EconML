@@ -1,5 +1,7 @@
 
 import argparse
+import gc
+
 from econml.dml import CausalForestDML
 from memory_profiler import memory_usage
 import joblib
@@ -67,6 +69,8 @@ def causalforestdml_memory_test(
     elapsed_time = end_time-start_time
     logger.info(f"Time to fit: {elapsed_time} seconds")
 
+    del est
+    gc.collect()
 
     est2 = CatBoostRegressor(n_estimators=n_est_2,allow_writing_files=False)
 
