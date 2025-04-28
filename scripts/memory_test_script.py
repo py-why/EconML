@@ -103,9 +103,9 @@ def causalforestdml_memory_test(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_file", type=str, help="", default="offerfit.joblib")
-    parser.add_argument("--n_est_y", type=int, help="", default=100)
-    parser.add_argument("--n_est_t", type=int, help="", default=200)
-    parser.add_argument("--n_est_2", type=int, help="", default=500)
+    parser.add_argument("--n_est_y", type=int, help="", default=None)
+    parser.add_argument("--n_est_t", type=int, help="", default=None)
+    parser.add_argument("--n_est_2", type=int, help="", default=None)
     parser.add_argument("--n_jobs", type=int, help="", default=-1)
     parser.add_argument("--memmap", type=bool, help="", default=False)
     args = parser.parse_args(sys.argv[1:])
