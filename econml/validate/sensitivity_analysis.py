@@ -2,13 +2,57 @@
 # Licensed under the MIT License.
 
 import numpy as np
-from econml.utilities import _safe_norm_ppf
+from econml.utilities import _safe_norm_ppf, Summary
+from collections import namedtuple
+
+SensitivityParams = namedtuple('SensitivityParams', ['theta', 'sigma', 'nu', 'cov'])
+
+def sensitivity_summary(theta, sigma, nu, cov, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+    theta_lb, theta_ub = sensitivity_interval(
+        theta, sigma, nu, cov, alpha, c_y, c_t, rho, interval_type='theta')
+
+    ci_lb, ci_ub = sensitivity_interval(
+        theta, sigma, nu, cov, alpha, c_y, c_t, rho, interval_type='ci')
+
+    rv_theta = RV(theta, sigma, nu, cov, alpha, null_hypothesis=null_hypothesis, interval_type='theta')
+    rv_ci = RV(theta, sigma, nu, cov, alpha, null_hypothesis=null_hypothesis, interval_type='ci')
+
+
+    smry = Summary()
+    title = f'Sensitivity Analysis Summary for c_y={c_y}, c_t={c_t}, rho={rho}'
+    res = np.array([[ci_lb, theta_lb, theta, theta_ub, ci_ub]])
+    res = np.round(res, decimals)
+    headers = ['CI Lower', 'Theta Lower', 'Theta', 'Theta Upper', 'CI Upper']
+
+    smry.add_table(res, headers, [], title=title)
+
+    res_rv = [[rv_theta, rv_ci]]
+    res_rv = np.round(res_rv, decimals)
+    headers_rv = ['Robustness Value (Theta)', 'Robustness Value (CI)']
+    title_rv = f'Robustness Values for null_hypothesis={null_hypothesis}'
+    smry.add_table(res_rv, headers_rv, [], title=title_rv)
+
+    return smry
+
 
 def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho, interval_type='ci'):
     """Calculate the sensitivity interval."""
     if interval_type not in ['theta', 'ci']:
         raise ValueError(
             f"interval_type for sensitivity_interval must be 'theta' or 'ci'. Received {interval_type}")
+
+    if not (c_y >= 0 and c_y < 1 and c_t >= 0 and c_t < 1):
+        raise ValueError(
+            "Invalid input: c_y and c_t must be between 0 and 1.")
+
+    if rho < -1 or rho > 1:
+        raise ValueError(
+            "Invalid input: rho must be between -1 and 1.")
+
+    if sigma < 0 or nu < 0:
+        raise ValueError(
+            "Invalid input: sigma and nu must be non-negative. "
+            "Negative values may indicate issues with the underlying nuisance model estimations.")
 
     C = np.abs(rho) * np.sqrt(c_y) * np.sqrt(c_t/(1-c_t))/2
     ests = np.array([theta, sigma, nu])
@@ -30,7 +74,7 @@ def sensitivity_interval(theta, sigma, nu, cov, alpha, c_y, c_t, rho, interval_t
     return (lb, ub)
 
 
-def RV(theta, sigma, nu, cov, alpha, interval_type='ci'):
+def RV(theta, sigma, nu, cov, alpha, null_hypothesis=0, interval_type='ci'):
     """
     Calculate the robustness value.
 
@@ -38,15 +82,16 @@ def RV(theta, sigma, nu, cov, alpha, interval_type='ci'):
     treatment and the outcome that still produces an interval
     that excludes zero.
 
-    We're looking for a value of r such that the sensitivity bounds just touch zero
+    When null_hypothesis is default of zero, we're looking for a value of r
+    such that the sensitivity bounds just touch zero.
 
     Returns
     -------
     float
         The robustness value - the level of confounding (between 0 and 1) that would make
-        the ATE not statistically significant. A higher value indicates
+        the ATE reach the null_hypothesis. A higher value indicates
         a more robust estimate.
-        Returns 0 if the original interval already includes zero.
+        Returns 0 if the original interval already includes the null_hypothesis.
 
     Notes
     -----
@@ -62,22 +107,24 @@ def RV(theta, sigma, nu, cov, alpha, interval_type='ci'):
     r_down = 0
     lb, ub = sensitivity_interval(theta, sigma, nu, cov,
                                   alpha, 0, 0, 1, interval_type=interval_type)
-    if lb < 0 and ub > 0:
+    if lb < null_hypothesis and ub > null_hypothesis:
         return 0
 
     else:
-        if lb > 0:
-            target = 0
+        if lb > null_hypothesis:
+            target_ind = 0
             mult = 1
             d = lb
         else:
-            target = 1
+            target_ind = 1
             mult = -1
             d = ub
 
     while abs(d) > 1e-6:
-        d = mult * sensitivity_interval(theta, sigma, nu, cov,
-                                        alpha, r, r, 1, interval_type=interval_type)[target]
+        interval = sensitivity_interval(
+            theta, sigma, nu, cov, alpha, r, r, 1, interval_type=interval_type)
+        bound = interval[target_ind]
+        d = mult * (bound - null_hypothesis)
         if d > 0:
             r_down = r
         else:
@@ -101,6 +148,7 @@ def dml_sensitivity_values(t_res, y_res):
     ls = np.concatenate([t_res**2, np.ones_like(t_res), t_res**2], axis=1)
 
     G = np.diag(np.mean(ls, axis=0))  # G matrix, diagonal with means of ls
+    G[1, 0] = np.mean(2*(y_res-t_res*theta)*t_res) # dependence of sigma^2 on theta
     G_inv = np.linalg.inv(G)  # Inverse of G matrix, could just take reciprocals since it's diagonal
 
     residuals = np.concatenate([y_res*t_res-theta*t_res*t_res,
@@ -110,12 +158,12 @@ def dml_sensitivity_values(t_res, y_res):
     # Estimate the variance of the parameters
     cov = G_inv @ Ω @ G_inv / len(residuals)
 
-    return {
-        "theta": theta,
-        "sigma": sigma2,
-        "nu": nu2,
-        "cov": cov
-    }
+    return SensitivityParams(
+        theta=theta,
+        sigma=sigma2,
+        nu=nu2,
+        cov=cov
+    )
 
 
 def dr_sensitivity_values(Y, T, y_pred, t_pred):
@@ -140,6 +188,7 @@ def dr_sensitivity_values(Y, T, y_pred, t_pred):
             T_ohe[:, i] == 1)/t_pred[:, i+1] - (Y-y_pred[:, 0]) * (np.all(T_ohe == 0, axis=1)/t_pred[:, 0])
         # exclude rows with other treatments
         sigma_score = (Y-np.choose(T, y_pred.T))**2
+        sigma_score = np.where(T==i+1, sigma_score, 0)
         alpha[:,i] = (T_ohe[:,i] == 1)/t_pred[:,i+1] - (np.all(T_ohe==0, axis=1))/t_pred[:,0]
         nu_score = 2*(1/t_pred[:,i+1]+1/t_pred[:,0])-alpha[:,i]**2
         theta[i] = np.mean(theta_score)
@@ -148,9 +197,9 @@ def dr_sensitivity_values(Y, T, y_pred, t_pred):
         scores = np.stack([theta_score-theta[i], sigma_score-sigma[i], nu_score-nu[i]], axis=1)
         cov[i,:,:] = (scores.T @ scores / len(scores)) / len(scores)
 
-    return {
-        "theta": theta,
-        "sigma": sigma,
-        "nu": nu,
-        "cov": cov
-    }
+    return SensitivityParams(
+        theta=theta,
+        sigma=sigma,
+        nu=nu,
+        cov=cov
+    )

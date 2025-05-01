@@ -148,12 +148,18 @@ class TestDRLearner(unittest.TestCase):
                                     est.sensitivity_interval(T='c')
                                     est.robustness_value(T='c')
 
+                                    est.sensitivity_summary(T='b')
+                                    est.sensitivity_summary(T='c')
+
                                     # ensure sensitivity analysis fails on control
                                     with pytest.raises(AssertionError):
                                         est.sensitivity_interval(T='a')
 
                                     with pytest.raises(AssertionError):
                                         est.robustness_value(T='a')
+
+                                    with pytest.raises(AssertionError):
+                                        est.sensitivity_summary(T='a')
 
                                     # ensure failure on unknown treatment values
                                     with pytest.raises(ValueError):
@@ -162,6 +168,8 @@ class TestDRLearner(unittest.TestCase):
                                     with pytest.raises(ValueError):
                                         est.robustness_value(T=1)
 
+                                    with pytest.raises(ValueError):
+                                        est.sensitivity_summary(T=1)
 
 
                                     # make sure we can call the marginal_effect and effect methods

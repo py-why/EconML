@@ -17,7 +17,8 @@ from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
 from .._ortho_learner import _OrthoLearner
-from ..validate import sensitivity_interval, RV, dml_sensitivity_values
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV, dml_sensitivity_values,
+                                             sensitivity_summary)
 
 
 class _CausalForestFinalWrapper:
@@ -817,6 +818,35 @@ class CausalForestDML(_BaseDML):
 
         return self
 
+    def sensitivity_summary(self, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_summary(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
     def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
         """
         Calculate the sensitivity interval for the ATE.
@@ -851,18 +881,22 @@ class CausalForestDML(_BaseDML):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
         sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
-        return sensitivity_interval(**sensitivity_params, alpha=alpha,
+        return sensitivity_interval(**sensitivity_params._asdict(), alpha=alpha,
                                     c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
 
-    def robustness_value(self, alpha=0.05, interval_type='ci'):
+    def robustness_value(self, null_hypothesis=0, alpha=0.05, interval_type='ci'):
         """
         Calculate the robustness value for the ATE.
 
         The robustness value is the level of confounding (between 0 and 1) in
-        *both* the treatment and outcome that would make
-        the ATE not statistically significant. A higher value indicates
-        a more robust estimate.
-        Returns 0 if the original interval already includes zero.
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
 
         Can only be calculated when Y and T are single arrays, and T is binary or continuous.
 
@@ -870,6 +904,9 @@ class CausalForestDML(_BaseDML):
 
         Parameters
         ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
         alpha: float, default 0.05
             The significance level for the robustness value.
 
@@ -885,7 +922,8 @@ class CausalForestDML(_BaseDML):
             raise ValueError(
                 "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
         sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
-        return RV(**sensitivity_params, alpha=alpha, interval_type=interval_type)
+        return RV(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis,
+                  alpha=alpha, interval_type=interval_type)
 
     # override only so that we can update the docstring to indicate support for `blb`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,

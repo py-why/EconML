@@ -259,6 +259,7 @@ class TestDML(unittest.TestCase):
                                                 else:
                                                     est.sensitivity_interval()
                                                     est.robustness_value()
+                                                    est.sensitivity_summary()
 
                                                 if inf is not None:
                                                     const_marg_eff_int = est.const_marginal_effect_interval(X)

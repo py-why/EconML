@@ -52,7 +52,8 @@ from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelec
 from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
-from ..validate import sensitivity_interval, RV, dr_sensitivity_values
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV,
+                                             sensitivity_summary, dr_sensitivity_values)
 
 
 class _ModelNuisance(ModelSelector):
@@ -756,6 +757,39 @@ class DRLearner(_OrthoLearner):
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
+    def sensitivity_summary(self, T, target=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE for a given treatment.
+
+        Parameters
+        ----------
+        target: float, default 0
+            The target value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return sensitivity_summary(**sensitivity_params, target=target, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
     def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
         """
         Calculate the sensitivity interval for the ATE for a given treatment category.
@@ -793,20 +827,25 @@ class DRLearner(_OrthoLearner):
         _, T = self._expand_treatments(None, T)
         T_ind = inverse_onehot(T).item() - 1
         assert T_ind >= 0, "No model was fitted for the control"
-        sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
         return sensitivity_interval(**sensitivity_params, alpha=alpha,
                                     c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
 
 
-    def robustness_value(self, T, alpha=0.05, interval_type='ci'):
+    def robustness_value(self, T, null_hypothesis=0, alpha=0.05, interval_type='ci'):
         """
         Calculate the robustness value for the ATE for a given treatment category.
 
         The robustness value is the level of confounding (between 0 and 1) in
-        *both* the treatment and outcome that would make
-        the ATE not statistically significant. A higher value indicates
-        a more robust estimate.
-        Returns 0 if the original interval already includes zero.
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
 
         Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
 
@@ -814,6 +853,9 @@ class DRLearner(_OrthoLearner):
         ----------
         T: alphanumeric
             The treatment with respect to calculate the robustness value.
+
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
 
         alpha: float, default 0.05
             The significance level for the robustness value.
@@ -832,8 +874,9 @@ class DRLearner(_OrthoLearner):
         _, T = self._expand_treatments(None, T)
         T_ind = inverse_onehot(T).item() - 1
         assert T_ind >= 0, "No model was fitted for the control"
-        sensitivity_params = {k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params.items()}
-        return RV(**sensitivity_params, alpha=alpha, interval_type=interval_type)
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return RV(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha, interval_type=interval_type)
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):

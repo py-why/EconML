@@ -6,6 +6,7 @@ import pytest
 
 from econml.dml import LinearDML, CausalForestDML
 from econml.dr import LinearDRLearner
+from econml.validate.sensitivity_analysis import sensitivity_interval
 from sklearn.linear_model import LinearRegression, LogisticRegression
 import numpy as np
 
@@ -92,7 +93,41 @@ class TestSensitivityAnalysis(unittest.TestCase):
             rv4 = est.robustness_value(**T_arg, alpha=0.05, interval_type='theta')
             self.assertTrue(rv4 > rv)
 
-            # ensure failure on invalid interval_type
-            with pytest.raises(ValueError):
-                est.sensitivity_interval(**T_arg, alpha=0.05,
-                                         c_y=0.05, c_t=0.05, rho=1, interval_type='foo')
+            # check that null_hypothesis is passed through
+            rv5 = est.robustness_value(**T_arg, alpha=0.05, null_hypothesis=10)
+            self.assertNotEqual(rv5, rv)
+
+
+    def test_invalid_params(self):
+
+        theta = 0.5
+        sigma = 0.5
+        nu = 0.5
+        cov = np.random.normal(size=(3, 3))
+
+        sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=0.05, c_t=0.05, rho=1)
+
+        # check that c_y, c_y, rho are constrained
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=-0.5, c_t=0.05, rho=1)
+
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=0.05, c_t=-0.5, rho=1)
+
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=1.5, c_t=0.05, rho=1)
+
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=0.05, c_t=0.05, rho=-1.5)
+
+        # ensure we raise an error on invalid sigma, nu
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, -1, nu, cov, alpha=0.05, c_y=0.05, c_t=0.05, rho=1)
+
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma,-1, cov, alpha=0.05, c_y=0.05, c_t=0.05, rho=1)
+
+        # ensure failure on invalid interval_type
+        with pytest.raises(ValueError):
+            sensitivity_interval(theta, sigma, nu, cov, alpha=0.05, c_y=0.05, c_t=0.05, rho=1, interval_type='foo')
+
