@@ -632,6 +632,17 @@ class _RLearner(_OrthoLearner):
         Y_res, T_res = self._cached_values.nuisances
         return Y_res, T_res, self._cached_values.X, self._cached_values.W
 
+    @staticmethod
+    def scoring_name(scoring: str | Callable | None)->str:
+        if scoring is None:
+            return 'default_score'
+        elif isinstance(scoring,str):
+            return scoring
+        elif callable(scoring):
+            return scoring.__name__
+        else:
+            raise ValueError("Scoring should be str|Callable|None")
+
 
     def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None,
                         t_scoring=None, t_score_by_dim=False):
@@ -667,8 +678,8 @@ class _RLearner(_OrthoLearner):
             A dictionary where the keys indicate the Y and T scores used and the values are
             lists of scores, one per CV fold model.
         """
-        Y_key = 'Y_defscore' if not y_scoring else f"Y_{y_scoring}"
-        T_Key = 'T_defscore' if not t_scoring else f"T_{t_scoring}"
+        Y_key = f'Y_{_RLearner.scoring_name(y_scoring)}'
+        T_Key = f'T_{_RLearner.scoring_name(t_scoring)}'
         score_dict = {
             Y_key : [],
             T_Key : []
