@@ -141,8 +141,8 @@ class _ModelFinal:
         """
         Verify that scoring function has a valid signature.
 
-        Scoring functions must have argument pairs 'y_pred', 'y_true'   OR  'x', 'y'.
-        There can be an optional 'sample_weight' argument
+        Scoring functions must have argument pairs ('y_pred', 'y_true'), ('y_true', 'y_score'),
+        ('x', 'y'), or ('X','Y'). There can be an optional 'sample_weight' argument
         :param func: The function to check
         :return: valid, has_sample_weight - (1) if it is a valid scorinf function at all;
            (2) if the function includes a sample weight argument
