@@ -778,8 +778,8 @@ class TestDML(unittest.TestCase):
                                   t_scoring=pearsonr,
                                   y_scoring=pearsonr)
         # Ignoring the p-values returned with the score
-        y_pearsonr = [s[0] for s in sn4['Y_pearsonr']]
-        t_pearsonr = [s[0] for s in sn4['T_pearsonr']]
+        y_pearsonr = [sn4[s][i][0] for s in sn4 if s.startswith('Y_') for i in range(len(sn4[s])) ]
+        t_pearsonr = [sn4[s][i][0] for s in sn4 if s.startswith('T_') for i in range(len(sn4[s])) ]
         np.testing.assert_allclose(y_pearsonr, [0.52, 0.52], rtol=0, atol=.01)
         np.testing.assert_allclose(t_pearsonr, [.035, .035], rtol=0, atol=0.005)
 
