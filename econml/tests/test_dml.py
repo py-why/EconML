@@ -15,12 +15,14 @@ import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
+from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
 from econml.grf import MultiOutputGRF
 from econml.tests.utilities import (GroupingModel, NestedModel)
+
 
 try:
     import ray
@@ -751,7 +753,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(s3, 1.19, rtol=0, atol=.01)
         s4 = est.score(Y=y, T=T, X=X, W=W, scoring='r2')
         np.testing.assert_allclose(s4, 0.113, rtol=0, atol=.001)
-        s5 = est.score(Y=y, T=T, X=X, W=W, scoring='pearsonr')
+        s5 = est.score(Y=y, T=T, X=X, W=W, scoring=pearsonr)
         np.testing.assert_allclose(s5[0], 0.337, rtol=0, atol=0.005 )
 
         sn1 = est.score_nuisances(Y=y, T=T, X=X, W=W,
@@ -773,8 +775,8 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(sn3['T_r2'], [-5.1,-5.1], rtol=0, atol=0.25)
 
         sn4 = est.score_nuisances(Y=y, T=T, X=X, W=W,
-                                  t_scoring='pearsonr',
-                                  y_scoring='pearsonr')
+                                  t_scoring=pearsonr,
+                                  y_scoring=pearsonr)
         # Ignoring the p-values returned with the score
         y_pearsonr = [s[0] for s in sn4['Y_pearsonr']]
         t_pearsonr = [s[0] for s in sn4['T_pearsonr']]
