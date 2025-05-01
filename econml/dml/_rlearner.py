@@ -139,7 +139,7 @@ class _ModelFinal:
     @staticmethod
     def has_valid_ml_signature(func: Callable) -> Tuple[bool, bool]:
         """
-        Verifies scoring functions.
+        Verify that scoring function has a valid signature.
 
         Scoring functions must have argument pairs 'y_pred', 'y_true'   OR  'x', 'y'.
         There can be an optional 'sample_weight' argument
