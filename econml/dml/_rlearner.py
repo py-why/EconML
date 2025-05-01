@@ -26,17 +26,17 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 """
 
 from abc import abstractmethod
+import inspect
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     get_scorer,
     get_scorer_names
 )
-from scipy.stats import pearsonr
+from typing import Tuple,Callable
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
-
 
 class _ModelNuisance(ModelSelector):
     """
@@ -135,8 +135,57 @@ class _ModelFinal:
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         return _ModelFinal._wrap_scoring(Y_true=Y_res, Y_pred=Y_res_pred, scoring=scoring, sample_weight=sample_weight)
 
+
     @staticmethod
-    def _wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None):
+    def has_valid_ml_signature(func: Callable) -> Tuple[bool, bool]:
+        """
+        Verifies scoring functions.
+
+        Scoring functions must have argument pairs 'y_pred', 'y_true'   OR  'x', 'y'.
+        There can be an optional 'sample_weight' argument
+        :param func: The function to check
+        :return: valid, has_sample_weight - (1) if it is a valid scorinf function at all;
+           (2) if the function includes a sample weight argument
+        """
+        try:
+            sig = inspect.signature(func)
+            params = sig.parameters
+
+            # Collect required parameters
+            required = [
+                name for name, p in params.items()
+                if p.default is inspect.Parameter.empty
+                   and p.kind in (
+                       inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                       inspect.Parameter.KEYWORD_ONLY
+                   )
+            ]
+
+            # Check for one of the valid base signatures. Note use of set literals
+            valid = (
+                    {'y_pred', 'y_true'}.issubset(required)
+                    or {'y_true', 'y_score'}.issubset(required)
+                    or {'x', 'y'}.issubset(required)
+                    or {'X', 'Y'}.issubset(required)
+            )
+
+            # Check for presence and optionality of sample_weight
+            has_sample_weight = False
+            if 'sample_weight' in params:
+                p = params['sample_weight']
+                if p.default is not inspect.Parameter.empty:
+                    has_sample_weight = True
+                else:
+                    # It's present but not optional, so still invalid overall
+                    return False, False
+
+            return valid, has_sample_weight
+
+        except Exception:
+            return False, False
+
+    @staticmethod
+    def _wrap_scoring(scoring:str|Callable, Y_true, Y_pred, sample_weight=None):
         """
         Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
 
@@ -158,18 +207,28 @@ class _ModelFinal:
         :param sample_weight: Optional weighting on the examples
         :return: Float score
         """
-        if scoring in get_scorer_names():
+        if isinstance(scoring,str) and scoring in get_scorer_names():
             score_fn = get_scorer(scoring)._score_func
-        elif 'neg_' + scoring in get_scorer_names():
+        elif isinstance(scoring,str) and 'neg_' + scoring in get_scorer_names():
             score_fn = get_scorer('neg_' + scoring)._score_func
-        elif scoring == 'pearsonr':
-            if sample_weight is not None:
-                raise NotImplementedError("scoring does not support pearsonr with sample_weight" )
-            return pearsonr(np.squeeze(Y_true), np.squeeze(Y_pred))
+        elif callable(scoring):
+            score_fn =  scoring
         else:
             raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
 
-        res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
+        valid, has_sample_weight = _ModelFinal.has_valid_ml_signature(score_fn)
+
+        if not valid:
+            raise ValueError("Scoring function does not have a valid signature "
+                             "including (y_true,y_pred) or (x,y)")
+        if sample_weight is not None and not has_sample_weight:
+            raise ValueError("Scoring function does NOT have a sample_weight argument "
+                             "but sample_weight argument was provided to scoring")
+        if sample_weight is not None:
+            res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
+        else:
+            res = score_fn(Y_true, Y_pred)
+
         return res
 
 
