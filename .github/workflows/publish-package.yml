@@ -71,7 +71,7 @@ jobs:
       - name: Build wheels
         run: pip install 'cibuildwheel < 3' && python -m cibuildwheel --output-dir dist
         env:
-          CIBW_BUILD: ${{ inputs.use_lkg && 'cp3{8,9,10,11,12}-*' || 'cp3*' }}
+          CIBW_BUILD: ${{ inputs.use_lkg && 'cp3{8,9,10,11,12}-*' || 'cp3{8,9,10,11,12}*' }}
           CIBW_SKIP: "*musl* *win32 *i686"
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v4
