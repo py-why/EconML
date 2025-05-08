@@ -926,6 +926,7 @@ cdef class Tree:
         shape[2] = <np.npy_intp> self.max_n_classes
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
+        Py_INCREF(self)
         PyArray_SetBaseObject(arr, <PyObject*> self)
         return arr
 
