@@ -1,6 +1,6 @@
 [project]
 name = "econml"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [{ name = "PyWhy contributors" }]
 description = "This package contains several methods for calculating Conditional Average Treatment Effects"
 readme = "README.md"
@@ -9,7 +9,6 @@ license = { text = "MIT" }
 dynamic = ["version"]
 
 classifiers = [
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -20,16 +19,21 @@ classifiers = [
     "Operating System :: POSIX :: Linux"
 ]
 dependencies = [
-    "numpy<2",
+    # "numpy<2; python_version < 3.9",
+    # "numpy<3; python_version >= 3.9",
+    # "pandas >= 2.2.0; python_version < 3.9",
+    # "pandas > 1.0; python_version >= 3.9",
+    "numpy<3",
+    # Required for numpy > 2
+    "pandas >= 2.2.2",
     "scipy > 1.4.0",
     "scikit-learn >= 1.0, < 1.7",
     "sparse",
     "joblib >= 0.13.0",
     "statsmodels >= 0.10",
-    "pandas > 1.0",
     "shap >= 0.38.1, < 0.47.0",
     "lightgbm",
-    "packaging"
+    "packaging",
 ]
 
 [project.urls]
@@ -58,10 +62,7 @@ plt = [
     "matplotlib"
 ]
 dowhy = [
-    # when updating this, also update the version check in dowhy.py
     "dowhy < 0.13; python_version > '3.8'",
-    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
-    "dowhy < 0.11; python_version <= '3.8'"
 ]
 ray = [
     "ray > 2.2.0"
@@ -79,9 +80,7 @@ all = [
     "numpy < 1.24; python_version < '3.9'",
     "graphviz",
     "matplotlib",    
-    "dowhy < 0.13; python_version > '3.8'",
-    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
-    "dowhy < 0.11; python_version <= '3.8'",
+    "dowhy < 0.13",
     "ray > 2.2.0"
 ]
 test = [
@@ -97,7 +96,8 @@ build-system = [
     "wheel",
     "oldest-supported-numpy",
     "scipy",
-    "cython>=3" # Our native code has several incompatibilities with Cython 3, but numpy 2 needs 3
+    "numpy>2",
+    "cython>=3.0.4", # numpy 2 needs 3
 ]
 
 
@@ -107,7 +107,8 @@ requires = [
     "wheel",
     "oldest-supported-numpy",
     "scipy",
-    "cython<3" # Our native code has several incompatibilities with Cython 3
+    "numpy>2",
+    "cython>=3.0.4", # numpy 2 needs 3
 ]
 build-backend = "setuptools.build_meta"
 

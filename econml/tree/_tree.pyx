@@ -316,7 +316,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                                          impurity, n_node_samples, weighted_n_node_samples,
                                          impurity_val, n_node_samples_val, weighted_n_node_samples_val)
                 # Memory error
-                if node_id == SIZE_MAX:
+                if node_id == <SIZE_t>SIZE_MAX:
                     rc = -1
                     break
 
@@ -571,10 +571,11 @@ cdef class Tree:
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
         """
-        if capacity == self.capacity and self.nodes != NULL:
+        
+        if capacity == <SIZE_t>self.capacity and self.nodes != NULL:
             return 0
 
-        if capacity == SIZE_MAX:
+        if capacity == <SIZE_t>SIZE_MAX:
             if self.capacity == 0:
                 capacity = 3  # default initial value
             else:

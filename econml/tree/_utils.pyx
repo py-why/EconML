@@ -50,14 +50,17 @@ cdef inline UINT32_t our_rand_r(UINT32_t* seed) nogil:
     # good_cast = <UINT32_t>(RAND_R_MAX + 1)
     # or:
     # cdef np.uint32_t another_good_cast = <UINT32_t>RAND_R_MAX + 1
-    return seed[0] % <UINT32_t>(RAND_R_MAX + 1)
+    cdef np.uint32_t upper = <UINT32_t>RAND_R_MAX + 1
+    return seed[0] % upper
 
 
 cdef realloc_ptr safe_realloc(realloc_ptr* p, SIZE_t nelems) nogil except *:
     # sizeof(realloc_ptr[0]) would be more like idiomatic C, but causes Cython
     # 0.20.1 to crash.
     cdef SIZE_t nbytes = nelems * sizeof(p[0][0])
-    if nbytes / sizeof(p[0][0]) != nelems:
+    # Force to same type to avoid warning
+    cdef SIZE_t total = nbytes / sizeof(p[0][0])
+    if total != nelems:
         # Overflow in the multiplication
         with gil:
             raise MemoryError("could not allocate (%d * %d) bytes"
