@@ -39,6 +39,10 @@ if pyx_files:
                 "*",
                 pyx_files,
                 include_dirs=[np.get_include()],
+                define_macros=[
+                    ("NPY_NO_DEPRECATED_API", "NPY_2_0_API_VERSION"),
+                    ("NPY_TARGET_VERSION", "NPY_2_0_API_VERSION")
+                ],
             )
         ],
         language_level="3",
