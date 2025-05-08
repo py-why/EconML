@@ -969,7 +969,7 @@ cdef class Tree:
         arr = PyArray_NewFromDescr(<PyTypeObject *> np.ndarray,
                                    <np.dtype> NODE_DTYPE, 1, shape,
                                    strides, <void*> self.nodes,
-                                   np.NPY_DEFAULT, None)
+                                   np.NPY_ARRAY_DEFAULT, None)
         Py_INCREF(self)
         np.PyArray_SetBaseObject(arr, self)
         return arr
