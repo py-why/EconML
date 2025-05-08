@@ -41,7 +41,7 @@ ctypedef fused realloc_ptr:
     (Node*)
     (StackRecord*)
 
-cdef realloc_ptr safe_realloc(realloc_ptr* p, SIZE_t nelems) nogil except *
+cdef realloc_ptr safe_realloc(realloc_ptr* p, SIZE_t nelems) except * nogil
 
 cdef np.ndarray sizet_ptr_to_ndarray(SIZE_t* data, SIZE_t size)
 
@@ -81,5 +81,5 @@ cdef class Stack:
     cdef int push(self, SIZE_t start, SIZE_t end, SIZE_t start_val, SIZE_t end_val,
                   SIZE_t depth, SIZE_t parent,
                   bint is_left, double impurity, double impurity_val,
-                  SIZE_t n_constant_features) nogil except -1
+                  SIZE_t n_constant_features) except -1 nogil
     cdef int pop(self, StackRecord* res) nogil

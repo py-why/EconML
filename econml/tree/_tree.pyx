@@ -121,7 +121,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                   SIZE_t min_samples_leaf, double min_weight_leaf,
                   SIZE_t max_depth, double min_impurity_decrease):
         """ Initialize parameters.
-        
+
         Parameters
         ----------
         splitter : cython extension class of type Splitter
@@ -311,7 +311,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
 
                 # Add the node that was just split to the tree, with all the auxiliary information and
                 # get the `node_id` assigned to it.
-                node_id = tree._add_node(parent, is_left, is_leaf, 
+                node_id = tree._add_node(parent, is_left, is_leaf,
                                          split.feature, split.threshold,
                                          impurity, n_node_samples, weighted_n_node_samples,
                                          impurity_val, n_node_samples_val, weighted_n_node_samples_val)
@@ -404,7 +404,7 @@ cdef class Tree:
     property weighted_n_node_samples:
         def __get__(self):
             return self._get_node_ndarray()['weighted_n_node_samples'][:self.node_count]
-    
+
     property impurity_train:
         def __get__(self):
             return self._get_node_ndarray()['impurity_train'][:self.node_count]
@@ -433,7 +433,7 @@ cdef class Tree:
             if not self.store_jac:
                 raise AttributeError("Jacobian computation was not enabled. Set store_jac=True")
             return self._get_jac_ndarray()[:self.node_count]
-    
+
     # The precond(x) of the node, for the case of linear moment trees with moment: J(x) * theta(x) - precond(x) = 0
     property precond:
         def __get__(self):
@@ -536,7 +536,7 @@ cdef class Tree:
                        self.capacity * sizeof(Node))
         value = memcpy(self.value, (<np.ndarray> value_ndarray).data,
                        self.capacity * self.value_stride * sizeof(double))
-        
+
         if self.store_jac:
             jac_ndarray = d['jac']
             jac_shape = (node_ndarray.shape[0], self.n_outputs * self.n_outputs)
@@ -555,7 +555,7 @@ cdef class Tree:
             precond = memcpy(self.precond, (<np.ndarray> precond_ndarray).data,
                              self.capacity * self.precond_stride * sizeof(double))
 
-    cdef int _resize(self, SIZE_t capacity) nogil except -1:
+    cdef int _resize(self, SIZE_t capacity) except -1 nogil:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then
            double the size of the inner arrays.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
@@ -566,12 +566,12 @@ cdef class Tree:
             with gil:
                 raise MemoryError()
 
-    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) nogil except -1:
+    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) except -1 nogil:
         """Guts of _resize
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
         """
-        
+
         if capacity == <SIZE_t>self.capacity and self.nodes != NULL:
             return 0
 
@@ -589,7 +589,7 @@ cdef class Tree:
             memset(<void*>(self.value + self.capacity * self.value_stride), 0,
                    (capacity - self.capacity) * self.value_stride *
                    sizeof(double))
-        
+
         if self.store_jac:
             safe_realloc(&self.jac, capacity * self.jac_stride)
             safe_realloc(&self.precond, capacity * self.precond_stride)
@@ -607,11 +607,11 @@ cdef class Tree:
         return 0
 
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
-                          SIZE_t feature, double threshold, 
+                          SIZE_t feature, double threshold,
                           double impurity_train, SIZE_t n_node_samples_train,
                           double weighted_n_node_samples_train,
                           double impurity_val, SIZE_t n_node_samples_val,
-                          double weighted_n_node_samples_val) nogil except -1:
+                          double weighted_n_node_samples_val) except -1 nogil:
         """Add a node to the tree.
         The new node registers itself as the child of its parent.
         Returns (size_t)(-1) on error.
@@ -658,13 +658,13 @@ cdef class Tree:
         out = self._get_value_ndarray().take(self.apply(X), axis=0,
                                              mode='clip')[:, :self.n_relevant_outputs, 0]
         return out
-    
+
     cpdef np.ndarray predict_full(self, object X):
         """Predict target for X."""
         out = self._get_value_ndarray().take(self.apply(X), axis=0,
                                              mode='clip')[:, :, 0]
         return out
-    
+
     cpdef np.ndarray predict_jac(self, object X):
         """Predict target for X."""
         if not self.store_jac:
@@ -672,7 +672,7 @@ cdef class Tree:
         out = self._get_jac_ndarray().take(self.apply(X), axis=0,
                                            mode='clip')
         return out
-    
+
     cpdef np.ndarray predict_precond(self, object X):
         """Predict target for X."""
         if not self.store_jac:
@@ -680,7 +680,7 @@ cdef class Tree:
         out = self._get_precond_ndarray().take(self.apply(X), axis=0,
                                                mode='clip')
         return out
-    
+
     cpdef predict_precond_and_jac(self, object X):
         if not self.store_jac:
             raise AttributeError("Preconditioned quantity computation was not enalbed. Set store_jac=True")
@@ -729,7 +729,7 @@ cdef class Tree:
                 out_ptr[i] = <SIZE_t>(node - self.nodes)  # node offset
 
         return out
-    
+
     cpdef object decision_path(self, object X):
         """Finds the decision path (=node) for each sample in X."""
         return self._decision_path(X)
@@ -792,7 +792,7 @@ cdef class Tree:
 
     cpdef compute_feature_importances(self, normalize=True, max_depth=None, depth_decay=.0):
         """Computes the importance of each feature (aka variable) based on impurity decrease.
-        
+
         Parameters
         ----------
         normalize : bool, default True
@@ -847,12 +847,12 @@ cdef class Tree:
                 importances /= normalizer
 
         return importances
-    
+
     cpdef compute_feature_heterogeneity_importances(self, normalize=True, max_depth=None, depth_decay=.0):
         """Computes the importance of each feature (aka variable) based on amount of
         parameter heterogeneity it creates. Each split adds:
         parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
-        
+
         Parameters
         ----------
         normalize : bool, default True
@@ -926,7 +926,7 @@ cdef class Tree:
         Py_INCREF(self)
         arr.base = <PyObject*> self
         return arr
-    
+
     cdef np.ndarray _get_jac_ndarray(self):
         """Wraps jacobian as a 2-d NumPy array.
         The array keeps a reference to this Tree, which manages the underlying
