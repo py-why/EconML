@@ -36,14 +36,15 @@ if pyx_files:
     pyx_extensions = cythonize(
         [
             Extension(
-                "*",
-                pyx_files,
+                os.path.splitext(file)[0].replace(os.sep, '.'),
+                [file],
                 include_dirs=[np.get_include()],
                 define_macros=[
                     ("NPY_NO_DEPRECATED_API", "NPY_2_0_API_VERSION"),
                     ("NPY_TARGET_VERSION", "NPY_2_0_API_VERSION")
                 ],
             )
+            for file in pyx_files
         ],
         language_level="3",
     )
