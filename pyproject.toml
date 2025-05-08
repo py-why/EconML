@@ -51,7 +51,7 @@ automl = [
 tf = [
     # This extra is not currently compatible with python 3.9 or above because of tensorflow breaking changes
     "keras < 2.4; python_version < '3.9'",
-    "tensorflow >= 2.18.0, < 2.3; python_version < '3.9'",
+    "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
     "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
@@ -73,7 +73,7 @@ all = [
     "azure-cli",
     # This extra is not currently compatible with python 3.9 or above because of tensorflow breaking changes
     "keras < 2.4; python_version < '3.9'",
-    "tensorflow >= 2.18.0, < 2.3; python_version < '3.9'",
+    "tensorflow > 1.10, < 2.3; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
     "protobuf < 4; python_version < '3.9'",
     # Version capped due to tensorflow incompatibility
