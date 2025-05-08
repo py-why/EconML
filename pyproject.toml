@@ -84,6 +84,22 @@ all = [
     "dowhy < 0.11; python_version <= '3.8'",
     "ray > 2.2.0"
 ]
+test = [
+    "pytest",
+    "pytest-xdist",
+    "pytest-cov",
+    "nbformat",
+    "rpds",
+    "rpds-py",
+]
+build-system = [
+    "setuptools",
+    "wheel",
+    "oldest-supported-numpy",
+    "scipy",
+    "cython>=3" # Our native code has several incompatibilities with Cython 3, but numpy 2 needs 3
+]
+
 
 [build-system]
 requires = [
