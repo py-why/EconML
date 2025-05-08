@@ -23,7 +23,7 @@ dependencies = [
     # "numpy<3; python_version >= 3.9",
     # "pandas >= 2.2.0; python_version < 3.9",
     # "pandas > 1.0; python_version >= 3.9",
-    "numpy<3",
+    "numpy >= 2.0.0, <3.0.0",
     # Required for numpy > 2
     "pandas >= 2.2.2",
     "scipy > 1.4.0",
