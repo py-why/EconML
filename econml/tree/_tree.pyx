@@ -38,6 +38,9 @@ cdef extern from "numpy/arrayobject.h":
                                 np.npy_intp* strides,
                                 void* data, int flags, object obj)
 
+cdef extern from "numpy/arrayobject.h":
+    int PyArray_SetBaseObject(np.ndarray arr, PyObject *obj) except -1
+
 # =============================================================================
 # Types and constants
 # =============================================================================
@@ -179,10 +182,10 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
             sample_weight_ptr = <DOUBLE_t*> sample_weight.data
 
         # Initial capacity
-        cdef int init_capacity
+        cdef SIZE_t init_capacity
 
         if tree.max_depth <= 10:
-            init_capacity = (2 ** (tree.max_depth + 1)) - 1
+            init_capacity = <SIZE_t>((2 ** (tree.max_depth + 1)) - 1)
         else:
             init_capacity = 2047
 
@@ -923,8 +926,7 @@ cdef class Tree:
         shape[2] = <np.npy_intp> self.max_n_classes
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
-        Py_INCREF(self)
-        arr.base = <PyObject*> self
+        PyArray_SetBaseObject(arr, <PyObject*> self)
         return arr
 
     cdef np.ndarray _get_jac_ndarray(self):
@@ -938,7 +940,7 @@ cdef class Tree:
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(2, shape, np.NPY_DOUBLE, self.jac)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        PyArray_SetBaseObject(arr, <PyObject*> self)
         return arr
 
     cdef np.ndarray _get_precond_ndarray(self):
@@ -952,7 +954,7 @@ cdef class Tree:
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(2, shape, np.NPY_DOUBLE, self.precond)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        PyArray_SetBaseObject(arr, <PyObject*> self)
         return arr
 
     cdef np.ndarray _get_node_ndarray(self):
@@ -970,7 +972,7 @@ cdef class Tree:
         arr = PyArray_NewFromDescr(<PyTypeObject *> np.ndarray,
                                    <np.dtype> NODE_DTYPE, 1, shape,
                                    strides, <void*> self.nodes,
-                                   np.NPY_DEFAULT, None)
+                                   np.NPY_ARRAY_DEFAULT, None)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        PyArray_SetBaseObject(arr, <PyObject*> self)
         return arr
