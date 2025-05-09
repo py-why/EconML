@@ -10,7 +10,6 @@ import time
 import tracemalloc
 import pandas as pd
 import gc
-import inspect
 import types
 import weakref
 import warnings
@@ -18,7 +17,6 @@ import warnings
 
 from econml.dml import CausalForestDML
 from memory_profiler import memory_usage
-from pympler import muppy, summary
 from catboost import CatBoostRegressor
 from xgboost import XGBRegressor
 
@@ -57,7 +55,8 @@ def analyze_object_memory(obj, name="object", max_depth=100):
         name: Name to use for the object's root path
         max_depth: Maximum recursion depth
 
-    Returns:
+    Returns
+    -------
         List of large arrays/DataFrames found in the object
     """
     # Force garbage collection
@@ -185,7 +184,7 @@ def find_arrays_in_object(obj, path="", visited=None, results=None, max_depth=10
                         new_path = f"{path}.{attr_name}" if path else attr_name
                         find_arrays_in_object(attr_value, new_path, visited, results,
                                           max_depth)
-                except Exception as e:
+                except Exception:
                     continue
         return results
 
