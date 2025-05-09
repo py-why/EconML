@@ -15,6 +15,7 @@ import types
 import weakref
 import warnings
 
+
 from econml.dml import CausalForestDML
 from memory_profiler import memory_usage
 from pympler import muppy, summary
@@ -261,6 +262,9 @@ def causalforestdml_memory_test(
     use_memmap: bool,
     downsample:float|None,
 ):
+
+    if estimator.lower() not in ('causalforest','catboost'):
+        raise NotImplementedError(f"Estimator must be in 'causalforest','catboost', got {estimator}")
 
     root_dir = os.environ.get("LOCAL_ANALYSIS_DIR", ".")
     logger.info(f"Using root dir {root_dir} loading data file {file_name}")
