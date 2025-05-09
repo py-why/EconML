@@ -321,7 +321,7 @@ def causalforestdml_memory_test(
     # mem_usage section
     max_memory, fitted_model = mem_usage
     elapsed_time = end_time-start_time
-    logger.info(f"Maximum memory usage using memory_usage: {max_memory} MiB")
+    logger.info(f"Maximum memory usage during fit: {max_memory} MiB")
     logger.info(f"Time to fit: {elapsed_time} seconds")
 
     result_file_name = os.path.join(root_dir,"mem_test_results.csv")
