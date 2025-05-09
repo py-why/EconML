@@ -757,14 +757,14 @@ class DRLearner(_OrthoLearner):
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
-    def sensitivity_summary(self, T, target=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+    def sensitivity_summary(self, T, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
         """
         Generate a summary of the sensitivity analysis for the ATE for a given treatment.
 
         Parameters
         ----------
-        target: float, default 0
-            The target value for the ATE.
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
 
         alpha: float, default 0.05
             The significance level for the sensitivity interval.
@@ -787,7 +787,7 @@ class DRLearner(_OrthoLearner):
         assert T_ind >= 0, "No model was fitted for the control"
         sensitivity_params = {
             k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
-        return sensitivity_summary(**sensitivity_params, target=target, alpha=alpha,
+        return sensitivity_summary(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha,
                                     c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
 
     def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):

@@ -114,11 +114,11 @@ def RV(theta, sigma, nu, cov, alpha, null_hypothesis=0, interval_type='ci'):
         if lb > null_hypothesis:
             target_ind = 0
             mult = 1
-            d = lb
+            d = lb - null_hypothesis
         else:
             target_ind = 1
             mult = -1
-            d = ub
+            d = ub - null_hypothesis
 
     while abs(d) > 1e-6:
         interval = sensitivity_interval(
@@ -148,7 +148,6 @@ def dml_sensitivity_values(t_res, y_res):
     ls = np.concatenate([t_res**2, np.ones_like(t_res), t_res**2], axis=1)
 
     G = np.diag(np.mean(ls, axis=0))  # G matrix, diagonal with means of ls
-    G[1, 0] = np.mean(2*(y_res-t_res*theta)*t_res) # dependence of sigma^2 on theta
     G_inv = np.linalg.inv(G)  # Inverse of G matrix, could just take reciprocals since it's diagonal
 
     residuals = np.concatenate([y_res*t_res-theta*t_res*t_res,
@@ -186,9 +185,10 @@ def dr_sensitivity_values(Y, T, y_pred, t_pred):
     for i in range(T_ohe.shape[1]):
         theta_score = y_pred[:, i+1] - y_pred[:, 0] + (Y-y_pred[:, i+1]) * (
             T_ohe[:, i] == 1)/t_pred[:, i+1] - (Y-y_pred[:, 0]) * (np.all(T_ohe == 0, axis=1)/t_pred[:, 0])
-        # exclude rows with other treatments
         sigma_score = (Y-np.choose(T, y_pred.T))**2
-        sigma_score = np.where(T==i+1, sigma_score, 0)
+        # exclude rows with other treatments
+        sigma_keep = np.isin(T, [0, i+1])
+        sigma_score = np.where(sigma_keep, sigma_score, 0)
         alpha[:,i] = (T_ohe[:,i] == 1)/t_pred[:,i+1] - (np.all(T_ohe==0, axis=1))/t_pred[:,0]
         nu_score = 2*(1/t_pred[:,i+1]+1/t_pred[:,0])-alpha[:,i]**2
         theta[i] = np.mean(theta_score)
