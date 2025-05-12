@@ -250,16 +250,27 @@ class TestDML(unittest.TestCase):
                                                 if d_y > 1 or is_discrete or d_t > 1:
                                                     # sensitivity interval should not calculate
                                                     # when d_y > 1 or t is multi category discrete / multi dim cont
-                                                    with pytest.raises(ValueError):
+                                                    with pytest.raises(
+                                                            ValueError,
+                                                            match='Sensitivity analysis for DML is not supported'):
                                                         est.sensitivity_interval()
 
-                                                    with pytest.raises(ValueError):
+                                                    with pytest.raises(
+                                                            ValueError,
+                                                            match='Sensitivity analysis for DML is not supported'):
                                                         est.robustness_value()
 
                                                 else:
-                                                    est.sensitivity_interval()
-                                                    est.robustness_value()
-                                                    est.sensitivity_summary()
+
+                                                    # make sure sensitivity methods can be called.
+                                                    # allow for data-dependent error with negative sigma, nu
+                                                    for method in [est.sensitivity_interval,
+                                                                   est.robustness_value,
+                                                                   est.sensitivity_summary]:
+                                                        try:
+                                                            method()
+                                                        except ValueError as e:
+                                                            assert 'sigma and nu must be non-negative' in str(e)
 
                                                 if inf is not None:
                                                     const_marg_eff_int = est.const_marginal_effect_interval(X)
