@@ -190,13 +190,6 @@ def find_arrays_in_object(obj, path="", visited=None, results=None, max_depth=10
         return results
 
 
-
-
-
-
-
-
-
 def balanced_downsample(X:pd.DataFrame, y:np.array, T_feat:pd.DataFrame, t_id:np.array, downsample_ratio:float):
     """
     Balanced downsampling based on treatment identity
@@ -276,7 +269,11 @@ def causalforestdml_memory_test(
     T = data['T']
     y = data['Y']
     i = data['i']
-    if downsample:
+    if downsample is not None:
+        if downsample > 1:
+            downsample = float(downsample)/float(len(y))
+        elif downsample <=0 or downsample==1:
+            raise ValueError("Downsample needs to be >1 or 0 < downsample < 1")
         X, y, T, i = balanced_downsample(X,y,T,i,downsample_ratio=downsample)
 
     logger.info(f"X has a shape of: {X.shape}")
@@ -328,16 +325,19 @@ def causalforestdml_memory_test(
     logger.info(f"Maximum memory usage during fit: {max_memory} MiB")
     logger.info(f"Time to fit: {elapsed_time} seconds")
 
+    mem_df = analyze_object_memory(est,name=estimator, max_depth=100)
+
+
+
     result_file_name = os.path.join(root_dir,"mem_test_results.csv")
     if not os.path.isfile(result_file_name):
         with open(result_file_name,"w") as output:
-            output.write("data,estimator,run_time,N_examples,N_nuisances,N_treatments,max_memory_mb,fit_time_secs\n")
+            output.write("data,estimator,run_time,N_examples,N_nuisances,N_treatments,max_memory_mb,fit_time_secs,top_obj,top_obj_mem\n")
 
     run_time_string = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     with open(result_file_name,"a") as output:
-        output.write(f"{file_name},{estimator},{run_time_string},{X.shape[0]},{X.shape[1]},{T.shape[1]},{max_memory:.1f},{elapsed_time:.1f}\n")
+        output.write(f"{file_name},{estimator},{run_time_string},{X.shape[0]},{X.shape[1]},{T.shape[1]},{max_memory:.1f},{elapsed_time:.1f},{mem_df.iloc[0][0]},{mem_df.iloc[0][1]}\n")
 
-    analyze_object_memory(est,name=estimator, max_depth=100)
 
     logger.info('Done')
 
