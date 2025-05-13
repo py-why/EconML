@@ -189,7 +189,7 @@ def find_arrays_in_object(obj, path="", visited=None, results=None, max_depth=10
         return results
 
 
-def balanced_downsample(X:pd.DataFrame, y:np.array, T_feat:pd.DataFrame, t_id:np.array, downsample_ratio:float):
+def balanced_downsample(X:pd.DataFrame, y:np.array, T_feat:pd.DataFrame, t_id:np.array, downsample_ratio:float, keep_pos=True):
     """
     Balanced downsampling based on treatment identity
 
@@ -200,14 +200,18 @@ def balanced_downsample(X:pd.DataFrame, y:np.array, T_feat:pd.DataFrame, t_id:np
     :return:
     """
     # Keep all the positive experiences
-    pos_ex = y > 0
-    positive_df = X[pos_ex].reset_index(drop=True)
-    positive_actions = t_id[pos_ex]
-    act_feature_positve = T_feat[pos_ex].reset_index(drop=True)
-    y_positive = y[pos_ex]
-    positive_df['action_id'] = positive_actions
-    positive_df['y'] = y_positive
-    positive_df = pd.concat([positive_df,act_feature_positve],axis=1).reset_index(drop=True)
+    if keep_pos:
+        pos_ex = y > 0
+        positive_df = X[pos_ex].reset_index(drop=True)
+        positive_actions = t_id[pos_ex]
+        act_feature_positve = T_feat[pos_ex].reset_index(drop=True)
+        y_positive = y[pos_ex]
+        positive_df['action_id'] = positive_actions
+        positive_df['y'] = y_positive
+        positive_df = pd.concat([positive_df,act_feature_positve],axis=1).reset_index(drop=True)
+    else:
+        # Hack so negative df works on everything
+        pos_ex=np.full(len(y), False, dtype=bool)
 
     negative_df = X[~pos_ex].reset_index(drop=True)
     negative_actions = t_id[~pos_ex]
@@ -221,13 +225,17 @@ def balanced_downsample(X:pd.DataFrame, y:np.array, T_feat:pd.DataFrame, t_id:np
     df_downsampled = negative_df.groupby('action_id', group_keys=False).apply(lambda x: x.sample(frac=downsample_ratio))
 
     logger.info(f'Dowsampled negative examples by {downsample_ratio}')
-    actions_before = negative_df['action_id'].value_counts()
-    actions_after = df_downsampled['action_id'].value_counts()
+    # actions_before = negative_df['action_id'].value_counts()
+    # actions_after = df_downsampled['action_id'].value_counts()
     # logger.info(f'Before: {actions_before}')
     # logger.info(f'After: {actions_after}')
 
     # Final sample
-    combo_df   = pd.concat([positive_df,df_downsampled],axis=0).reset_index(drop=True)
+    if keep_pos:
+        combo_df   = pd.concat([positive_df,df_downsampled],axis=0).reset_index(drop=True)
+    else:
+        combo_df = df_downsampled
+
     # this shuffles it
     combo_df = combo_df.sample(frac=1).reset_index(drop=True)
     X = combo_df[X.columns.values]
@@ -269,11 +277,22 @@ def causalforestdml_memory_test(
     y = data['Y']
     i = data['i']
     if downsample is not None:
-        if downsample > 1:
-            downsample = float(downsample)/float(len(y))
+        if 0 < downsample < 1:
+            X, y, T, i = balanced_downsample(X,y,T,i,downsample_ratio=downsample)
+        elif downsample > 1:
+            pos_examples = np.count_nonzero(y)
+            neg_examples = len(y)-np.count_nonzero(y)
+            if downsample/2 > pos_examples:
+                # Usual case: Positive examples are relatively scarce so keep them all
+                neg_2_keep = downsample - pos_examples
+                downsample = neg_2_keep / neg_examples
+                X, y, T, i = balanced_downsample(X, y, T, i, downsample_ratio=downsample)
+            elif pos_examples >= downsample/2:
+                # There are a lot positive examples
+                downsample = downsample / len(y)
+                X, y, T, i = balanced_downsample(X, y, T, i, downsample_ratio=downsample, keep_pos=False)
         elif downsample <=0 or downsample==1:
             raise ValueError("Downsample needs to be >1 or 0 < downsample < 1")
-        X, y, T, i = balanced_downsample(X,y,T,i,downsample_ratio=downsample)
 
     logger.info(f"X has a shape of: {X.shape}")
     logger.info(f"T has a shape of: {T.shape}")
