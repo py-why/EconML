@@ -280,7 +280,7 @@ def causalforestdml_memory_test(
         if 0 < downsample < 1:
             X, y, T, i = balanced_downsample(X,y,T,i,downsample_ratio=downsample)
         elif downsample > 1:
-            pos_examples = np.count_nonzero(y)
+            pos_examples = np.sum(y > 0)
             neg_examples = len(y)-np.count_nonzero(y)
             if downsample/2 > pos_examples:
                 # Usual case: Positive examples are relatively scarce so keep them all
