@@ -120,7 +120,7 @@ def RV(theta, sigma, nu, cov, alpha, null_hypothesis=0, interval_type='ci'):
             mult = -1
             d = ub - null_hypothesis
 
-    while abs(d) > 1e-6:
+    while abs(d) > 1e-6 and r_up - r_down > 1e-10:
         interval = sensitivity_interval(
             theta, sigma, nu, cov, alpha, r, r, 1, interval_type=interval_type)
         bound = interval[target_ind]
@@ -172,6 +172,14 @@ def dr_sensitivity_values(Y, T, y_pred, t_pred):
     T_ohe = T[:, 1:].astype(int) # drop first column of T since it's the control
     alpha = np.zeros_like(T_ohe)
     T = np.argmax(T, axis=1)  # Convert dummy encoding to a factor vector
+    T_complete = np.hstack(((np.all(T_ohe == 0, axis=1) * 1).reshape(-1, 1), T_ohe))
+
+    # undo doubly robust correction for y pred
+    # i.e. reconstruct original y_pred
+    y_pred = y_pred.copy()
+    for t in np.arange(T_complete.shape[1]):
+        npp = (T_complete[:, t] == 1) / t_pred[:, t]
+        y_pred[:, t] = (y_pred[:, t] - npp * Y) / (1 - npp)
 
     # one value of theta, sigma, nu for each non-control treatment
     theta = np.zeros(T_ohe.shape[1])
