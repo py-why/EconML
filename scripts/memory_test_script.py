@@ -345,7 +345,7 @@ def causalforestdml_memory_test(
 
     mem_df = analyze_object_memory(est,name=estimator, max_depth=100)
 
-    array_file_name = os.path.join(root_dir, file_name.replace(".joblib","mem_test_data_arrays.csv"))
+    array_file_name = os.path.join(root_dir, file_name.replace(".joblib","_memtest_data.csv"))
     mem_df.to_csv(array_file_name)
 
     result_file_name = os.path.join(root_dir,"mem_test_results.csv")
