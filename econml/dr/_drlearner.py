@@ -97,7 +97,6 @@ class _ModelNuisance(ModelSelector):
 
     def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
-        # propensities = np.maximum(self._model_propensity.predict_proba(XW), self._min_propensity)
         propensities = np.clip(self._model_propensity.predict_proba(XW), self._min_propensity, 1-self._min_propensity)
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
