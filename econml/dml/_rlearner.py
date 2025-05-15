@@ -224,6 +224,7 @@ class _ModelFinal:
         if sample_weight is not None and not has_sample_weight:
             raise ValueError("Scoring function does NOT have a sample_weight argument "
                              "but sample_weight argument was provided to scoring")
+        # Some score like functions are partial to np.array and not np.ndarray with shape (N,1)
         Y_true = Y_true.squeeze() if len(Y_true.shape)==2 and Y_true.shape[1]==1 else Y_true
         Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_true
         if sample_weight is not None:
