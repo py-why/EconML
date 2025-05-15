@@ -33,7 +33,7 @@ from sklearn.metrics import (
     get_scorer,
     get_scorer_names
 )
-from typing import Tuple,Callable
+from typing import Tuple,Callable, Union
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
@@ -185,7 +185,7 @@ class _ModelFinal:
             return False, False
 
     @staticmethod
-    def _wrap_scoring(scoring:str|Callable, Y_true, Y_pred, sample_weight=None):
+    def _wrap_scoring(scoring:Union[str, Callable], Y_true, Y_pred, sample_weight=None):
         """
         Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
 
@@ -633,7 +633,7 @@ class _RLearner(_OrthoLearner):
         return Y_res, T_res, self._cached_values.X, self._cached_values.W
 
     @staticmethod
-    def scoring_name(scoring: str | Callable | None)->str:
+    def scoring_name(scoring: Union[str,Callable,None])->str:
         if scoring is None:
             return 'default_score'
         elif isinstance(scoring,str):
