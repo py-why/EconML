@@ -147,7 +147,7 @@ jobs:
       if: ${{ matrix.install_graphviz }}
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
+      run: uv pip install --system .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
     # Install notebook requirements (if not already done as part of lkg)
     - name: Install notebook requirements
       run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
