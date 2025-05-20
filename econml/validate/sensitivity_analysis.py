@@ -166,30 +166,33 @@ def dml_sensitivity_values(t_res, y_res):
 
 
 def dr_sensitivity_values(Y, T, y_pred, t_pred):
+    n_treatments = T.shape[1]
+
+    # squeeze extra dimension if exists
     y_pred = y_pred.squeeze(1) if np.ndim(y_pred) == 3 else y_pred
 
+    T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
     Y = Y.squeeze()
-    T_ohe = T[:, 1:].astype(int) # drop first column of T since it's the control
-    alpha = np.zeros_like(T_ohe)
-    T = np.argmax(T, axis=1)  # Convert dummy encoding to a factor vector
+    alpha = np.zeros(shape=(T.shape[0], n_treatments))
+    T = np.argmax(T_complete, axis=1)  # Convert dummy encoding to a factor vector
 
     # one value of theta, sigma, nu for each non-control treatment
-    theta = np.zeros(T_ohe.shape[1])
-    sigma = np.zeros(T_ohe.shape[1])
-    nu = np.zeros(T_ohe.shape[1])
+    theta = np.zeros(n_treatments)
+    sigma = np.zeros(n_treatments)
+    nu = np.zeros(n_treatments)
 
     # one theta, sigma, nu covariance matrix for each non-control treatment
-    cov = np.zeros((T_ohe.shape[1], 3, 3))
+    cov = np.zeros((n_treatments, 3, 3))
 
     # ATE, sigma^2, and nu^2
-    for i in range(T_ohe.shape[1]):
+    for i in range(n_treatments):
         theta_score = y_pred[:, i+1] - y_pred[:, 0] + (Y-y_pred[:, i+1]) * (
-            T_ohe[:, i] == 1)/t_pred[:, i+1] - (Y-y_pred[:, 0]) * (np.all(T_ohe == 0, axis=1)/t_pred[:, 0])
+            T_complete[:, i+1] == 1)/t_pred[:, i+1] - (Y-y_pred[:, 0]) * ((T_complete[:,0] == 1)/t_pred[:, 0])
         sigma_score = (Y-np.choose(T, y_pred.T))**2
         # exclude rows with other treatments
         sigma_keep = np.isin(T, [0, i+1])
         sigma_score = np.where(sigma_keep, sigma_score, 0)
-        alpha[:,i] = (T_ohe[:,i] == 1)/t_pred[:,i+1] - (np.all(T_ohe==0, axis=1))/t_pred[:,0]
+        alpha[:,i] = (T_complete[:,i+1] == 1)/t_pred[:,i+1] - (T_complete[:,0] == 1)/t_pred[:,0]
         nu_score = 2*(1/t_pred[:,i+1]+1/t_pred[:,0])-alpha[:,i]**2
         theta[i] = np.mean(theta_score)
         sigma[i] = np.mean(sigma_score)

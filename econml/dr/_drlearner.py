@@ -142,19 +142,15 @@ class _ModelFinal:
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_pred, T_pred = nuisances
+        self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
+
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
-        n = T.shape[0]
+
+        Y_pred = self._doubly_robust_correction(Y, T, Y_pred, T_pred)
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
-
-        self.sensitivity_params = dr_sensitivity_values(Y, T_complete, Y_pred, T_pred)
-
-        # double robust correction
-        for t in np.arange(T_complete.shape[1]):
-            Y_pred[:, t] += (Y.reshape(n) - Y_pred[:, t]) * (T_complete[:, t] == 1) / T_pred[:, t]
-        Y_pred = Y_pred.reshape(Y.shape + (T_complete.shape[1],))
 
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
@@ -192,7 +188,9 @@ class _ModelFinal:
     def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None):
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
-        Y_pred, _ = nuisances
+        Y_pred, T_pred = nuisances
+        Y_pred = self._doubly_robust_correction(Y, T, Y_pred, T_pred)
+
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
@@ -209,6 +207,15 @@ class _ModelFinal:
                 score = np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0)
                 scores.append(score)
             return np.mean(scores)
+
+    def _doubly_robust_correction(self, Y, T, Y_pred, T_pred):
+        n = Y.shape[0]
+        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
+        for t in np.arange(T_complete.shape[1]):
+            Y_pred[:, t] += (Y.reshape(n) - Y_pred[:, t]) * (T_complete[:, t] == 1) / T_pred[:, t]
+        Y_pred = Y_pred.reshape(Y.shape + (T_pred.shape[1],))
+
+        return Y_pred
 
 
 class DRLearner(_OrthoLearner):
