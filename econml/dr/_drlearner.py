@@ -111,7 +111,6 @@ class _ModelNuisance(ModelSelector):
                 warn("A regressor was passed to model_regression when discrete_outcome=True. "
                      "Using a classifier is recommended.", UserWarning)
             Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
-        Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):
             T_counter = np.zeros(T.shape)
             T_counter[:, t] = 1
@@ -119,8 +118,7 @@ class _ModelNuisance(ModelSelector):
                 Y_pred[:, t + 1] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
-            Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
+        return Y_pred, propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -146,11 +144,17 @@ class _ModelFinal:
         Y_pred, T_pred = nuisances
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+        n = T.shape[0]
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
 
         self.sensitivity_params = dr_sensitivity_values(Y, T_complete, Y_pred, T_pred)
+
+        # double robust correction
+        for t in np.arange(T_complete.shape[1]):
+            Y_pred[:, t] += (Y.reshape(n) - Y_pred[:, t]) * (T_complete[:, t] == 1) / T_pred[:, t]
+        Y_pred = Y_pred.reshape(Y.shape + (T_complete.shape[1],))
 
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
