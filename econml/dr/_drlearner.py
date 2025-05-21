@@ -111,6 +111,7 @@ class _ModelNuisance(ModelSelector):
                 warn("A regressor was passed to model_regression when discrete_outcome=True. "
                      "Using a classifier is recommended.", UserWarning)
             Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+        Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):
             T_counter = np.zeros(T.shape)
             T_counter[:, t] = 1
@@ -118,7 +119,8 @@ class _ModelNuisance(ModelSelector):
                 Y_pred[:, t + 1] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
-        return Y_pred, propensities
+            Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -146,8 +148,6 @@ class _ModelFinal:
 
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
-
-        Y_pred = self._doubly_robust_correction(Y, T, Y_pred, T_pred)
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
@@ -188,8 +188,7 @@ class _ModelFinal:
     def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None):
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
-        Y_pred, T_pred = nuisances
-        Y_pred = self._doubly_robust_correction(Y, T, Y_pred, T_pred)
+        Y_pred, _ = nuisances
 
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
@@ -207,15 +206,6 @@ class _ModelFinal:
                 score = np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0)
                 scores.append(score)
             return np.mean(scores)
-
-    def _doubly_robust_correction(self, Y, T, Y_pred, T_pred):
-        n = Y.shape[0]
-        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        for t in np.arange(T_complete.shape[1]):
-            Y_pred[:, t] += (Y.reshape(n) - Y_pred[:, t]) * (T_complete[:, t] == 1) / T_pred[:, t]
-        Y_pred = Y_pred.reshape(Y.shape + (T_pred.shape[1],))
-
-        return Y_pred
 
 
 class DRLearner(_OrthoLearner):

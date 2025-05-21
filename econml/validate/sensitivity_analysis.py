@@ -176,6 +176,13 @@ def dr_sensitivity_values(Y, T, y_pred, t_pred):
     alpha = np.zeros(shape=(T.shape[0], n_treatments))
     T = np.argmax(T_complete, axis=1)  # Convert dummy encoding to a factor vector
 
+    # undo doubly robust correction for y pred
+    # i.e. reconstruct original y_pred
+    y_pred = y_pred.copy() # perform operations on copy to avoid modifying original
+    for t in np.arange(T_complete.shape[1]):
+        npp = (T_complete[:, t] == 1) / t_pred[:, t]
+        y_pred[:, t] = (y_pred[:, t] - npp * Y) / (1 - npp)
+
     # one value of theta, sigma, nu for each non-control treatment
     theta = np.zeros(n_treatments)
     sigma = np.zeros(n_treatments)

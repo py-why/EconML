@@ -18,8 +18,7 @@ class _PolicyModelFinal(_ModelFinal):
         if sample_var is not None:
             warn('Parameter `sample_var` is ignored by the final estimator')
             sample_var = None
-        Y_pred, T_pred = nuisances
-        Y_pred = self._doubly_robust_correction(Y, T, Y_pred, T_pred)
+        Y_pred, _ = nuisances
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         if (X is not None) and (self._featurizer is not None):
