@@ -25,6 +25,8 @@ from ..utilities import (add_intercept,
                          shape, get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
 from ..sklearn_extensions.model_selection import get_selector, SingleModelSelector
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV, dml_sensitivity_values,
+                                             sensitivity_summary)
 
 
 def _combine(X, W, n_samples):
@@ -105,10 +107,12 @@ def _make_first_stage_selector(model, is_discrete, random_state):
 
 
 class _FinalWrapper:
-    def __init__(self, model_final, fit_cate_intercept, featurizer, use_weight_trick):
+    def __init__(self, model_final, fit_cate_intercept, featurizer,
+                 use_weight_trick, allow_sensitivity_analysis=False):
         self._model = clone(model_final, safe=False)
         self._use_weight_trick = use_weight_trick
         self._original_featurizer = clone(featurizer, safe=False)
+        self.allow_sensitivity_analysis = allow_sensitivity_analysis
         if self._use_weight_trick:
             self._fit_cate_intercept = False
             self._featurizer = self._original_featurizer
@@ -147,6 +151,14 @@ class _FinalWrapper:
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
         if not self._use_weight_trick:
+
+            # if binary/continuous treatment and single outcome, can calculate sensitivity params
+            if self.allow_sensitivity_analysis and not (
+                (self._d_t and self._d_t[0] > 1) or (
+                    self._d_y and self._d_y[0] > 1)
+            ):
+                self.sensitivity_params = dml_sensitivity_values(T_res, Y_res)
+
             fts = self._combine(X, T_res)
             filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                                  freq_weight=freq_weight, sample_var=sample_var)
@@ -535,7 +547,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.model_final, safe=False)
 
     def _gen_rlearner_model_final(self):
-        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
+        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept,
+                             self._gen_featurizer(), False, allow_sensitivity_analysis=True)
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
@@ -593,6 +606,114 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     @property
     def fit_cate_intercept_(self):
         return self.rlearner_model_final_._fit_cate_intercept
+
+    def sensitivity_summary(self, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_summary(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
+
+    def sensitivity_interval(self, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
+        """
+        Calculate the sensitivity interval for the ATE.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return sensitivity_interval(**sensitivity_params._asdict(), alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
+
+    def robustness_value(self, null_hypothesis=0, alpha=0.05, interval_type='ci'):
+        """
+        Calculate the robustness value for the ATE.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
+
+        Can only be calculated when Y and T are single arrays, and T is binary or continuous.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if (self._d_t and self._d_t[0] > 1) or (self._d_y and self._d_y[0] > 1):
+            raise ValueError(
+                "Sensitivity analysis for DML is not supported for multi-dimensional outcomes or treatments.")
+        sensitivity_params = self._ortho_learner_model_final._model_final.sensitivity_params
+        return RV(**sensitivity_params._asdict(), null_hypothesis=null_hypothesis,
+                  alpha=alpha, interval_type=interval_type)
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
