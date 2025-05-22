@@ -357,9 +357,9 @@ lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```Python
 from econml.iv.dml import NonParamDMLIV
 
-est = NonParamDMLIV(projection=False, 
-                    discrete_treatment=True, 
-                    discrete_instrument=True)
+est = NonParamDMLIV(discrete_treatment=True, 
+                    discrete_instrument=True,
+                    model_final=RandomForestRegressor())
 est.fit(Y, T, Z=Z, X=X, W=W) # no analytical confidence interval available
 treatment_effects = est.effect(X_test)
 ```
