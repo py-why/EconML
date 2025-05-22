@@ -52,6 +52,8 @@ from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelec
 from ..utilities import (check_high_dimensional,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
+from ..validate.sensitivity_analysis import (sensitivity_interval, RV,
+                                             sensitivity_summary, dr_sensitivity_values)
 
 
 class _ModelNuisance(ModelSelector):
@@ -95,7 +97,7 @@ class _ModelNuisance(ModelSelector):
 
     def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
-        propensities = np.maximum(self._model_propensity.predict_proba(XW), self._min_propensity)
+        propensities = np.clip(self._model_propensity.predict_proba(XW), self._min_propensity, 1-self._min_propensity)
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
@@ -118,9 +120,7 @@ class _ModelNuisance(ModelSelector):
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        propensities_weight = np.sum(propensities * T_complete, axis=1)
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -143,9 +143,15 @@ class _ModelFinal:
 
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
-        Y_pred, propensities = nuisances
+        Y_pred, T_pred = nuisances
+        self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
+
+        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
+        propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
+
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
 
@@ -183,6 +189,7 @@ class _ModelFinal:
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         Y_pred, _ = nuisances
+
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
@@ -750,6 +757,127 @@ class DRLearner(_OrthoLearner):
                                             input_names=self._input_names,
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
+    def sensitivity_summary(self, T, null_hypothesis=0, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., decimals=3):
+        """
+        Generate a summary of the sensitivity analysis for the ATE for a given treatment.
+
+        Parameters
+        ----------
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        decimals: int, default 3
+            Number of decimal places to round each column to.
+
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return sensitivity_summary(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, decimals=decimals)
+
+    def sensitivity_interval(self, T, alpha=0.05, c_y=0.05, c_t=0.05, rho=1., interval_type='ci'):
+        """
+        Calculate the sensitivity interval for the ATE for a given treatment category.
+
+        The sensitivity interval is the range of values for the ATE that are
+        consistent with the observed data, given a specified level of confounding.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the sensitivity interval.
+
+        alpha: float, default 0.05
+            The significance level for the sensitivity interval.
+
+        c_y: float, default 0.05
+            The level of confounding in the outcome. Ranges from 0 to 1.
+
+        c_d: float, default 0.05
+            The level of confounding in the treatment. Ranges from 0 to 1.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        (lb, ub): tuple of floats
+            sensitivity interval for the ATE for treatment T
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return sensitivity_interval(**sensitivity_params, alpha=alpha,
+                                    c_y=c_y, c_t=c_t, rho=rho, interval_type=interval_type)
+
+
+    def robustness_value(self, T, null_hypothesis=0, alpha=0.05, interval_type='ci'):
+        """
+        Calculate the robustness value for the ATE for a given treatment category.
+
+        The robustness value is the level of confounding (between 0 and 1) in
+        *both* the treatment and outcome that would result in enough omitted variable bias such that
+        we can no longer reject the null hypothesis. When null_hypothesis is the default of 0, the robustness value
+        has the interpretation that it is the level of confounding that would make the
+        ATE statistically insignificant.
+
+        A higher value indicates a more robust estimate.
+
+        Returns 0 if the original interval already includes the null_hypothesis.
+
+        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to calculate the robustness value.
+
+        null_hypothesis: float, default 0
+            The null_hypothesis value for the ATE.
+
+        alpha: float, default 0.05
+            The significance level for the robustness value.
+
+        interval_type: str, default 'ci'
+            The type of interval to return. Can be 'ci' or 'theta'
+
+        Returns
+        -------
+        float
+            The robustness value
+        """
+        if T not in self.transformer.categories_[0]:
+            # raise own ValueError here because sometimes error from sklearn is not transparent
+            raise ValueError(f"Treatment {T} not in the list of treatments {self.transformer.categories_[0]}")
+        _, T = self._expand_treatments(None, T)
+        T_ind = inverse_onehot(T).item() - 1
+        assert T_ind >= 0, "No model was fitted for the control"
+        sensitivity_params = {
+            k: v[T_ind] for k, v in self._ortho_learner_model_final.sensitivity_params._asdict().items()}
+        return RV(**sensitivity_params, null_hypothesis=null_hypothesis, alpha=alpha, interval_type=interval_type)
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
