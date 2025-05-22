@@ -13,6 +13,7 @@ EconML User Guide
     estimation_dynamic
     inference
     model_selection
+    validation
     interpretability
     federated_learning
     references
