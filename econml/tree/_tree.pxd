@@ -69,9 +69,9 @@ cdef class Tree:
                           double impurity_train, SIZE_t n_node_samples_train,
                           double weighted_n_samples_train,
                           double impurity_val, SIZE_t n_node_samples_val,
-                          double weighted_n_samples_val) nogil except -1
-    cdef int _resize(self, SIZE_t capacity) nogil except -1
-    cdef int _resize_c(self, SIZE_t capacity=*) nogil except -1
+                          double weighted_n_samples_val) except -1 nogil
+    cdef int _resize(self, SIZE_t capacity) except -1 nogil
+    cdef int _resize_c(self, SIZE_t capacity=*) except -1 nogil
 
     cdef np.ndarray _get_value_ndarray(self)
     cdef np.ndarray _get_jac_ndarray(self)
