@@ -6,6 +6,5 @@
 from .drtester import DRTester
 from .results import BLPEvaluationResults, CalibrationEvaluationResults, UpliftEvaluationResults, EvaluationResults
 
-
 __all__ = ['DRTester',
            'BLPEvaluationResults', 'CalibrationEvaluationResults', 'UpliftEvaluationResults', 'EvaluationResults']

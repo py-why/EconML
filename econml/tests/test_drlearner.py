@@ -142,6 +142,38 @@ class TestDRLearner(unittest.TestCase):
                                     # ensure that we can serialize fit estimator
                                     pickle.dumps(est)
 
+                                    # make sure sensitivity methods can be called.
+                                    # allow for data-dependent error with negative sigma, nu
+                                    for T_val in ['b', 'c']:
+                                        for func in [est.sensitivity_interval,
+                                                     est.robustness_value,
+                                                     est.sensitivity_summary]:
+                                            try:
+                                                func(T=T_val)
+                                            except ValueError as e:
+                                                self.assertIn('sigma and nu must be non-negative', str(e))
+
+                                    # ensure sensitivity analysis fails on control
+                                    with pytest.raises(AssertionError):
+                                        est.sensitivity_interval(T='a')
+
+                                    with pytest.raises(AssertionError):
+                                        est.robustness_value(T='a')
+
+                                    with pytest.raises(AssertionError):
+                                        est.sensitivity_summary(T='a')
+
+                                    # ensure failure on unknown treatment values
+                                    with pytest.raises(ValueError, match='not in the list of treatments'):
+                                        est.sensitivity_interval(T=1)
+
+                                    with pytest.raises(ValueError, match='not in the list of treatments'):
+                                        est.robustness_value(T=1)
+
+                                    with pytest.raises(ValueError, match='not in the list of treatments'):
+                                        est.sensitivity_summary(T=1)
+
+
                                     # make sure we can call the marginal_effect and effect methods
                                     const_marg_eff = est.const_marginal_effect(
                                         X)
