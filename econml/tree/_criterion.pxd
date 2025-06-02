@@ -66,11 +66,11 @@ cdef class Criterion:
     # Methods
     cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
-                  SIZE_t* samples) nogil except -1
-    cdef int node_reset(self, SIZE_t start, SIZE_t end) nogil except -1
-    cdef int reset(self) nogil except -1
-    cdef int reverse_reset(self) nogil except -1
-    cdef int update(self, SIZE_t new_pos) nogil except -1
+                  SIZE_t* samples) except -1 nogil
+    cdef int node_reset(self, SIZE_t start, SIZE_t end) except -1 nogil
+    cdef int reset(self) except -1 nogil
+    cdef int reverse_reset(self) except -1 nogil
+    cdef int update(self, SIZE_t new_pos) except -1 nogil
     cdef double node_impurity(self) nogil
     cdef double proxy_node_impurity(self) nogil
     cdef void children_impurity(self, double* impurity_left,
