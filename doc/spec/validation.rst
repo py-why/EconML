@@ -14,7 +14,7 @@ Moreover, it is impossible to prove the absence of unobserved confounders.
 This is a fundamental problem for observational causal inference.
 
 To mitigate this problem, EconML provides a suite of sensitivity analysis tools,
-based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_,
+based on [Chernozhukov2022]_,
 to assess the robustness of causal estimates to unobserved confounding. 
 
 Specifically, select estimators (subclasses of :class:`.DML` and :class:`.DRLearner`)

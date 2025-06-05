@@ -17,6 +17,12 @@ References
     Two-Stage Estimation with a High-Dimensional Second Stage.
     2018.
 
+.. [Chernozhukov2022]
+    V. Chernozhukov, C. Cinelli, N. Kallus, W. Newey, A. Sharma, and V. Syrgkanis.
+    Long Story Short: Omitted Variable Bias in Causal Machine Learning.
+    *NBER Working Paper No. 30302*, 2022.
+    URL https://www.nber.org/papers/w30302.
+
 .. [Hartford2017]
     Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy.
     Deep IV: A flexible approach for counterfactual prediction.
