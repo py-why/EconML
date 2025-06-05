@@ -798,7 +798,7 @@ class DRLearner(_OrthoLearner):
         The sensitivity interval is the range of values for the ATE that are
         consistent with the observed data, given a specified level of confounding.
 
-        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+        Based on [Chernozhukov2022]_
 
         Parameters
         ----------
@@ -848,7 +848,7 @@ class DRLearner(_OrthoLearner):
 
         Returns 0 if the original interval already includes the null_hypothesis.
 
-        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+        Based on [Chernozhukov2022]_
 
         Parameters
         ----------
