@@ -24,7 +24,7 @@ have access to ``sensitivity_analysis``, ``robustness_value``, and ``sensitivity
 
 
 ``robustness_value`` computes the minimum level of unobserved confounding required
-to make it impossible to reject a null hypothesis (default 0).
+so that confidence intervals around the ATE would begin to include the given point (0 by default).
 
 
 ``sensitivity_summary`` provides a summary of the the two above methods.
