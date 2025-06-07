@@ -794,6 +794,7 @@ class CausalForestDML(_BaseDML):
         est.inference = False
 
         scorer = RScorer(model_y=est.model_y, model_t=est.model_t,
+                         discrete_outcome=est.discrete_outcome,
                          discrete_treatment=est.discrete_treatment, categories=est.categories,
                          cv=est.cv, mc_iters=est.mc_iters, mc_agg=est.mc_agg,
                          random_state=est.random_state)
