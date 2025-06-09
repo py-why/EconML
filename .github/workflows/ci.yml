@@ -118,7 +118,7 @@ jobs:
         kind: [except-customer-scenarios, customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
-          extras: "[tf,plt,ray]"
+          extras: "[plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.8' # no supported version of tensorflow for 3.9
@@ -226,16 +226,16 @@ jobs:
             extras: ""
           - kind: other
             opts: '-m "cate_api and not ray" -n auto'
-            extras: "[tf,plt]"
+            extras: "[plt]"
           - kind: dml
             opts: '-m "dml and not ray"'
-            extras: "[tf,plt]"
+            extras: "[plt]"
           - kind: main
             opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization or ray)" -n 2'
-            extras: "[tf,plt,dowhy]"
+            extras: "[plt,dowhy]"
           - kind: treatment
             opts: '-m "treatment_featurization and not ray" -n auto'
-            extras: "[tf,plt]"
+            extras: "[plt]"
           - kind: ray
             opts: '-m "ray"'
             extras: "[ray]"
@@ -308,13 +308,13 @@ jobs:
         kind: [tests]
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-        extras: ["[tf,plt,dowhy,ray]"]
+        extras: ["[plt,dowhy,ray]"]
         include:
           # explicitly add the two notebook extras
           - kind: notebooks
             os: ubuntu-latest
             python-version: '3.8'
-            extras: "[tf,plt,ray]"
+            extras: "[plt,ray]"
           - kind: notebooks
             os: ubuntu-latest
             python-version: '3.9'

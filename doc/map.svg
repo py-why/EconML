@@ -107,10 +107,6 @@
         </a>
         <path d="M40.7427 854.138 77.7427 854.138 114.743 854.138 151.743 854.138 188.743 854.138 188.743 855.138 151.743 855.138 114.743 855.138 77.7427 855.138 40.7427 855.138Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="216" y="781" width="163" height="97" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
-        <a href="_autosummary/econml.iv.nnet.DeepIV.html" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(274.239 808)">Deep IV</text>
-        </a>
-        <path d="M274.659 810.338 297.659 810.338 320.659 810.338 320.659 811.338 297.659 811.338 274.659 811.338Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.iv.dr.NonParamDMLIV.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(246.159 825)">NonParamDMLIV</text>
         </a>

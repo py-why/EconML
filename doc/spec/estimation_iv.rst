@@ -14,6 +14,5 @@ of [Newey2003]_.
 .. toctree::
     :maxdepth: 2
 
-    estimation/deepiv.rst
     estimation/two_sls.rst
     estimation/orthoiv.rst
