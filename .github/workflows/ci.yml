@@ -121,11 +121,11 @@ jobs:
           extras: "[plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
-          version: '3.8' # no supported version of tensorflow for 3.9
+          version: '3.12'
         - kind: "customer-scenarios"
           extras: "[plt,dowhy]"
           pattern: "CustomerScenarios"
-          version: '3.9'
+          version: '3.12'
           install_graphviz: false
       fail-fast: false
     env:
@@ -204,20 +204,17 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
-          # Mac ARM doesn't support tensorflow versions compatible with python 3.8
-          - os: macos-latest
-            python-version: '3.8'        
           # Ray tests run out of memory on Windows
           - os: windows-latest
             kind: ray
-          # Ray doesn't currently support Python 3.12
-          - python-version: '3.12'
+          # Ray doesn't currently support Python 3.13
+          - python-version: '3.13'
             kind: ray
         # Assign the correct package and testing options for each kind of test
         include:
@@ -307,22 +304,23 @@ jobs:
       matrix:
         kind: [tests]
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-        extras: ["[plt,dowhy,ray]"]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
         include:
+          # assign extras to all combinations
+          - extras: "[plt,dowhy,ray]"
+          # overwrite extras for python 3.13 only
+          - extras: "[plt,dowhy]"
+            python-version: '3.13'
           # explicitly add the two notebook extras
-          - kind: notebooks
+          - kind: notebooks-other
             os: ubuntu-latest
-            python-version: '3.8'
+            python-version: '3.12'
             extras: "[plt,ray]"
-          - kind: notebooks
+          - kind: notebooks-customer
             os: ubuntu-latest
-            python-version: '3.9'
+            python-version: '3.12'
             extras: "[plt,dowhy]"
-        exclude:
-          # Mac ARM doesn't support tensorflow versions compatible with python 3.8
-          - os: macos-latest
-            python-version: '3.8'
+      fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
@@ -341,7 +339,7 @@ jobs:
       run: uv pip install --system -e .${{ matrix.extras }}
     - name: Install notebook requirements
       run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      if: matrix.kind == 'notebooks'
+      if: startswith(matrix.kind, 'notebooks-')
     - name: Save installed packages
       run: pip freeze --exclude-editable > lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
     - name: Upload installed packages
@@ -369,7 +367,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
     - name: Install coverage
       run: pip install coverage[toml]
     - name: Combine coverage reports
@@ -413,8 +411,10 @@ jobs:
         kind: [tests, notebooks]
         include:
         - kind: tests
+          pattern: tests
           output-name: lkg
         - kind: notebooks
+          pattern: "notebooks-(?P<subset>[a-z]+)"
           output-name: lkg-notebook
     runs-on: ubuntu-latest
     steps:
@@ -430,7 +430,7 @@ jobs:
         name: lkg-${{ matrix.kind }}
         path: requirements
     - name: "Generate last known good versions"
-      run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.kind }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
+      run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.pattern }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
     - name: "Upload last known good versions"
       uses: actions/upload-artifact@v4
       with:
