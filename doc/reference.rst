@@ -86,16 +86,6 @@ Doubly Robust (DR) IV
     econml.iv.dr.IntentToTreatDRIV
     econml.iv.dr.LinearIntentToTreatDRIV
 
-.. _deepiv_api:
-
-DeepIV
-^^^^^^
-
-.. autosummary::
-    :toctree: _autosummary
-
-    econml.iv.nnet.DeepIV
-
 .. _tsls_api:
 
 Sieve Methods

@@ -5,13 +5,7 @@ from econml.utilities import get_feature_names_or_default
 import numpy as np
 import pandas as pd
 import unittest
-import pytest
 
-try:
-    import keras
-    keras_installed = True
-except ImportError:
-    keras_installed = False
 
 from econml.dr import LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.dml import LinearDML, SparseLinearDML, CausalForestDML
@@ -23,7 +17,6 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 from sklearn.linear_model import MultiTaskLasso, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
 from econml.iv.dr import LinearIntentToTreatDRIV
-from econml.iv.nnet import DeepIV
 
 
 class TestPandasIntegration(unittest.TestCase):
@@ -209,34 +202,6 @@ class TestPandasIntegration(unittest.TestCase):
         _lb, _ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check input names propagate
         self._check_popsum_names(est.effect_inference(X).population_summary())
-
-    @pytest.mark.skipif(not keras_installed, reason="Keras not installed")
-    def test_deepiv(self):
-        X = TestPandasIntegration.df[TestPandasIntegration.features]
-        Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
-        T = TestPandasIntegration.df[TestPandasIntegration.cont_treat]
-        Z = TestPandasIntegration.df[TestPandasIntegration.instrument]
-        # Test DeepIV
-        treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(3,)),
-                                            keras.layers.Dropout(0.17),
-                                            keras.layers.Dense(64, activation='relu'),
-                                            keras.layers.Dropout(0.17),
-                                            keras.layers.Dense(32, activation='relu'),
-                                            keras.layers.Dropout(0.17)])
-        response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(3,)),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(64, activation='relu'),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(32, activation='relu'),
-                                           keras.layers.Dropout(0.17),
-                                           keras.layers.Dense(1)])
-        est = DeepIV(n_components=10,  # Number of gaussians in the mixture density networks)
-                     m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # Treatment model
-                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # Response model
-                     n_samples=1  # Number of samples used to estimate the response
-                     )
-        est.fit(Y, T, X=X, Z=Z)
-        _treatment_effects = est.effect(X)
 
     def test_cat_treatments(self):
         X = TestPandasIntegration.df[TestPandasIntegration.features]
