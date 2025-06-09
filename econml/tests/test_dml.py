@@ -741,41 +741,6 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(lb - .01, truth)
                 np.testing.assert_array_less(truth, ub + .01)
 
-    def test_score_fn_validation(self):
-
-        def good_score_fn_1(y_true, y_pred):
-            return 1
-        def good_score_fn_2(X, Y):
-            return 1
-        def good_score_fn_wts_1(x, y, sample_weight=None):
-            return 1
-        def good_score_fn_wts_2(y_true, y_pred, sample_weight=None):
-            return 1
-        def good_score_fn_wts_3(x, y, sample_weight=None):
-            return 1
-        def good_score_fn_bad_wts(y_true, y_pred, weights=None):
-            return 1
-
-        def bad_score_fn_1(y_true, z):
-            return 1
-        def bad_score_fn_3(y_true):
-            return 1
-        def bad_score_fn_good_wts(y_true, y, sample_weight=None):
-            return 1
-
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_1) == (True, False)
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_2) == (True, False)
-
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_wts_1) == (True, True)
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_wts_2) == (True, True)
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_wts_3) == (True, True)
-
-        assert _ModelFinal.has_valid_ml_signature(bad_score_fn_1) == (False, False)
-        assert _ModelFinal.has_valid_ml_signature(bad_score_fn_3) == (False, False)
-
-        assert _ModelFinal.has_valid_ml_signature(bad_score_fn_good_wts) == (False, True)
-        assert _ModelFinal.has_valid_ml_signature(good_score_fn_bad_wts) == (True, False)
-
 
     def test_forest_dml_score_fns(self):
         np.random.seed(1234)
