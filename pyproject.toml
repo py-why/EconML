@@ -1,6 +1,6 @@
 [project]
 name = "econml"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [{ name = "PyWhy contributors" }]
 description = "This package contains several methods for calculating Conditional Average Treatment Effects"
 readme = "README.md"
@@ -9,11 +9,11 @@ license = { text = "MIT" }
 dynamic = ["version"]
 
 classifiers = [
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
@@ -50,9 +50,7 @@ plt = [
 ]
 dowhy = [
     # when updating this, also update the version check in dowhy.py
-    "dowhy < 0.13; python_version > '3.8'",
-    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
-    "dowhy < 0.11; python_version <= '3.8'"
+    "dowhy < 0.13"
 ]
 ray = [
     "ray > 2.2.0"
@@ -63,9 +61,7 @@ all = [
     "azure-cli",
     "graphviz",
     "matplotlib",    
-    "dowhy < 0.13; python_version > '3.8'",
-    # Version capped due to scipy incompatibility - can't import dowhy 0.11.1 with scipy 1.4.1
-    "dowhy < 0.11; python_version <= '3.8'",
+    "dowhy < 0.13",
     "ray > 2.2.0"
 ]
 
@@ -73,8 +69,7 @@ all = [
 requires = [
     "setuptools",
     "wheel",
-    "numpy>=2,<3; python_version > '3.8'",
-    "oldest-supported-numpy; python_version <= '3.8'",
+    "numpy>=2,<3",
     "scipy",
     "cython"
 ]
