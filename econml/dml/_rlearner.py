@@ -137,54 +137,6 @@ class _ModelFinal:
 
 
     @staticmethod
-    def has_valid_ml_signature(func: Callable) -> Tuple[bool, bool]:
-        """
-        Verify that scoring function has a valid signature.
-
-        Scoring functions must have argument pairs ('y_pred', 'y_true'), ('y_true', 'y_score'),
-        ('x', 'y'), or ('X','Y'). There can be an optional 'sample_weight' argument
-        :param func: The function to check
-        :return: valid, has_sample_weight - (1) if it is a valid scorinf function at all;
-           (2) if the function includes a sample weight argument
-        """
-        try:
-            sig = inspect.signature(func)
-            params = sig.parameters
-
-            # Collect required parameters
-            required = [
-                name for name, p in params.items()
-                if p.default is inspect.Parameter.empty
-                   and p.kind in (
-                       inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                       inspect.Parameter.KEYWORD_ONLY
-                   )
-            ]
-
-            # Check for one of the valid base signatures. Note use of set literals
-            valid = (
-                    {'y_pred', 'y_true'}.issubset(required)
-                    or {'y_true', 'y_score'}.issubset(required)
-                    or {'x', 'y'}.issubset(required)
-                    or {'X', 'Y'}.issubset(required)
-            )
-
-            # Check for presence and optionality of sample_weight
-            has_sample_weight = False
-            if 'sample_weight' in params:
-                p = params['sample_weight']
-                if p.default is not inspect.Parameter.empty:
-                    has_sample_weight = True
-                else:
-                    # It's present but not optional, so still invalid overall
-                    return False, False
-
-            return valid, has_sample_weight
-
-        except Exception:
-            return False, False
-
-    @staticmethod
     def _wrap_scoring(scoring:Union[str, Callable], Y_true, Y_pred, sample_weight=None):
         """
         Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
@@ -193,15 +145,12 @@ class _ModelFinal:
         "neg_..." so score names are accepted either with or without the "neg_" prefix.
         The function _score_func is called directly because the scorer objects from get_scorer()
         do not accept a sample_weight parameter. The _score_func member has been available in
-        sklearn scorers since before sklearn 1.0.
+        sklearn scorers since before sklearn 1.0. Note that custom callable score functions
+        are allowed but they are not validated before use; any errors will be raised.
 
-        A special case is written for using 'pearsonr' as a score function, with unweighted samples.
-        pearsonr is a useful score function for "Zero Inflated" regression problems, in which
-        a regression problem has mainly zero outcomes. In that case the MSE is typically a very
-        small number and the r-squared may be negative; a statistically significant correlation
-        between predictions and outcomes is the best evidence the model fit is meaningful.
 
-        :param scoring: A string name of a scoring function from sklearn
+        :param scoring: A string name of a scoring function from sklearn, or any callable that will
+            function as thes core.
         :param Y_true: True Y values
         :param Y_pred: Predicted Y values
         :param sample_weight: Optional weighting on the examples
@@ -216,14 +165,6 @@ class _ModelFinal:
         else:
             raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
 
-        valid, has_sample_weight = _ModelFinal.has_valid_ml_signature(score_fn)
-
-        if not valid:
-            raise ValueError("Scoring function does not have a valid signature "
-                             "including (y_true,y_pred) or (x,y)")
-        if sample_weight is not None and not has_sample_weight:
-            raise ValueError("Scoring function does NOT have a sample_weight argument "
-                             "but sample_weight argument was provided to scoring")
         # Some score like functions are partial to np.array and not np.ndarray with shape (N,1)
         Y_true = Y_true.squeeze() if len(Y_true.shape)==2 and Y_true.shape[1]==1 else Y_true
         Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_true
