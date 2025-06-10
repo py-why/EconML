@@ -103,27 +103,27 @@ cdef class Splitter:
     cdef int init_sample_inds(self, SIZE_t* samples,
                               const SIZE_t[::1] np_samples,
                               DOUBLE_t* sample_weight,
-                              SIZE_t* n_samples, double* weighted_n_samples) nogil except -1
+                              SIZE_t* n_samples, double* weighted_n_samples) except -1 nogil
 
     cdef int init(self, const DTYPE_t[:, :] X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
                   const SIZE_t[::1] np_samples_train,
-                  const SIZE_t[::1] np_samples_val) nogil except -1
+                  const SIZE_t[::1] np_samples_val) except -1 nogil
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end, double* weighted_n_node_samples,
-                        SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1
+                        SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) except -1 nogil
 
     cdef int node_split(self,
                         double impurity,   # Impurity of the node
                         SplitRecord* split,
-                        SIZE_t* n_constant_features) nogil except -1
+                        SIZE_t* n_constant_features) except -1 nogil
 
-    cdef void node_value_val(self, double* dest) nogil
-    cdef void node_jacobian_val(self, double* dest) nogil
-    cdef void node_precond_val(self, double* dest) nogil
-    cdef double node_impurity(self) nogil
-    cdef double node_impurity_val(self) nogil
-    cdef double proxy_node_impurity(self) nogil
-    cdef double proxy_node_impurity_val(self) nogil
-    cdef bint is_children_impurity_proxy(self) nogil
+    cdef void node_value_val(self, double* dest) noexcept nogil
+    cdef void node_jacobian_val(self, double* dest) noexcept nogil
+    cdef void node_precond_val(self, double* dest) noexcept nogil
+    cdef double node_impurity(self) noexcept nogil
+    cdef double node_impurity_val(self) noexcept nogil
+    cdef double proxy_node_impurity(self) noexcept nogil
+    cdef double proxy_node_impurity_val(self) noexcept nogil
+    cdef bint is_children_impurity_proxy(self) noexcept nogil
     

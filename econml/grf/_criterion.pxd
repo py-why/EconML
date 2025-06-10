@@ -50,23 +50,23 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ, double* weighted_n_node_samples,
                                   const DOUBLE_t[:, ::1] pointJ,
                                   DOUBLE_t* sample_weight,
-                                  SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1
+                                  SIZE_t* samples, SIZE_t start, SIZE_t end) except -1 nogil
     cdef int node_reset_parameter(self, DOUBLE_t* parameter, DOUBLE_t* parameter_pre,
                                    DOUBLE_t* invJ,
                                    const DOUBLE_t[:, ::1] alpha,
                                    DOUBLE_t* sample_weight, double weighted_n_node_samples,
-                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1
+                                   SIZE_t* samples, SIZE_t start, SIZE_t end) except -1 nogil
     cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment, SIZE_t* node_index_mapping,
                        DOUBLE_t* parameter, DOUBLE_t* invJ, double weighted_n_node_samples,
                        const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 
-                       SIZE_t start, SIZE_t end) nogil except -1
+                       SIZE_t start, SIZE_t end) except -1 nogil
     cdef int node_reset_sums(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* rho,
                              DOUBLE_t* J,
                              DOUBLE_t* sample_weight, SIZE_t* samples,
                              DOUBLE_t* sum_total, DOUBLE_t* var_total,
                              DOUBLE_t* sq_sum_total, DOUBLE_t* y_sq_sum_total,
-                             SIZE_t start, SIZE_t end) nogil except -1
+                             SIZE_t start, SIZE_t end) except -1 nogil
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* J_left           # The jacobian of the left child: J(Left) = E[J | X in Left-Child]
@@ -79,4 +79,4 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* parameter_right
 
     cdef double _get_min_eigv(self, DOUBLE_t* J_child, DOUBLE_t* var_child,
-                              double weighted_n_child) nogil except -1
+                              double weighted_n_child) except -1 nogil
