@@ -34,7 +34,7 @@ cdef double INFINITY = np.inf
 # Mitigate precision differences between 32 bit and 64 bit
 cdef DTYPE_t FEATURE_THRESHOLD = 1e-7
 
-cdef inline void _init_split(SplitRecord* self, SIZE_t start_pos, SIZE_t start_pos_val) nogil:
+cdef inline void _init_split(SplitRecord* self, SIZE_t start_pos, SIZE_t start_pos_val) noexcept nogil:
     self.impurity_left = INFINITY
     self.impurity_right = INFINITY
     self.impurity_left_val = INFINITY
@@ -141,7 +141,7 @@ cdef class Splitter:
                                const SIZE_t[::1] np_samples,
                                DOUBLE_t* sample_weight,
                                SIZE_t* n_samples,
-                               double* weighted_n_samples) nogil except -1:
+                               double* weighted_n_samples) except -1 nogil:
         """ Initialize the cython sample index arrays `samples` based on the python
         numpy array `np_samples`. Calculate total weight of samples as you go though the pass
         and store it in the output variable `weighted_n_samples`. Update the number of samples
@@ -169,7 +169,7 @@ cdef class Splitter:
     cdef int init(self, const DTYPE_t[:, :] X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
                   const SIZE_t[::1] np_samples_train,
-                  const SIZE_t[::1] np_samples_val) nogil except -1:
+                  const SIZE_t[::1] np_samples_val) except -1 nogil:
         """Initialize the splitter.
         Take in the input data X, y and the train/val split. Returns -1 in case of failure to
         allocate memory (and raise MemoryError) or 0 otherwise.
@@ -238,7 +238,7 @@ cdef class Splitter:
         return 0
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end,  double* weighted_n_node_samples,
-                        SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1:
+                        SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) except -1 nogil:
         """Reset splitter on node samples[start:end] on train set and [start_val:end_val] on val set.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
@@ -275,7 +275,7 @@ cdef class Splitter:
         return 0
 
     cdef int node_split(self, double impurity, SplitRecord* split,
-                        SIZE_t* n_constant_features) nogil except -1:
+                        SIZE_t* n_constant_features) except -1 nogil:
         """Find the best split on node samples[start:end].
         This is a placeholder method. The majority of computation will be done
         here.
@@ -284,42 +284,42 @@ cdef class Splitter:
 
         pass
 
-    cdef void node_value_val(self, double* dest) nogil:
+    cdef void node_value_val(self, double* dest) noexcept nogil:
         """Copy the value of node samples[start:end] into dest."""
 
         self.criterion_val.node_value(dest)
     
-    cdef void node_jacobian_val(self, double* dest) nogil:
+    cdef void node_jacobian_val(self, double* dest) noexcept nogil:
         """Copy the mean jacobian of node samples[start:end] into dest."""
 
         self.criterion_val.node_jacobian(dest)
     
-    cdef void node_precond_val(self, double* dest) nogil:
+    cdef void node_precond_val(self, double* dest) noexcept nogil:
         """Copy the mean precond of node samples[start:end] into dest."""
 
         self.criterion_val.node_precond(dest)
 
-    cdef double node_impurity(self) nogil:
+    cdef double node_impurity(self) noexcept nogil:
         """Return the impurity of the current node on the train set."""
 
         return self.criterion.node_impurity()
     
-    cdef double node_impurity_val(self) nogil:
+    cdef double node_impurity_val(self) noexcept nogil:
         """Return the impurity of the current node on the val set."""
 
         return self.criterion_val.node_impurity()
     
-    cdef double proxy_node_impurity(self) nogil:
+    cdef double proxy_node_impurity(self) noexcept nogil:
         """Return the impurity of the current node on the train set."""
 
         return self.criterion.proxy_node_impurity()
     
-    cdef double proxy_node_impurity_val(self) nogil:
+    cdef double proxy_node_impurity_val(self) noexcept nogil:
         """Return the impurity of the current node on the val set."""
 
         return self.criterion_val.proxy_node_impurity()
 
-    cdef bint is_children_impurity_proxy(self) nogil:
+    cdef bint is_children_impurity_proxy(self) noexcept nogil:
         """Whether the criterion method children_impurity() returns an
         accurate node impurity of the children or just some computationally efficient
         approximation.
@@ -343,7 +343,7 @@ cdef class BestSplitter(Splitter):
                                self.random_state), self.__getstate__())
 
     cdef int node_split(self, double impurity, SplitRecord* split,
-                        SIZE_t* n_constant_features) nogil except -1:
+                        SIZE_t* n_constant_features) except -1 nogil:
         """Find the best split on node samples[start:end]
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
@@ -649,7 +649,7 @@ cdef class BestSplitter(Splitter):
 
 # Sort n-element arrays pointed to by Xf and samples, simultaneously,
 # by the values in Xf. Algorithm: Introsort (Musser, SP&E, 1997).
-cdef inline void sort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
+cdef inline void sort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) noexcept nogil:
     if n == 0:
       return
     cdef int maxd = 2 * <int>log(n)
@@ -657,13 +657,13 @@ cdef inline void sort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
 
 
 cdef inline void swap(DTYPE_t* Xf, SIZE_t* samples,
-        SIZE_t i, SIZE_t j) nogil:
+        SIZE_t i, SIZE_t j) noexcept nogil:
     # Helper for sort
     Xf[i], Xf[j] = Xf[j], Xf[i]
     samples[i], samples[j] = samples[j], samples[i]
 
 
-cdef inline DTYPE_t median3(DTYPE_t* Xf, SIZE_t n) nogil:
+cdef inline DTYPE_t median3(DTYPE_t* Xf, SIZE_t n) noexcept nogil:
     # Median of three pivot selection, after Bentley and McIlroy (1993).
     # Engineering a sort function. SP&E. Requires 8/3 comparisons on average.
     cdef DTYPE_t a = Xf[0], b = Xf[n / 2], c = Xf[n - 1]
@@ -686,7 +686,7 @@ cdef inline DTYPE_t median3(DTYPE_t* Xf, SIZE_t n) nogil:
 # Introsort with median of 3 pivot selection and 3-way partition function
 # (robust to repeated elements, e.g. lots of zero features).
 cdef void introsort(DTYPE_t* Xf, SIZE_t *samples,
-                    SIZE_t n, int maxd) nogil:
+                    SIZE_t n, int maxd) noexcept nogil:
     cdef DTYPE_t pivot
     cdef SIZE_t i, l, r
 
@@ -719,7 +719,7 @@ cdef void introsort(DTYPE_t* Xf, SIZE_t *samples,
 
 
 cdef inline void sift_down(DTYPE_t* Xf, SIZE_t* samples,
-                           SIZE_t start, SIZE_t end) nogil:
+                           SIZE_t start, SIZE_t end) noexcept nogil:
     # Restore heap order in Xf[start:end] by moving the max element to start.
     cdef SIZE_t child, maxind, root
 
@@ -741,7 +741,7 @@ cdef inline void sift_down(DTYPE_t* Xf, SIZE_t* samples,
             root = maxind
 
 
-cdef void heapsort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) nogil:
+cdef void heapsort(DTYPE_t* Xf, SIZE_t* samples, SIZE_t n) noexcept nogil:
     cdef SIZE_t start, end
 
     # heapify
