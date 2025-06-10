@@ -145,7 +145,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
     cdef int init(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* sample_weight,
                   double weighted_n_samples,
-                  SIZE_t* samples) nogil except -1:
+                  SIZE_t* samples) except -1 nogil:
         cdef SIZE_t n_features = self.n_features
         cdef SIZE_t n_outputs = self.n_outputs
         cdef SIZE_t n_y = self.n_y
@@ -163,7 +163,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ, double* weighted_n_node_samples,
                                   const DOUBLE_t[:, ::1] pointJ,
                                   DOUBLE_t* sample_weight,
-                                  SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
+                                  SIZE_t* samples, SIZE_t start, SIZE_t end) except -1 nogil:
         """ Calculate the node un-normalized jacobian::
 
             J(node) := E[J[i] | X[i] in Node] weight(node) = sum_{i in Node} w[i] J[i]
@@ -233,7 +233,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                    DOUBLE_t* invJ,
                                    const DOUBLE_t[:, ::1] alpha,
                                    DOUBLE_t* sample_weight, double weighted_n_node_samples,
-                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
+                                   SIZE_t* samples, SIZE_t start, SIZE_t end) except -1 nogil:
         """ Calculate the node parameter and the un-normalized pre-conditioned parameter
 
             theta_pre(node) := E[A[i] | X[i] in Node] weight(node) = sum_{i in Node} w[i] A[i]
@@ -283,7 +283,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment, SIZE_t* node_index_mapping,
                        DOUBLE_t* parameter, DOUBLE_t* invJ, double weighted_n_node_samples,
                        const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha, DOUBLE_t* sample_weight,
-                       SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
+                       SIZE_t* samples, SIZE_t start, SIZE_t end) except -1 nogil:
         """ Calculate the node proxy labels and moment for each sample i in the node
 
             moment[i] := J[i] * theta(Node) - A[i]
@@ -343,7 +343,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                              DOUBLE_t* sample_weight, SIZE_t* samples,
                              DOUBLE_t* sum_total, DOUBLE_t* var_total, DOUBLE_t* sq_sum_total,
                              DOUBLE_t* y_sq_sum_total,
-                             SIZE_t start, SIZE_t end) nogil except -1:
+                             SIZE_t start, SIZE_t end) except -1 nogil:
         """ Initialize several sums of quantities that will be useful to speed up the `update()` method:
 
             for k in {1..n_outputs}: sum_total[k] := sum_{i in Node} w[i] rho[i, k]
@@ -411,7 +411,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         return 0
 
-    cdef int node_reset(self, SIZE_t start, SIZE_t end) nogil except -1:
+    cdef int node_reset(self, SIZE_t start, SIZE_t end) except -1 nogil:
         """Initialize the criterion at node samples[start:end] and
            children samples[start:start] and samples[start:end]."""
         
@@ -447,7 +447,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         self.reset()
         return 0
 
-    cdef int reset(self) nogil except -1:
+    cdef int reset(self) except -1 nogil:
         """Reset the criterion at pos=start."""
         cdef SIZE_t n_bytes = self.n_outputs * sizeof(double)
 
@@ -462,7 +462,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         return 0
 
-    cdef int reverse_reset(self) nogil except -1:
+    cdef int reverse_reset(self) except -1 nogil:
         """Reset the criterion at pos=end."""
         cdef SIZE_t n_bytes = self.n_outputs * sizeof(double)
         memset(self.sum_right, 0, n_bytes)
@@ -476,7 +476,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         return 0
 
-    cdef int update(self, SIZE_t new_pos) nogil except -1:
+    cdef int update(self, SIZE_t new_pos) except -1 nogil:
         """Updated statistics by moving samples[pos:new_pos] to the left."""
 
         cdef double* sum_left = self.sum_left
@@ -554,11 +554,11 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         return 0
 
-    cdef void node_value(self, double* dest) nogil:
+    cdef void node_value(self, double* dest) noexcept nogil:
         """Return the estimated node parameter of samples[start:end] into dest."""
         memcpy(dest, self.parameter, self.n_outputs * sizeof(double))
 
-    cdef void node_jacobian(self, double* dest) nogil:
+    cdef void node_jacobian(self, double* dest) noexcept nogil:
         """Return the node normalized Jacobian of samples[start:end] into dest in a C contiguous format."""
         cdef SIZE_t i, j 
         # Jacobian is stored in f-contiguous format for fortran. We translate it to c-contiguous for
@@ -568,13 +568,13 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             for j in range(n_outputs):
                 dest[i * n_outputs + j] = self.J[i + j * n_outputs] / self.weighted_n_node_samples
         
-    cdef void node_precond(self, double* dest) nogil:
+    cdef void node_precond(self, double* dest) noexcept nogil:
         """Return the normalized node preconditioned value of samples[start:end] into dest."""
         cdef SIZE_t i
         for i in range(self.n_outputs):
             dest[i] = self.parameter_pre[i] / self.weighted_n_node_samples
 
-    cdef double node_impurity(self) nogil:
+    cdef double node_impurity(self) noexcept nogil:
         """Evaluate the impurity of the current node, i.e. the impurity of
         samples[start:end]. We use as node_impurity the proxy quantity:
         sum_{k=1}^{n_relevant_outputs} Var(rho[i, k] | i in Node) / n_relevant_outputs
@@ -591,7 +591,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         return impurity / self.n_relevant_outputs
 
-    cdef double proxy_impurity_improvement(self) nogil:
+    cdef double proxy_impurity_improvement(self) noexcept nogil:
         """Compute a proxy of the impurity reduction.
         This method is used to speed up the search for the best split. It is a proxy quantity such that the
         split that maximizes this value also maximizes the impurity improvement. It neglects all constant terms
@@ -620,7 +620,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 proxy_impurity_right / self.weighted_n_right)
 
     cdef void children_impurity(self, double* impurity_left,
-                                double* impurity_right) nogil:
+                                double* impurity_right) noexcept nogil:
         """Evaluate the impurity in children nodes, i.e. the impurity of the
         left child (samples[start:pos]) and the impurity the right child
         (samples[pos:end]). Here we use the proxy child impurity:
@@ -673,7 +673,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         impurity_left[0] /= self.n_relevant_outputs
         impurity_right[0] /= self.n_relevant_outputs
 
-    cdef double min_eig_left(self) nogil:
+    cdef double min_eig_left(self) noexcept nogil:
         """ Calculate proxy for minimum eigenvalue of jacobian of left child. Here we simply
         use the minimum absolute value of the diagonals of the jacobian. This proxy needs to be
         super fast as this calculation happens for every candidate split. So we cannot afford
@@ -692,7 +692,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         # un-normalized jacobian of the left child. Thus we normalize by weight(left)
         return min / self.weighted_n_left
 
-    cdef double min_eig_right(self) nogil:
+    cdef double min_eig_right(self) noexcept nogil:
         """ Calculate proxy for minimum eigenvalue of jacobian of right child
         (see min_eig_left for more details).
         """
@@ -774,7 +774,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
             free(self.parameter_left)
             free(self.parameter_right)
 
-    cdef int reset(self) nogil except -1:
+    cdef int reset(self) except -1 nogil:
         """Reset the criterion at pos=start."""
         cdef SIZE_t n_bytes = self.n_outputs * self.n_outputs * sizeof(double)
         memset(self.J_left, 0, n_bytes)
@@ -785,7 +785,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
             memcpy(self.parameter_pre_right, self.parameter_pre, n_bytes)
         return LinearMomentGRFCriterion.reset(self)
 
-    cdef int reverse_reset(self) nogil except -1:
+    cdef int reverse_reset(self) except -1 nogil:
         """Reset the criterion at pos=end."""
         cdef SIZE_t n_bytes = self.n_outputs * self.n_outputs * sizeof(double)
         memset(self.J_right, 0, n_bytes)
@@ -796,7 +796,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
             memcpy(self.parameter_pre_left, self.parameter_pre, n_bytes)
         return LinearMomentGRFCriterion.reverse_reset(self)
 
-    cdef int update(self, SIZE_t new_pos) nogil except -1:
+    cdef int update(self, SIZE_t new_pos) except -1 nogil:
         """Updated statistics by moving samples[pos:new_pos] to the left.
         We need to re-implement this method, as now we need to keep track of the whole left
         and right jacobian matrices, not just the diagonals.
@@ -892,7 +892,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
         return 0
 
-    cdef double proxy_node_impurity(self) nogil:
+    cdef double proxy_node_impurity(self) noexcept nogil:
         """ For n_outputs > 2, we use parent class children impurity, which is slightly different than
         the MSE criterion. Thus for `min_impurity_decrease` purposes we also use the `node_impurity` of
         the parent class and not the MSE impurity.
@@ -902,7 +902,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
         else:
             return self.node_impurity()
 
-    cdef double node_impurity(self) nogil:
+    cdef double node_impurity(self) noexcept nogil:
         """Evaluate the impurity of the current node, i.e. the impurity of samples[start:end].
         Here we use the MSE criterion:
 
@@ -930,7 +930,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
                 impurity -= pk * self.parameter[m] * self.J[k + m * n_outputs] / self.weighted_n_node_samples
         return impurity
 
-    cdef double proxy_impurity_improvement(self) nogil:
+    cdef double proxy_impurity_improvement(self) noexcept nogil:
         """Compute a proxy of the impurity reduction
         This method is used to speed up the search for the best split. It is a proxy quantity such that the
         split that maximizes this value also maximizes the impurity improvement. It neglects all constant terms
@@ -995,7 +995,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
             return (proxy_impurity_left + proxy_impurity_right)
 
     cdef void children_impurity(self, double* impurity_left,
-                                double* impurity_right) nogil:
+                                double* impurity_right) noexcept nogil:
         """Evaluate the impurity in children nodes, i.e. the impurity of the
         left child (samples[start:pos]) and the impurity the right child
         (samples[pos:end]). For n_outputs > 2, we use the parent class children impurity.
@@ -1062,7 +1062,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
 
     cdef double _get_min_eigv(self, DOUBLE_t* J_child, DOUBLE_t* var_child,
-                              double weighted_n_child) nogil except -1:
+                              double weighted_n_child) except -1 nogil:
         """ Since in this class we keep track of the whole jacobian of each child, we can
         afford a better proxy for the minimum eigenvalue. Here we propose that on top of the minimum of
         diagonal entries, we also take the minimum of that and the sqrt of every pairwise determinant.
@@ -1122,14 +1122,14 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
         # un-normalized, we normalize by child weight.
         return sqrt(min) / weighted_n_child
 
-    cdef double min_eig_left(self) nogil:
+    cdef double min_eig_left(self) noexcept nogil:
         return self._get_min_eigv(self.J_left, self.var_left, self.weighted_n_left)
     
-    cdef double min_eig_right(self) nogil:
+    cdef double min_eig_right(self) noexcept nogil:
         return self._get_min_eigv(self.J_right, self.var_right, self.weighted_n_right)
 
 
-cdef void _fast_invJ(DOUBLE_t* J, DOUBLE_t* invJ, SIZE_t n, double clip) nogil:
+cdef void _fast_invJ(DOUBLE_t* J, DOUBLE_t* invJ, SIZE_t n, double clip) noexcept nogil:
     cdef double det
     if n == 1:
         invJ[0] = 1.0 / J[0] if fabs(J[0]) >= clip else 1/clip     # Explicit inverse calculation

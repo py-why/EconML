@@ -555,7 +555,7 @@ cdef class Tree:
             precond = memcpy(self.precond, (<np.ndarray> precond_ndarray).data,
                              self.capacity * self.precond_stride * sizeof(double))
 
-    cdef int _resize(self, SIZE_t capacity) nogil except -1:
+    cdef int _resize(self, SIZE_t capacity) except -1 nogil:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then
            double the size of the inner arrays.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
@@ -566,7 +566,7 @@ cdef class Tree:
             with gil:
                 raise MemoryError()
 
-    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) nogil except -1:
+    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) except -1 nogil:
         """Guts of _resize
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
@@ -610,7 +610,7 @@ cdef class Tree:
                           double impurity_train, SIZE_t n_node_samples_train,
                           double weighted_n_node_samples_train,
                           double impurity_val, SIZE_t n_node_samples_val,
-                          double weighted_n_node_samples_val) nogil except -1:
+                          double weighted_n_node_samples_val) except -1 nogil:
         """Add a node to the tree.
         The new node registers itself as the child of its parent.
         Returns (size_t)(-1) on error.

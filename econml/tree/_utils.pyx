@@ -31,7 +31,7 @@ cdef inline double LN_TWO = ln(2.0)
 
 # rand_r replacement using a 32bit XorShift generator
 # See http://www.jstatsoft.org/v08/i14/paper for details
-cdef inline UINT32_t our_rand_r(UINT32_t* seed) nogil:
+cdef inline UINT32_t our_rand_r(UINT32_t* seed) noexcept nogil:
     """Generate a pseudo-random np.uint32 from a np.uint32 seed"""
     # seed shouldn't ever be 0.
     if (seed[0] == 0): seed[0] = DEFAULT_SEED
@@ -53,7 +53,7 @@ cdef inline UINT32_t our_rand_r(UINT32_t* seed) nogil:
     return seed[0] % <UINT32_t>(RAND_R_MAX + 1)
 
 
-cdef realloc_ptr safe_realloc(realloc_ptr* p, SIZE_t nelems) nogil except *:
+cdef realloc_ptr safe_realloc(realloc_ptr* p, SIZE_t nelems) except * nogil:
     # sizeof(realloc_ptr[0]) would be more like idiomatic C, but causes Cython
     # 0.20.1 to crash.
     cdef SIZE_t nbytes = nelems * sizeof(p[0][0])
@@ -79,19 +79,19 @@ cdef inline np.ndarray sizet_ptr_to_ndarray(SIZE_t* data, SIZE_t size):
 
 
 cdef inline SIZE_t rand_int(SIZE_t low, SIZE_t high,
-                            UINT32_t* random_state) nogil:
+                            UINT32_t* random_state) noexcept nogil:
     """Generate a random integer in [low; end)."""
     return low + our_rand_r(random_state) % (high - low)
 
 
 cdef inline double rand_uniform(double low, double high,
-                                UINT32_t* random_state) nogil:
+                                UINT32_t* random_state) noexcept nogil:
     """Generate a random double in [low; high)."""
     return ((high - low) * <double> our_rand_r(random_state) /
             <double> RAND_R_MAX) + low
 
 
-cdef inline double log(double x) nogil:
+cdef inline double log(double x) noexcept nogil:
     return ln(x) / LN_TWO
 
 
@@ -120,13 +120,13 @@ cdef class Stack:
     def __dealloc__(self):
         free(self.stack_)
 
-    cdef bint is_empty(self) nogil:
+    cdef bint is_empty(self) noexcept nogil:
         return self.top <= 0
 
     cdef int push(self, SIZE_t start, SIZE_t end, SIZE_t start_val, SIZE_t end_val,
                   SIZE_t depth, SIZE_t parent,
                   bint is_left, double impurity, double impurity_val,
-                  SIZE_t n_constant_features) nogil except -1:
+                  SIZE_t n_constant_features) except -1 nogil:
         """Push a new element onto the stack.
         Return -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
@@ -156,7 +156,7 @@ cdef class Stack:
         self.top = top + 1
         return 0
 
-    cdef int pop(self, StackRecord* res) nogil:
+    cdef int pop(self, StackRecord* res) noexcept nogil:
         """Remove the top element from the stack and copy to ``res``.
         Returns 0 if pop was successful (and ``res`` is set); -1
         otherwise.

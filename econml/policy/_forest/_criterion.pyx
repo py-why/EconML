@@ -17,19 +17,19 @@ cdef class LinearPolicyCriterion(RegressionCriterion):
     r""" 
     """
 
-    cdef double node_impurity(self) nogil:
+    cdef double node_impurity(self) noexcept nogil:
         """Evaluate the impurity of the current node, i.e. the impurity of
         samples[start:end].
         """
         return - _max(self.sum_total, self.n_outputs) / self.weighted_n_node_samples
 
-    cdef double proxy_impurity_improvement(self) nogil:
+    cdef double proxy_impurity_improvement(self) noexcept nogil:
         """Compute a proxy of the impurity reduction.
         """
         return (_max(self.sum_left, self.n_outputs) + _max(self.sum_right, self.n_outputs))
 
     cdef void children_impurity(self, double* impurity_left,
-                                double* impurity_right) nogil:
+                                double* impurity_right) noexcept nogil:
         """Evaluate the impurity in children nodes, i.e. the impurity of the
         left child (samples[start:pos]) and the impurity the right child
         (samples[pos:end]).
@@ -38,7 +38,7 @@ cdef class LinearPolicyCriterion(RegressionCriterion):
         impurity_right[0] = - _max(self.sum_right, self.n_outputs) / self.weighted_n_right
 
 
-cdef inline double _max(double* array, SIZE_t n) nogil:
+cdef inline double _max(double* array, SIZE_t n) noexcept nogil:
     cdef SIZE_t k
     cdef double max_val
     max_val = - INFINITY 
