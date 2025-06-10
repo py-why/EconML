@@ -26,14 +26,13 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 """
 
 from abc import abstractmethod
-import inspect
 import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     get_scorer,
     get_scorer_names
 )
-from typing import Tuple,Callable, Union
+from typing import Callable, Union
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner

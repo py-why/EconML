@@ -10,7 +10,6 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, Polynomial
 from sklearn.model_selection import KFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.dml import NonParamDML
-from econml.dml._rlearner import _ModelFinal
 import numpy as np
 import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
