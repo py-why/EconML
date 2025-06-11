@@ -105,7 +105,7 @@ exclude = ["econml.tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["econml/tests"]
-addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=pyproject.toml --cov --import-mode=importlib"
+addopts = "--junitxml=junit/test-results.xml -n0 --strict-markers --cov-config=pyproject.toml --import-mode=importlib"
 markers = [    
     "slow",
     "notebook",

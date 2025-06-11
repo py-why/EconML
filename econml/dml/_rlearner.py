@@ -166,7 +166,7 @@ class _ModelFinal:
 
         # Some score like functions are partial to np.array and not np.ndarray with shape (N,1)
         Y_true = Y_true.squeeze() if len(Y_true.shape)==2 and Y_true.shape[1]==1 else Y_true
-        Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_true
+        Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_pred
         if sample_weight is not None:
             res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
         else:
