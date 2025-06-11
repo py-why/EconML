@@ -1378,3 +1378,22 @@ class TestDML(unittest.TestCase):
                         expected_prefix = str(new_treatment_name[0]) if new_treatment_name is not None else t_name
                         assert (est.cate_treatment_names(new_treatment_name) == [
                                 expected_prefix + postfix for postfix in postfixes])
+
+    def test_causal_forest_tune_with_discrete_outcome_and_treatment(self):
+        np.random.seed(1234)
+        n = 1000
+        treatment = np.repeat([0, 1], n // 2)
+        covariate = np.resize([0, 1], n)
+        outcome = ((treatment == 1) & (covariate == 1)).astype(int)
+        X = covariate.reshape(-1, 1)
+        Y = outcome
+        T = treatment
+
+        est = CausalForestDML(
+            model_y=GradientBoostingClassifier(),
+            model_t=GradientBoostingClassifier(),
+            discrete_outcome=True,
+            discrete_treatment=True
+        )
+        est.tune(Y=Y, T=T, X=X)
+        est.fit(Y=Y, T=T, X=X)
