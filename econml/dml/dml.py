@@ -669,7 +669,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
         Can only be calculated when Y and T are single arrays, and T is binary or continuous.
 
-        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+        Based on [Chernozhukov2022]_
 
         Parameters
         ----------
@@ -713,7 +713,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
         Can only be calculated when Y and T are single arrays, and T is binary or continuous.
 
-        Based on `Chernozhukov et al. (2022) <https://www.nber.org/papers/w30302>`_
+        Based on [Chernozhukov2022]_
 
         Parameters
         ----------
