@@ -70,6 +70,12 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
         # Assign treatment expansion attributes
         self.transformer = dummy_est.transformer
 
+        self._allowed_missing_vars = dummy_est._gen_allowed_missing_vars()
+
+    def _gen_allowed_missing_vars(self):
+        """Generate the allowed missing variables for the federated estimator."""
+        return self._allowed_missing_vars
+
     # Methods needed to implement the LinearCateEstimator interface
 
     def const_marginal_effect(self, X=None):
