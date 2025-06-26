@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
-    "scipy > 1.4.0",
+    "scipy > 1.4.0, < 1.16",
     "scikit-learn >= 1.0, < 1.7",
     "sparse",
     "joblib >= 0.13.0",
