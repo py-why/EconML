@@ -1049,7 +1049,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -1077,6 +1077,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Weights for each samples
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
+        scoring: name of an sklearn scoring function to use instead of the default, optional
+            Supports f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score,
+            and roc_auc_score.
 
         Returns
         -------
@@ -1135,9 +1138,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             accumulated_nuisances += nuisances
 
+        score_kwargs = {
+            'X': X,
+            'W': W,
+            'Z': Z,
+            'sample_weight': sample_weight,
+            'groups': groups
+        }
+        # If using an _rlearner, the scoring parameter can be passed along, if provided
+        if scoring is not None:
+            # Cannot import in header, or circular imports
+            from .dml._rlearner import _ModelFinal
+            if isinstance(self._ortho_learner_model_final, _ModelFinal):
+                score_kwargs['scoring'] = scoring
+            else:
+                raise NotImplementedError("scoring parameter only implemented for "
+                                          "_rlearner._ModelFinal")
         return self._ortho_learner_model_final.score(Y, T, nuisances=accumulated_nuisances,
-                                                     **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                          sample_weight=sample_weight, groups=groups))
+                                                     **filter_none_kwargs(**score_kwargs))
 
     @property
     def ortho_learner_model_final_(self):
