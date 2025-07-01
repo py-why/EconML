@@ -880,7 +880,12 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             self._set_transformed_treatment_names()
 
     def _expand_treatments(self, X=None, *Ts, transform=True):
-        X, *Ts = check_input_arrays(X, *Ts)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        Ts = check_input_arrays(*Ts)
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
         for T in Ts:

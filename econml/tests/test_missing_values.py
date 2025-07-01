@@ -65,9 +65,14 @@ class ParametricModelFinalForMissing:
         self.intercept_ = self.model_final[-1].intercept_
         self.intercept_stderr_ = self.model_final[-1].intercept_stderr_
         self.coef_stderr_ = self.model_final[-1].coef_stderr_
+        return self
 
     def predict(self, *args, **kwargs):
         return self.model_final.predict(*args, **kwargs)
+
+    # assumes an sklearn pipeline by indexing -1 of model_final
+    def prediction_stderr(self, *args, **kwargs):
+        return self.model_final[-1].prediction_stderr(*args, **kwargs)
 
 
 class NonParamModelFinal:
@@ -151,7 +156,7 @@ class TestMissing(unittest.TestCase):
         Z = np.random.binomial(1, 0.5, size=(n,))
 
         clsf = make_pipeline(SimpleImputer(strategy='mean'), LogisticRegression())
-        regr = make_pipeline(SimpleImputer(strategy='mean'), Lasso())
+        regr = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
         model_final = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
         param_model_final = ParametricModelFinalForMissing(make_pipeline(
             SimpleImputer(strategy='mean'), StatsModelsLinearRegression(fit_intercept=False)))
@@ -174,7 +179,7 @@ class TestMissing(unittest.TestCase):
                           model_final=non_param_model_final, discrete_treatment=discrete_treatment,
                           discrete_instrument=discrete_instrument, allow_missing=True),
             DRLearner(model_propensity=clsf, model_regression=regr,
-                      model_final=model_final, allow_missing=True)
+                      model_final=param_model_final, allow_missing=True)
         ]
 
         # test W only
@@ -240,6 +245,16 @@ class TestMissing(unittest.TestCase):
                 data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
                                              X_has_missing=True, W_has_missing=True, include_Z=include_Z)
                 est.fit(**data_dict)
+                # test that we allow missing in X when calling effects
+                est.effect(X_missing)
+                est.const_marginal_effect(X_missing)
+                est.marginal_effect(T, X_missing)
+
+                # test inference for parametric ests
+                if not isinstance(est, (NonParamDMLIV, NonParamDML, DMLIV)):
+                    est.effect_interval(X_missing)
+                    est.const_marginal_effect_interval(X_missing)
+
                 # dowhy does not support missing values in X
                 self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
@@ -285,6 +300,11 @@ class TestMissing(unittest.TestCase):
 
                 # metalearners do support missing values in X
                 est.fit(**data_dict)
+
+                # test inference with missing
+                est.effect(X_missing)
+                est.const_marginal_effect(X_missing)
+                est.marginal_effect(T, X_missing)
 
                 # dowhy never supports missing values in X
                 self.assertRaises(ValueError, est.dowhy.fit, **data_dict)

@@ -990,7 +990,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                            groups=groups))
 
     def const_marginal_effect(self, X=None):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         if X is None:
             return self._ortho_learner_model_final.predict()
@@ -1000,28 +1004,46 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def const_marginal_effect_inference(self, X=None):
-        X, = check_input_arrays(X)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
 
     const_marginal_effect_inference.__doc__ = LinearCateEstimator.const_marginal_effect_inference.__doc__
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
-        X, T0, T1 = check_input_arrays(X, T0, T1)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        T0, T1 = check_input_arrays(T0, T1)
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
 
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
-        X, T0, T1 = check_input_arrays(X, T0, T1)
+        if 'X' in self._gen_allowed_missing_vars():
+            force_all_finite = 'allow-nan'
+        else:
+            force_all_finite = False
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        T0, T1 = check_input_arrays(T0, T1)
         self._check_fitted_dims(X)
         return super().effect_inference(X, T0=T0, T1=T1)
 
