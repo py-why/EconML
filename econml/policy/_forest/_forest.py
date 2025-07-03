@@ -277,7 +277,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         X, y = check_X_y(X, y, multi_output=True)
 
         if sample_weight is not None:
-            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
+            sample_weight = _check_sample_weight(sample_weight, X, dtype=DOUBLE)
 
         # Remap output
         n_samples, self.n_features_ = X.shape
