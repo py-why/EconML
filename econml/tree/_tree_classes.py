@@ -125,7 +125,7 @@ class BaseTree(BaseEstimator):
                                  "number of samples=%d" % (len(y), n_samples))
 
             if (sample_weight is not None):
-                sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
+                sample_weight = _check_sample_weight(sample_weight, X, dtype=DOUBLE)
 
         # Check parameters
         max_depth = (np.iinfo(np.int32).max if self.max_depth is None

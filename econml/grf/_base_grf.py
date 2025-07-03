@@ -226,7 +226,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:
-            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
+            sample_weight = _check_sample_weight(sample_weight, X, dtype=DOUBLE)
 
         # Remap output
         n_samples, self.n_features_ = X.shape
