@@ -364,18 +364,18 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[0.516931..., 0.995704...],
-           [0.356427..., 0.671870...]])
+    array([[0.516888..., 0.995747...],
+           [0.356386..., 0.671889...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.516931..., 0.356427...])
+    array([0.516888..., 0.356386...])
     >>> est.score_
-    2.84365756...
+    np.float64(2.845660...)
     >>> est.score(y, T, X=X)
-    1.06259465...
+    np.float64(1.062668...)
     >>> est.model_cate(T=1).coef_
-    array([ 0.447095..., -0.001013... ,  0.018982...])
+    array([ 0.447146..., -0.001025...,  0.018984...])
     >>> est.model_cate(T=2).coef_
-    array([ 0.925055..., -0.012357... ,  0.033489...])
+    array([ 0.925064..., -0.012351...,  0.033480...])
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
 
@@ -399,7 +399,7 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    1.7...
+    np.float64(1.73...)
     >>> est.const_marginal_effect(X[:3])
     array([[0.68..., 1.10...],
            [0.56..., 0.79... ],
@@ -407,11 +407,11 @@ class DRLearner(_OrthoLearner):
     >>> est.model_cate(T=2).coef_
     array([0.74..., 0.        , 0.        ])
     >>> est.model_cate(T=2).intercept_
-    1.9...
+    np.float64(1.9...)
     >>> est.model_cate(T=1).coef_
     array([0.24..., 0.00..., 0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.94...
+    np.float64(0.94...)
 
     Attributes
     ----------
@@ -1015,17 +1015,19 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.432476...,  0.359739..., -0.085326...])
+    array([ 0.432365...,  0.359694..., -0.085428...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.084145... , -0.178020..., -0.734688...]), array([0.780807..., 0.897500..., 0.564035...]))
+    (array([ 0.084048..., -0.177951... , -0.734747...]),
+    array([0.780683..., 0.897341..., 0.563889...]))
     >>> est.coef_(T=1)
-    array([ 0.450620..., -0.008792...,  0.075242...])
+    array([ 0.450666..., -0.008821...,  0.075271...])
     >>> est.coef__interval(T=1)
-    (array([ 0.156233... , -0.252177..., -0.159805...]), array([0.745007..., 0.234592..., 0.310290...]))
+    (array([ 0.156245..., -0.252216..., -0.159709...]),
+    array([0.745086..., 0.234572..., 0.310252...]))
     >>> est.intercept_(T=1)
-    0.90916103...
+    np.float64(0.909121...)
     >>> est.intercept__interval(T=1)
-    (0.66855287..., 1.14976919...)
+    (np.float64(0.668518...), np.float64(1.149723...))
 
     Attributes
     ----------
@@ -1321,7 +1323,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.43...,  0.35..., -0.08...  ])
+    array([ 0.43...,  0.35..., -0.08...])
     >>> est.effect_interval(X[:3])
     (array([-0.01..., -0.26..., -0.81...]), array([0.87..., 0.98..., 0.65...]))
     >>> est.coef_(T=1)
@@ -1329,9 +1331,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     >>> est.coef__interval(T=1)
     (array([ 0.19... , -0.24..., -0.17...]), array([0.70..., 0.22..., 0.32...]))
     >>> est.intercept_(T=1)
-    0.90...
+    np.float64(0.90...)
     >>> est.intercept__interval(T=1)
-    (0.66..., 1.14...)
+    (np.float64(0.66...), np.float64(1.14...))
 
     Attributes
     ----------

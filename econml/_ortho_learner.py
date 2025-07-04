@@ -190,11 +190,11 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
 
     >>> nuisance
     (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
-       -1.829662..., -1.782273...]),)
+           -1.829662..., -1.782273...], shape=(5000,)),)
     >>> model_list
     [<Wrapper object at 0x...>, <Wrapper object at 0x...>]
     >>> fitted_inds
-    array([   0,    1,    2, ..., 4997, 4998, 4999])
+    array([   0,    1,    2, ..., 4997, 4998, 4999], shape=(5000,))
 
     """
     model_list = []
@@ -472,15 +472,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
-    0.00756830...
+    np.float64(0.00756830...)
     >>> est.const_marginal_effect()
-    1.02364992...
+    np.float64(1.02364992...)
     >>> est.effect()
     array([1.023649...])
     >>> est.effect(T0=0, T1=10)
     array([10.236499...])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
-    0.00727995...
+    np.float64(0.00727995...)
     >>> est.ortho_learner_model_final_.model
     LinearRegression(fit_intercept=False)
     >>> est.ortho_learner_model_final_.model.coef_
@@ -530,15 +530,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, W=W)
 
     >>> est.score_
-    0.00673015...
+    np.float64(0.00672978...)
     >>> est.const_marginal_effect()
-    array([[1.008401...]])
+    array([[1.008402...]])
     >>> est.effect()
-    array([1.008401...])
+    array([1.008402...])
     >>> est.score(y, T, W=W)
-    0.00310431...
+    np.float64(0.00310431...)
     >>> est.ortho_learner_model_final_.model.coef_[0]
-    1.00840170...
+    np.float64(1.00840240...)
 
     Attributes
     ----------
