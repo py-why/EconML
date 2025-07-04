@@ -255,13 +255,13 @@ class _RLearner(_OrthoLearner):
     >>> est.effect(np.ones((1,1)), T0=0, T1=10)
     array([9.996314...])
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
-    9.73638006...e-05
+    np.float64(9.73638006...e-05)
     >>> est.rlearner_model_final_.model
     LinearRegression(fit_intercept=False)
     >>> est.rlearner_model_final_.model.coef_
     array([0.999631...])
     >>> est.score_
-    9.82623204...e-05
+    np.float64(9.82623204...e-05)
     >>> [mdl._model for mdls in est.models_y for mdl in mdls]
     [LinearRegression(), LinearRegression()]
     >>> [mdl._model for mdls in est.models_t for mdl in mdls]

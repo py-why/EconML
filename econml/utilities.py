@@ -3,6 +3,7 @@
 
 """Utility methods."""
 
+from typing import Union
 import numpy as np
 import pandas as pd
 import scipy.sparse
@@ -21,6 +22,8 @@ from warnings import warn
 from statsmodels.iolib.table import SimpleTable
 from statsmodels.iolib.summary import summary_return
 from inspect import signature
+from packaging.version import parse
+
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -455,6 +458,13 @@ def reshape_Y_T(Y, T):
         T = T.reshape(-1, 1)
     return Y, T
 
+def _get_ensure_finite_arg(ensure_all_finite: Union[str, bool]) -> dict[str, Union[str, bool]]:
+    if parse(sklearn.__version__) < parse("1.6"):
+        # `force_all_finite` was renamed to `ensure_all_finite` in sklearn 1.6 and will be deprecated in 1.8
+        return {'force_all_finite': ensure_all_finite}
+    else:
+        return {'ensure_all_finite': ensure_all_finite}
+
 
 def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
                  force_all_finite_X=True, force_all_finite_W=True):
@@ -511,16 +521,19 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
         Converted and validated W.
 
     """
-    X, T = check_X_y(X, T, multi_output=multi_output_T, y_numeric=True, force_all_finite=force_all_finite_X)
+    X, T = check_X_y(X, T, multi_output=multi_output_T, y_numeric=True,
+                     **_get_ensure_finite_arg(force_all_finite_X))
     if force_all_finite_X == 'allow-nan':
         try:
             assert_all_finite(X)
         except ValueError:
             warnings.warn("X contains NaN. Causal identification strategy can be erroneous"
                           " in the presence of missing values.")
-    _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_X)
+    _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True,
+                     **_get_ensure_finite_arg(force_all_finite_X))
     if W is not None:
-        W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_W)
+        W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True,
+                         **_get_ensure_finite_arg(force_all_finite_W))
         if force_all_finite_W == 'allow-nan':
             try:
                 assert_all_finite(W)
@@ -567,7 +580,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
     for i, arg in enumerate(args):
         if np.ndim(arg) > 0:
             new_arg = check_array(arg, dtype=dtype, ensure_2d=False, accept_sparse=True,
-                                  force_all_finite=force_all_finite)
+                                  **_get_ensure_finite_arg(force_all_finite))
             if not force_all_finite:
                 # For when checking input values is disabled
                 try:
@@ -1531,7 +1544,6 @@ def one_hot_encoder(sparse=False, **kwargs):
     This handles the breaking name change from `sparse` to `sparse_output`
     between sklearn versions 1.1 and 1.2.
     """
-    from packaging.version import parse
     if parse(sklearn.__version__) < parse("1.2"):
         return OneHotEncoder(sparse=sparse, **kwargs)
     else:

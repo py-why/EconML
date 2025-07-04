@@ -182,7 +182,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef int init_capacity
 
         if tree.max_depth <= 10:
-            init_capacity = (2 ** (tree.max_depth + 1)) - 1
+            init_capacity = (1 << (tree.max_depth + 1)) - 1
         else:
             init_capacity = 2047
 
@@ -555,7 +555,7 @@ cdef class Tree:
             precond = memcpy(self.precond, (<np.ndarray> precond_ndarray).data,
                              self.capacity * self.precond_stride * sizeof(double))
 
-    cdef int _resize(self, SIZE_t capacity) nogil except -1:
+    cdef int _resize(self, SIZE_t capacity) except -1 nogil:
         """Resize all inner arrays to `capacity`, if `capacity` == -1, then
            double the size of the inner arrays.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
@@ -566,7 +566,7 @@ cdef class Tree:
             with gil:
                 raise MemoryError()
 
-    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) nogil except -1:
+    cdef int _resize_c(self, SIZE_t capacity=SIZE_MAX) except -1 nogil:
         """Guts of _resize
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
@@ -610,7 +610,7 @@ cdef class Tree:
                           double impurity_train, SIZE_t n_node_samples_train,
                           double weighted_n_node_samples_train,
                           double impurity_val, SIZE_t n_node_samples_val,
-                          double weighted_n_node_samples_val) nogil except -1:
+                          double weighted_n_node_samples_val) except -1 nogil:
         """Add a node to the tree.
         The new node registers itself as the child of its parent.
         Returns (size_t)(-1) on error.
@@ -923,7 +923,7 @@ cdef class Tree:
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        np.PyArray_SetBaseObject(arr, self)
         return arr
     
     cdef np.ndarray _get_jac_ndarray(self):
@@ -937,7 +937,7 @@ cdef class Tree:
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(2, shape, np.NPY_DOUBLE, self.jac)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        np.PyArray_SetBaseObject(arr, self)
         return arr
 
     cdef np.ndarray _get_precond_ndarray(self):
@@ -951,7 +951,7 @@ cdef class Tree:
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(2, shape, np.NPY_DOUBLE, self.precond)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        np.PyArray_SetBaseObject(arr, self)
         return arr
 
     cdef np.ndarray _get_node_ndarray(self):
@@ -969,7 +969,7 @@ cdef class Tree:
         arr = PyArray_NewFromDescr(<PyTypeObject *> np.ndarray,
                                    <np.dtype> NODE_DTYPE, 1, shape,
                                    strides, <void*> self.nodes,
-                                   np.NPY_DEFAULT, None)
+                                   np.NPY_ARRAY_DEFAULT, None)
         Py_INCREF(self)
-        arr.base = <PyObject*> self
+        np.PyArray_SetBaseObject(arr, self)
         return arr

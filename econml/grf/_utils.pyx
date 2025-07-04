@@ -33,7 +33,7 @@ cdef inline double RCOND = rcond_
 # =============================================================================
 
 
-cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
+cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) noexcept nogil:
     """ Compute matrix inverse and store it in inv_a.
     """
     cdef int m, n
@@ -42,7 +42,7 @@ cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
         raise ValueError("Can only invert square matrices!")
     return matinv_(&a[0, 0], &inv_a[0, 0], m)
 
-cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
+cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) noexcept nogil:
     """ Compute matrix inverse of matrix a of size (m, m) and store it in inv_a.
     """
     cdef:
@@ -80,7 +80,7 @@ cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
 
 
 
-cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, bint copy_b=True) nogil:
+cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, bint copy_b=True) noexcept nogil:
     """ Compute solution to least squares problem min ||b - a sol||_2^2,
     where a is a matrix of size (m, n), b is (m, nrhs). Store (n, nrhs) solution in sol.
     The memory view b, must have at least max(m, n) rows. If m < n, then pad remainder with zeros.
@@ -101,7 +101,7 @@ cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, b
     lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, ldb, nrhs, copy_b)
 
 
-cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb, int nrhs, bint copy_b=True) nogil:
+cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb, int nrhs, bint copy_b=True) noexcept nogil:
     """ Compute solution to least squares problem min ||b - a sol||_2^2,
     where a is a matrix of size (m, n), b is (m, nrhs). Store (n, nrhs) solution in sol.
     The leading (row) dimension b, must be at least max(m, n). If m < n, then pad remainder with zeros.
@@ -151,7 +151,7 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb,
         if copy_b:
             free(b_copy)
 
-cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil:
+cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) noexcept nogil:
     """ Compute pseudo-inverse of (m, n) matrix a and store it in (n, m) matrix sol.
     Matrix a is left un-altered by this call.
     """
@@ -159,7 +159,7 @@ cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil:
     cdef int n = a.shape[1]
     pinv_(&a[0, 0], &sol[0, 0], m, n)
 
-cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
+cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) noexcept nogil:
     """ Compute pseudo-inverse of (m, n) matrix a and store it in (n, m) matrix sol.
     Matrix a is left un-altered by this call.
     """
@@ -176,14 +176,14 @@ cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
         free(b)
 
 
-cpdef double fast_max_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+cpdef double fast_max_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) noexcept nogil:
     """ Calculate approximation of maximum eigenvalue via randomized power iteration algorithm.
     See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
     Use reps repetition and random seed based on random_state
     """
     return fast_max_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
-cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) noexcept nogil:
     """ Calculate approximation of maximum eigenvalue via randomized power iteration algorithm.
     See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
     Use reps repetition and random seed based on random_state
@@ -226,14 +226,14 @@ cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
         free(xold)
 
 
-cpdef double fast_min_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+cpdef double fast_min_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) noexcept nogil:
     """ Calculate approximation of minimum eigenvalue via randomized power iteration algorithm.
     See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
     Use reps repetition and random seed based on random_state
     """
     return fast_min_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
-cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) noexcept nogil:
     """ Calculate approximation of minimum eigenvalue via randomized power iteration algorithm.
     See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
     Use reps repetition and random seed based on random_state.
