@@ -15,28 +15,32 @@ try:
 except ImportError:
     keras_installed = False
 
+try:
+    import torch
+    torch_installed = True
+except ImportError:
+    torch_installed = False
+
 import pytest
 
-from econml.iv.nnet._deepiv import _zero_grad
 from econml.iv.nnet import DeepIV
-from econml.iv.nnet._deepiv import mog_model, mog_loss_model, mog_sample_model
 
 
-@pytest.mark.skipif(not keras_installed, reason="Keras not installed")
+@pytest.mark.skipif(not torch_installed, reason="Torch not installed")
 class TestDeepIV(unittest.TestCase):
-    def test_stop_grad(self):
-        x_input = keras.layers.Input(shape=(1,))
-        z_input = keras.layers.Input(shape=(1,))
-        y_input = keras.layers.Input(shape=(1,))
-        x_intermediate = keras.layers.Dense(1)(x_input)
-        x = keras.layers.Dense(1, trainable=False)(x_intermediate)
-        sum = keras.layers.Lambda(lambda xz: _zero_grad(xz[0], [xz[0]]) + xz[1])([x, z_input])
-        loss = keras.layers.Lambda(K.square)(keras.layers.subtract([y_input, sum]))
 
-        model = keras.Model([x_input, y_input, z_input], [loss])
-        model.add_loss(K.mean(loss))
-        model.compile('nadam')
-        model.fit([np.array([[1]]), np.array([[2]]), np.array([[0]])], [])
+    def test_mog_module(self):
+        # ensure that we can fit some different conditional distributions
+
+        # discrete data: points at corners of a rotating square
+        # if fully learned, average logprob should be log(0.25) = -1.386
+        def sample(theta:torch.Tensor):
+            x = torch.cos(theta) * torch.choice([-1., 1.])
+            y = torch.sin(theta) * torch.choice([-1., 1.])
+            return torch.stack([x, y], dim=1)
+
+
+
 
     @pytest.mark.slow
     def test_deepiv_shape(self):
