@@ -504,7 +504,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.51238..., 1.99864..., 0.68553...])
+    array([0.51237..., 1.99866..., 0.68552...])
     """
 
     def __init__(self, *,
