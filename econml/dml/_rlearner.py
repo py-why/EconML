@@ -27,11 +27,15 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 from abc import abstractmethod
 import numpy as np
-
+import pandas as pd
+from sklearn.metrics import (
+    get_scorer,
+    get_scorer_names
+)
+from typing import Callable, Union
 from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (filter_none_kwargs)
 from .._ortho_learner import _OrthoLearner
-
 
 class _ModelNuisance(ModelSelector):
     """
@@ -54,10 +58,13 @@ class _ModelNuisance(ModelSelector):
                             filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None,
+              y_scoring=None, t_scoring=None, t_score_by_dim=False):
         # note that groups are not passed to score because they are only used for fitting
-        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight))
-        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight))
+        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
+                                       scoring=t_scoring, score_by_dim=t_score_by_dim)
+        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight),
+                                      scoring=y_scoring)
         return Y_score, T_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -98,7 +105,26 @@ class _ModelFinal:
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None,
+              scoring='mean_squared_error'):
+        """
+        Score final model fit of residualized outcomes from residualized treatments and nuisances.
+
+        The default scoring method "mean_squared_error" is the score used to fit residualized
+        outcomes from residualized treatments and nuisances, and reproduces the behavior of this
+        score function from before the scoring method option.
+
+        :param Y: Unused
+        :param T: Unused
+        :param X: Combined nuisances, treatments and instruments to call _model_final.predict
+        :param W: Unused
+        :param Z: Unused
+        :param nuisances: tuple of the outcome (Y) residuals and treatment (T) residuals
+        :param sample_weight: Optional weighting on the samples
+        :param groups: Unused
+        :param scoring: Optional alternative scoring metric from sklearn.get_scorer
+        :return: Float score
+        """
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -106,10 +132,65 @@ class _ModelFinal:
             T_res = T_res.reshape((-1, 1))
         effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-        if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred) ** 2, weights=sample_weight, axis=0))
+        return _ModelFinal._wrap_scoring(Y_true=Y_res, Y_pred=Y_res_pred, scoring=scoring, sample_weight=sample_weight)
+
+
+    @staticmethod
+    def _wrap_scoring(scoring:Union[str, Callable], Y_true, Y_pred, sample_weight=None):
+        """
+        Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
+
+        Standard score names like "mean_squared_error" are present in sklearn scoring as
+        "neg_..." so score names are accepted either with or without the "neg_" prefix.
+        The function _score_func is called directly because the scorer objects from get_scorer()
+        do not accept a sample_weight parameter. The _score_func member has been available in
+        sklearn scorers since before sklearn 1.0. Note that custom callable score functions
+        are allowed but they are not validated before use; any errors will be raised.
+
+
+        :param scoring: A string name of a scoring function from sklearn, or any callable that will
+            function as thes core.
+        :param Y_true: True Y values
+        :param Y_pred: Predicted Y values
+        :param sample_weight: Optional weighting on the examples
+        :return: Float score
+        """
+        if isinstance(scoring,str) and scoring in get_scorer_names():
+            score_fn = get_scorer(scoring)._score_func
+        elif isinstance(scoring,str) and 'neg_' + scoring in get_scorer_names():
+            score_fn = get_scorer('neg_' + scoring)._score_func
+        elif callable(scoring):
+            score_fn =  scoring
         else:
-            return np.mean((Y_res - Y_res_pred) ** 2)
+            raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
+
+        # Some score like functions are partial to np.array and not np.ndarray with shape (N,1)
+        Y_true = Y_true.squeeze() if len(Y_true.shape)==2 and Y_true.shape[1]==1 else Y_true
+        Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_pred
+        if sample_weight is not None:
+            res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
+        else:
+            res = score_fn(Y_true, Y_pred)
+
+        return res
+
+
+    @staticmethod
+    def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):
+        """
+        In case the caller wants a score for each dimension of a multiple treatment model.
+
+        Loop over the call to the single score wrapper.
+        """
+        if not score_by_dim:
+            return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
+        else:
+            assert Y_true.shape == Y_pred.shape, "Mismatch shape in wrap_scoring"
+            n_out = Y_pred.shape[1]
+            res = [None]*Y_pred.shape[1]
+            for yidx in range(n_out):
+                res[yidx]= _ModelFinal.wrap_scoring(scoring, Y_true[:,yidx], Y_pred[:,yidx], sample_weight)
+            return res
 
 
 class _RLearner(_OrthoLearner):
@@ -255,13 +336,13 @@ class _RLearner(_OrthoLearner):
     >>> est.effect(np.ones((1,1)), T0=0, T1=10)
     array([9.996314...])
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
-    np.float64(9.73638006...e-05)
+    9.73638006...e-05
     >>> est.rlearner_model_final_.model
     LinearRegression(fit_intercept=False)
     >>> est.rlearner_model_final_.model.coef_
     array([0.999631...])
     >>> est.score_
-    np.float64(9.82623204...e-05)
+    9.82623204...e-05
     >>> [mdl._model for mdls in est.models_y for mdl in mdls]
     [LinearRegression(), LinearRegression()]
     >>> [mdl._model for mdls in est.models_t for mdl in mdls]
@@ -422,7 +503,7 @@ class _RLearner(_OrthoLearner):
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -453,7 +534,7 @@ class _RLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=scoring)
 
     @property
     def rlearner_model_final_(self):
@@ -493,3 +574,68 @@ class _RLearner(_OrthoLearner):
                                  "Set to `True` to enable residual storage.")
         Y_res, T_res = self._cached_values.nuisances
         return Y_res, T_res, self._cached_values.X, self._cached_values.W
+
+    @staticmethod
+    def scoring_name(scoring: Union[str,Callable,None])->str:
+        if scoring is None:
+            return 'default_score'
+        elif isinstance(scoring,str):
+            return scoring
+        elif callable(scoring):
+            return scoring.__name__
+        else:
+            raise ValueError("Scoring should be str|Callable|None")
+
+
+    def score_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, y_scoring=None,
+                        t_scoring=None, t_score_by_dim=False):
+        """
+        Score the fitted nuisance models on arbitrary data and using any supported sklearn scoring.
+
+        Parameters
+        ----------
+        Y: (n, d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n, d_t) matrix or vector of length n
+            Treatments for each sample
+        X: (n, d_x) matrix, optional
+            Features for each sample
+        W: (n, d_w) matrix, optional
+            Controls for each sample
+        Z: (n, d_z) matrix, optional
+            Instruments for each sample
+        sample_weight:(n,) vector, optional
+            Weights for each samples
+        t_scoring: str, optional
+            Name of an sklearn scoring function to use instead of the default for model_t, choices
+            are from sklearn.get_scoring_names() plus pearsonr
+        y_scoring: str, optional
+            Name of an sklearn scoring function to use instead of the default for model_y, choices
+            are from sklearn.get_scoring_names() plus pearsonr
+        t_score_by_dim: bool, default=False
+            Score prediction of treatment dimensions separately
+
+        Returns
+        -------
+        score_dict : dict[str,list[float]]
+            A dictionary where the keys indicate the Y and T scores used and the values are
+            lists of scores, one per CV fold model.
+        """
+        Y_key = f'Y_{_RLearner.scoring_name(y_scoring)}'
+        T_Key = f'T_{_RLearner.scoring_name(t_scoring)}'
+        score_dict = {
+            Y_key : [],
+            T_Key : []
+        }
+
+        # For discrete treatments, these will have to be one hot encoded
+        Y_2_score = pd.get_dummies(Y) if self.discrete_outcome and (len(Y.shape) == 1 or Y.shape[1] == 1) else Y
+        T_2_score = pd.get_dummies(T) if self.discrete_treatment and (len(T.shape) == 1 or T.shape[1] == 1) else T
+
+        for m in self._models_nuisance[0]:
+            Y_score, T_score = m.score(Y_2_score, T_2_score, X=X, W=W, Z=Z, sample_weight=sample_weight,
+                                       y_scoring=y_scoring, t_scoring=t_scoring,
+                                       t_score_by_dim=t_score_by_dim)
+            score_dict[Y_key].append(Y_score)
+            score_dict[T_Key].append(T_score)
+        return score_dict

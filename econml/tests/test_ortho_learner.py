@@ -314,6 +314,9 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=2)
         np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=2)
 
+        # Test that non-standard scoring raise the appropriate exception
+        self.assertRaises(NotImplementedError, est.score, y, X[:, 0], W=X[:, 1:], scoring='mean_squared_error')
+
     @pytest.mark.ray
     def test_ol_with_ray(self):
         self._test_ol(True)
