@@ -415,6 +415,36 @@ lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```
 </details>
 
+<details>
+<summary>Deep Instrumental Variables (click to expand)</summary>
+
+```Python
+import keras
+from econml.iv.nnet import DeepIV
+
+treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(64, activation='relu'),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(32, activation='relu'),
+                                    keras.layers.Dropout(0.17)])
+response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(64, activation='relu'),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(32, activation='relu'),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(1)])
+est = DeepIV(n_components=10, # Number of gaussians in the mixture density networks)
+             m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
+             h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
+             n_samples=1 # Number of samples used to estimate the response
+             )
+est.fit(Y, T, X=X, Z=Z) # Z -> instrumental variables
+treatment_effects = est.effect(X_test)
+```
+</details>
+
 See the <a href="#references">References</a> section for more details.
 
 ### Interpretability
