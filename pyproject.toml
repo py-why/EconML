@@ -43,6 +43,9 @@ automl = [
     # azureml-sdk[explain,automl] == 1.0.83
     "azure-cli"
 ]
+nn = [
+    "torch >= 2"
+]
 plt = [
     "graphviz",
     "matplotlib"
@@ -58,6 +61,7 @@ all = [
     # Disabled due to incompatibility with scikit-learn
     # azureml-sdk[explain,automl] == 1.0.83
     "azure-cli",
+    "torch >= 2",
     "graphviz",
     "matplotlib",    
     "dowhy < 0.13",
