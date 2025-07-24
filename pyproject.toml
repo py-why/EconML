@@ -35,7 +35,7 @@ dependencies = [
 "Homepage" = "https://github.com/py-why/EconML"
 "Bug Tracker" = "https://github.com/py-why/EconML/Issues"
 "Source Code" = "https://github.com/py-why/EconML" 
-"Documentation" = "https://econml.azurewebsites.net/"
+"Documentation" = "https://www.pywhy.org/EconML/"
 
 [project.optional-dependencies]
 automl = [
