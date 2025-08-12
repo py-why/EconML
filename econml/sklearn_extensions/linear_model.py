@@ -2133,7 +2133,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
             weighted_y = y * np.sqrt(sample_weight)
         else:
             weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
-        return weighted_Z, weighted_T, weighted_y
+        return weighted_Z, weighted_T, weighted_y, groups
 
     def fit(self, Z, T, y, sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         """
@@ -2166,7 +2166,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
         assert freq_weight is None, "freq_weight is not supported yet for this class!"
         assert sample_var is None, "sample_var is not supported yet for this class!"
 
-        Z, T, y = self._check_input(Z, T, y, sample_weight, groups)
+        Z, T, y, groups = self._check_input(Z, T, y, sample_weight, groups)
 
         self._n_out = 0 if y.ndim < 2 else y.shape[1]
 
