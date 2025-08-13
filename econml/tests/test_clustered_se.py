@@ -176,5 +176,5 @@ class TestClusteredSE(unittest.TestCase):
 
         # Should match very closely
         relative_diff = abs(econml_se - adjusted_sm_se) / adjusted_sm_se
-        self.assertLess(relative_diff, 0.01,
+        self.assertLess(relative_diff, 1e-4,
                        f"EconML SE ({econml_se:.8f}) differs from adjusted statsmodels SE ({adjusted_sm_se:.8f})")
