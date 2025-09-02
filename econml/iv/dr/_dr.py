@@ -56,20 +56,20 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
         else:
             self._model_z_xw = model_z
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
         # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
         T = T.ravel() if not self._discrete_treatment else T
         Z = Z.ravel() if not self._discrete_instrument else Z
 
-        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
-        self._model_t_xw.train(is_selecting, folds, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups, **fit_params)
+        self._model_t_xw.train(is_selecting, folds, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups, **fit_params)
 
         if self._projection:
             WZ = _combine(W, Z, Y.shape[0])
             self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T,
-                                    sample_weight=sample_weight, groups=groups)
+                                    sample_weight=sample_weight, groups=groups, **fit_params)
         else:
-            self._model_z_xw.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+            self._model_z_xw.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups, **fit_params)
 
         # TODO: prel_model_effect could allow sample_var and freq_weight?
         if self._discrete_instrument:
@@ -77,7 +77,7 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
         if self._discrete_treatment:
             T = inverse_onehot(T)
         self._prel_model_effect.fit(Y, T, Z=Z, X=X,
-                                    W=W, sample_weight=sample_weight, groups=groups)
+                                    W=W, sample_weight=sample_weight, groups=groups, **fit_params)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -215,11 +215,11 @@ class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
 
     def train(self, is_selecting, folds,
               prel_theta, Y_res, T_res, Z_res,
-              Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+              Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
         # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
         target = self._get_target(T_res, Z_res, T, Z)
         self._model_tz_xw.train(is_selecting, folds, X=X, W=W, Target=target,
-                                sample_weight=sample_weight, groups=groups)
+                                sample_weight=sample_weight, groups=groups, **fit_params)
 
         return self
 
@@ -2386,16 +2386,16 @@ class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
         self._dummy_z = dummy_z
         self._prel_model_effect = prel_model_effect
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
+        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups, **fit_params)
         # concat W and Z
         WZ = _combine(W, Z, Y.shape[0])
-        self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
-        self._dummy_z.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+        self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups, **fit_params)
+        self._dummy_z.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups, **fit_params)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
         self._prel_model_effect.fit(Y, inverse_onehot(T), Z=inverse_onehot(Z), X=X, W=W,
-                                    sample_weight=sample_weight, groups=groups)
+                                    sample_weight=sample_weight, groups=groups, **fit_params)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):

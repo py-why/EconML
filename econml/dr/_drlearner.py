@@ -70,7 +70,7 @@ class _ModelNuisance(ModelSelector):
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, *, sample_weight=None, groups=None, **fit_params):
         if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
             raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
                              "instead got {1}.".format(len(X), Y.shape))
@@ -80,7 +80,7 @@ class _ModelNuisance(ModelSelector):
             raise AttributeError("Provided crossfit folds contain training splits that " +
                                  "don't contain all treatments")
         XW = self._combine(X, W)
-        filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
+        filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight, **fit_params)
 
         self._model_propensity.train(is_selecting, folds, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
         self._model_regression.train(is_selecting, folds, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
