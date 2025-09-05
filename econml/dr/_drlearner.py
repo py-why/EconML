@@ -581,7 +581,7 @@ class DRLearner(_OrthoLearner):
         return super().refit_final(inference=inference)
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -604,6 +604,9 @@ class DRLearner(_OrthoLearner):
             Controls for each sample
         sample_weight:(n,) vector, optional
             Weights for each samples
+        scoring: name of an sklearn scoring function to use instead of the default, optional
+            Supports f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score,
+            and roc_auc_score.
 
         Returns
         -------
@@ -611,7 +614,7 @@ class DRLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=None)
 
     @property
     def multitask_model_cate(self):
