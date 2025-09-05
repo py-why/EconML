@@ -696,7 +696,7 @@ class DRLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=None)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=scoring)
 
     @property
     def multitask_model_cate(self):
