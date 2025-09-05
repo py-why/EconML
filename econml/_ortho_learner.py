@@ -1149,7 +1149,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if scoring is not None:
             # Cannot import in header, or circular imports
             from .dml._rlearner import _ModelFinal as _DMLModelFinal
-            from dr._drlearner import _ModelFinal as _DRModelFinal
+            from .dr._drlearner import _ModelFinal as _DRModelFinal
             if isinstance(self._ortho_learner_model_final, (_DMLModelFinal, _DRModelFinal)):
                 score_kwargs['scoring'] = scoring
             else:
