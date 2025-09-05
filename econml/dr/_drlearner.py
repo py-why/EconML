@@ -189,7 +189,26 @@ class _ModelFinal:
             preds = np.array([mdl.predict(X).reshape((-1,) + self.d_y) for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None, scoring=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None,
+              scoring='mean_squared_error'):
+        """
+        Score final model fit of debiased outcomes from debiased treatments and nuisances.
+
+        The default scoring method "mean_squared_error" is the score used to fit debiased
+        outcomes from debiased treatments and nuisances, and reproduces the behavior of this
+        score function from before the scoring method option.
+
+        :param Y: Unused
+        :param T: Unused
+        :param X: Combined nuisances, treatments and instruments to call _model_final.predict
+        :param W: Unused
+        :param Z: Unused
+        :param nuisances: tuple of the outcome (Y) debiased and treatment (T) debiased
+        :param sample_weight: Optional weighting on the samples
+        :param groups: Unused
+        :param scoring: Optional alternative scoring metric from sklearn.get_scorer
+        :return: Float score
+        """
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         Y_pred, _ = nuisances
