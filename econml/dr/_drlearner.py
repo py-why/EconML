@@ -225,8 +225,8 @@ class _ModelFinal:
             scores = []
             for t in np.arange(1, Y_pred.shape[-1]):
                 # since we only allow single dimensional y, we could flatten the prediction
-                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0]).flatten()
-                cate_pred = self.models_cate[t - 1].predict(X).flatten()
+                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0])
+                cate_pred = self.models_cate[t - 1].predict(X)
                 score = _ModelFinal._wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
                                                   scoring=scoring, sample_weight=sample_weight)
                 scores.append(score)
