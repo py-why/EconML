@@ -218,16 +218,33 @@ class _ModelFinal:
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
             if self.d_y:
                 cate_pred = cate_pred[:, np.newaxis, :]
-            return np.mean(_ModelFinal._wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
-                                                     scoring=scoring, sample_weight=sample_weight))
+            # when cate_pred returns a scalar, we should broadcast it to Y_pred_diff shape to match shapes
+            if cate_pred.shape[0] != Y_pred_diff.shape[0]:
+                cate_pred = np.broadcast_to(cate_pred, Y_pred_diff.shape)
+            # squeeze singleton dimensions
+            if cate_pred.ndim > 2:
+                cate_pred = cate_pred.squeeze()
+            if Y_pred_diff.ndim > 2:
+                Y_pred_diff = Y_pred_diff.squeeze()
+            # if the result is still 1D, we should not average over dimensions
+            if Y_pred_diff.ndim == 1:
+                return _ModelFinal._wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                                                 scoring=scoring, sample_weight=sample_weight)
+            else:
+                return np.mean(_ModelFinal.wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                                                    scoring=scoring, sample_weight=sample_weight,
+                                                    score_by_dim=True))
 
         else:
             scores = []
             for t in np.arange(1, Y_pred.shape[-1]):
                 # since we only allow single dimensional y, we could flatten the prediction
-                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0])
-                cate_pred = self.models_cate[t - 1].predict(X)
-                score = _ModelFinal._wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0]).flatten()
+                cate_pred = self.models_cate[t - 1].predict(X).flatten()
+                # when cate_pred returns a scalar, we should broadcast it to Y_pred_diff shape to match shapes
+                if cate_pred.shape[0] != Y_pred_diff.shape[0]:
+                    cate_pred = np.broadcast_to(cate_pred, Y_pred_diff.shape)
+                score = _ModelFinal.wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
                                                   scoring=scoring, sample_weight=sample_weight)
                 scores.append(score)
             return np.mean(scores)
