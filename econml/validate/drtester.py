@@ -13,7 +13,7 @@ from econml.utilities import deprecated
 from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
-from .utils import calculate_dr_outcomes, calc_uplift
+from .utils import calculate_dr_outcomes, calc_uplift, weighted_quantile
 
 class DRTester:
     """
@@ -449,10 +449,9 @@ class DRTester:
         plot_data_dict = dict()
         for k in range(self.n_treat):
             # Determine quantile-based cuts based on training set
-            cuts = np.quantile(a=self.cate_preds_train_[:, k],
-                               q=np.linspace(0, 1, n_groups + 1),
-                               weights=sampleweighttrain,
-                               method='inverted_cdf')
+            cuts = weighted_quantile(values=self.cate_preds_train_[:, k],
+                                     quantiles=np.linspace(0, 1, n_groups + 1),
+                                     sample_weight=sampleweighttrain)
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
             se_g_cate = np.zeros(n_groups)
