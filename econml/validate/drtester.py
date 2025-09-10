@@ -246,7 +246,7 @@ class DRTester:
             self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
 
             # Get DR outcomes in validation sample
-            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval, sampleweightval)
+            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval, sampleweighttrain)
             self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
         else:
             # Get DR outcomes in validation sample
