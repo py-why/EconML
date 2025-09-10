@@ -5,11 +5,11 @@ import pandas as pd
 
 
 def calculate_dr_outcomes(
-    D: np.array,
-    y: np.array,
-    reg_preds: np.array,
-    prop_preds: np.array
-) -> np.array:
+    D: np.ndarray,
+    y: np.ndarray,
+    reg_preds: np.ndarray,
+    prop_preds: np.ndarray
+) -> np.ndarray:
     """
     Calculate doubly-robust (DR) outcomes using predictions from nuisance models.
 
@@ -48,12 +48,14 @@ def calculate_dr_outcomes(
 
 
 def calc_uplift(
-    cate_preds_train: np.array,
-    cate_preds_val: np.array,
-    dr_val: np.array,
-    percentiles: np.array,
+    cate_preds_train: np.ndarray,
+    cate_preds_val: np.ndarray,
+    dr_val: np.ndarray,
+    percentiles: np.ndarray,
     metric: str,
-    n_bootstrap: int = 1000
+    n_bootstrap: int = 1000,
+    sample_weight_train: np.ndarray = None,
+    sample_weight_val: np.ndarray = None
 ) -> Tuple[float, float, pd.DataFrame]:
     """
     Calculate uplift curve points, integral, and errors on both points and integral.
@@ -76,26 +78,50 @@ def calc_uplift(
         String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
     n_bootstrap: integer, default 1000
         Number of bootstrap samples to run when calculating uniform confidence bands.
+    sample_weight_train: vector of length n_train, default None
+        Sample weights for the training sample.
+    sample_weight_val: vector of length n_val, default None
+        Sample weights for the validation sample.
 
     Returns
     -------
     Uplift coefficient and associated standard error, as well as associated curve.
     """
-    qs = np.percentile(cate_preds_train, percentiles)
+    # Default to equal weights if none provided
+    if sample_weight_train is None:
+        sample_weight_train = np.ones(cate_preds_train.shape)
+    if sample_weight_val is None:
+        sample_weight_val = np.ones(cate_preds_val.shape)
+
+    # Broadcast weights if needed to match cate_preds shape
+    if sample_weight_train.shape != cate_preds_train.shape:
+        if sample_weight_train.ndim == 1:
+            sample_weight_train = sample_weight_train[:, np.newaxis]
+        sample_weight_train = np.broadcast_to(sample_weight_train, cate_preds_train.shape)
+    if sample_weight_val.shape != cate_preds_val.shape:
+        if sample_weight_val.ndim == 1:
+            sample_weight_val = sample_weight_val[:, np.newaxis]
+        sample_weight_val = np.broadcast_to(sample_weight_val, cate_preds_val.shape)
+
+    qs = np.percentile(cate_preds_train, percentiles, weights=sample_weight_train, method='inverted_cdf')
     toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
     toc_psi = np.zeros((len(qs), dr_val.shape[0]))
     n = len(dr_val)
-    ate = np.mean(dr_val)
+    ate = np.average(dr_val, weights=sample_weight_val)  # E[Y(1) - Y(0)]
     for it in range(len(qs)):
-        inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
-        group_prob = np.sum(inds) / n  # fraction of population in this group
+        # group with larger CATE prediction than the q-th quantile
+        inds = (qs[it] <= cate_preds_val)
+        # fraction of population in this group
+        group_prob = np.sum(sample_weight_val[inds]) / np.sum(sample_weight_val)
         if metric == 'qini':
+            # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc[it] = group_prob * (
-                np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+                np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate)
             toc_psi[it, :] = np.squeeze(
                 (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
         elif metric == 'toc':
-            toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            toc[it] = np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate
             toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
         else:
             raise ValueError(f"Unsupported metric {metric!r} - must be one of ['toc', 'qini']")
