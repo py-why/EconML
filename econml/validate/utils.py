@@ -3,6 +3,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from .weighted_utils import weighted_stat
 
 def calculate_dr_outcomes(
     D: np.ndarray,
@@ -45,127 +46,6 @@ def calculate_dr_outcomes(
     dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
 
     return dr
-
-def weighted_quantile(values, quantiles, sample_weight=None):
-    """
-    Compute weighted quantiles using binary search + local interpolation.
-
-    Function implemented to avoid dependency on numpy >= 1.22.
-
-    Parameters
-    ----------
-    values : array-like
-        Input data.
-    quantiles : array-like or float
-        Quantiles to compute (between 0 and 1).
-    sample_weight : array-like or None, optional
-        Weights associated with each value. If None, equal weights are assumed.
-
-    Returns
-    -------
-    quantiles : ndarray
-        Weighted quantile values.
-
-    """
-    # Convert to numpy arrays
-    values = np.asarray(values)
-    quantiles = np.atleast_1d(quantiles)
-
-    if sample_weight is None:
-        sample_weight = np.ones(len(values))
-    else:
-        sample_weight = np.asarray(sample_weight)
-
-    # Ordena valores e pesos
-    sorter = np.argsort(values)
-    values_sorted = values[sorter]
-    weights_sorted = sample_weight[sorter]
-
-    # CDF acumulada normalizada (meio do peso em cada ponto)
-    cdf = np.cumsum(weights_sorted) - 0.5 * weights_sorted
-    cdf /= np.sum(weights_sorted)
-
-    # Busca binária para encontrar posição dos quantis
-    idx = np.searchsorted(cdf, quantiles, side="right")
-
-    # Interpolação local
-    results = []
-    for q, i in zip(quantiles, idx):
-        if i == 0:
-            results.append(values_sorted[0])
-        elif i == len(values_sorted):
-            results.append(values_sorted[-1])
-        else:
-            # vizinhos
-            cdf_lo, cdf_hi = cdf[i-1], cdf[i]
-            val_lo, val_hi = values_sorted[i-1], values_sorted[i]
-
-            # interpolação linear
-            t = (q - cdf_lo) / (cdf_hi - cdf_lo)
-            results.append(val_lo + t * (val_hi - val_lo))
-
-    return np.array(results)
-
-def weighted_percentile(values, percentiles, sample_weight=None):
-    """
-    Compute weighted percentiles using binary search + local interpolation.
-
-    Function implemented to avoid dependency on numpy >= 1.22.
-
-    Parameters
-    ----------
-    values : array-like
-        Input data.
-    percentiles : array-like or float
-        Percentiles to compute (between 0 and 100).
-    sample_weight : array-like or None, optional
-        Weights associated with each value. If None, equal weights are assumed.
-
-    Returns
-    -------
-    percentiles : ndarray
-        Weighted percentile values.
-
-    """
-    # Convert to numpy arrays
-    values = np.asarray(values)
-    percentiles = np.atleast_1d(percentiles)
-
-    if sample_weight is None:
-        sample_weight = np.ones(len(values))
-    else:
-        sample_weight = np.asarray(sample_weight)
-
-    # Sort values and weights
-    sorter = np.argsort(values)
-    values_sorted = values[sorter]
-    weights_sorted = sample_weight[sorter]
-
-    # Weighted CDF (normalized)
-    cdf = np.cumsum(weights_sorted) - 0.5 * weights_sorted
-    cdf /= np.sum(weights_sorted)
-
-    # Convert percentiles [0, 100] to quantiles [0, 1]
-    quantiles = percentiles / 100.0
-
-    # Binary search
-    idx = np.searchsorted(cdf, quantiles, side="right")
-
-    # Local interpolation
-    results = []
-    for q, i in zip(quantiles, idx):
-        if i == 0:
-            results.append(values_sorted[0])
-        elif i == len(values_sorted):
-            results.append(values_sorted[-1])
-        else:
-            cdf_lo, cdf_hi = cdf[i-1], cdf[i]
-            val_lo, val_hi = values_sorted[i-1], values_sorted[i]
-            t = (q - cdf_lo) / (cdf_hi - cdf_lo)
-            results.append(val_lo + t * (val_hi - val_lo))
-
-    return np.array(results)
-
 
 def calc_uplift(
     cate_preds_train: np.ndarray,
@@ -223,16 +103,20 @@ def calc_uplift(
             sample_weight_val = sample_weight_val[:, np.newaxis]
         sample_weight_val = np.broadcast_to(sample_weight_val, cate_preds_val.shape)
 
-    qs = weighted_percentile(cate_preds_train, percentiles, sample_weight=sample_weight_train)
+    qs = weighted_stat(values=cate_preds_train,
+                       q=percentiles,
+                       sample_weight=sample_weight_train,
+                       mode="percentile")
     toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
     toc_psi = np.zeros((len(qs), dr_val.shape[0]))
-    n = len(dr_val)
+    n = np.sum(sample_weight_val)
     ate = np.average(dr_val, weights=sample_weight_val)  # E[Y(1) - Y(0)]
     for it in range(len(qs)):
         # group with larger CATE prediction than the q-th quantile
         inds = (qs[it] <= cate_preds_val)
+        n_inds = np.sum(sample_weight_val[inds])
         # fraction of population in this group
-        group_prob = np.sum(sample_weight_val[inds]) / np.sum(sample_weight_val)
+        group_prob = n_inds / n
         if metric == 'qini':
             # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc[it] = group_prob * (
@@ -246,7 +130,7 @@ def calc_uplift(
         else:
             raise ValueError(f"Unsupported metric {metric!r} - must be one of ['toc', 'qini']")
 
-        toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
+        toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n_inds)  # standard error of tau(q)
 
     w = np.random.normal(0, 1, size=(n, n_bootstrap))
     mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
