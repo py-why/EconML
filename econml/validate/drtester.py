@@ -14,7 +14,7 @@ from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
-from .weighted_utils import weighted_stat, weighted_se
+from .weighted_utils import weighted_stat
 
 class DRTester:
     """
@@ -456,28 +456,48 @@ class DRTester:
 
         cal_r_squared = np.zeros(self.n_treat)
         plot_data_dict = dict()
+
         for k in range(self.n_treat):
+
             # Determine quantile-based cuts based on training set
             cuts = weighted_stat(values=self.cate_preds_train_[:, k],
                                  q=np.linspace(0, 1, n_groups + 1),
                                  sample_weight=sampleweighttrain,
                                  mode='quantile')
+
+            # Initialize arrays
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
             se_g_cate = np.zeros(n_groups)
             gate = np.zeros(n_groups)
             se_gate = np.zeros(n_groups)
+
+            w_tot = np.sum(sampleweightval)
+
+            # Calculate group statistics
             for i in range(n_groups):
+
                 # Assign units in validation set to groups
                 ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
+
+                # Skip if no units in group
+                if not np.any(ind):
+                    continue
+
+                w_tot_inds = np.sum(sampleweightval[ind])
+
                 # Proportion of validations set in group
-                probs[i] = np.sum(sampleweightval[ind]) / np.sum(sampleweightval)
+                probs[i] = w_tot_inds / w_tot
+
                 # Group average treatment effect (GATE) -- average of DR outcomes in group
                 gate[i] = np.average(self.dr_val_[ind, k], weights=sampleweightval[ind])
-                se_gate[i] = weighted_se(self.dr_val_[ind, k], sampleweightval[ind])
+                se_gate[i] = np.sqrt(np.average((self.dr_val_[ind, k] - gate[i])**2,
+                                                weights=sampleweightval[ind]) / w_tot_inds)
+
                 # Average of CATE predictions in group
                 g_cate[i] = np.average(self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
-                se_g_cate[i] = weighted_se(self.cate_preds_val_[ind, k], sampleweightval[ind])
+                se_g_cate[i] = np.sqrt(np.average((self.cate_preds_val_[ind, k] - g_cate[i])**2,
+                                                  weights=sampleweightval[ind]) / w_tot_inds)
 
             # Calculate group calibration score
             cal_score_g = np.sum(abs(gate - g_cate) * probs)
