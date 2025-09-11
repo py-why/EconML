@@ -13,7 +13,8 @@ from econml.utilities import deprecated
 from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
-from .utils import calculate_dr_outcomes, calc_uplift, weighted_quantile
+from .utils import calculate_dr_outcomes, calc_uplift
+from .weighted_utils import weighted_stat, weighted_se
 
 class DRTester:
     """
@@ -445,13 +446,22 @@ class DRTester:
         if sampleweightval is None:
             sampleweightval = np.ones(self.cate_preds_val_.shape[0])
 
+        # Convert weights to integer values
+        sampleweightval = sampleweightval.astype(int)
+        sampleweighttrain = sampleweighttrain.astype(int)
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
+
         cal_r_squared = np.zeros(self.n_treat)
         plot_data_dict = dict()
         for k in range(self.n_treat):
             # Determine quantile-based cuts based on training set
-            cuts = weighted_quantile(values=self.cate_preds_train_[:, k],
-                                     quantiles=np.linspace(0, 1, n_groups + 1),
-                                     sample_weight=sampleweighttrain)
+            cuts = weighted_stat(values=self.cate_preds_train_[:, k],
+                                 q=np.linspace(0, 1, n_groups + 1),
+                                 sample_weight=sampleweighttrain,
+                                 mode='quantile')
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
             se_g_cate = np.zeros(n_groups)
@@ -464,12 +474,10 @@ class DRTester:
                 probs[i] = np.sum(sampleweightval[ind]) / np.sum(sampleweightval)
                 # Group average treatment effect (GATE) -- average of DR outcomes in group
                 gate[i] = np.average(self.dr_val_[ind, k], weights=sampleweightval[ind])
-                se_gate[i] = np.sqrt(np.cov(self.dr_val_[ind, k],
-                                            aweights=sampleweightval[ind])) / np.sqrt(np.sum(sampleweightval[ind]))
+                se_gate[i] = weighted_se(self.dr_val_[ind, k], sampleweightval[ind])
                 # Average of CATE predictions in group
                 g_cate[i] = np.average(self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
-                se_g_cate[i] = np.sqrt(np.cov(self.cate_preds_val_[ind, k],
-                                              aweights=sampleweightval[ind])) / np.sqrt(np.sum(sampleweightval[ind]))
+                se_g_cate[i] = weighted_se(self.cate_preds_val_[ind, k], sampleweightval[ind])
 
             # Calculate group calibration score
             cal_score_g = np.sum(abs(gate - g_cate) * probs)
@@ -621,6 +629,14 @@ class DRTester:
         if sampleweighttrain is None:
             sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
 
+        # Convert weights to integer values
+        sampleweightval = sampleweightval.astype(int)
+        sampleweighttrain = sampleweighttrain.astype(int)
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
+
         curve_data_dict = dict()
         if self.n_treat == 1:
             coeff, err, curve_df = calc_uplift(
@@ -709,6 +725,14 @@ class DRTester:
             sampleweightval = np.ones(self.cate_preds_val_.shape[0])
         if sampleweighttrain is None:
             sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
+
+        # Convert weights to integer values
+        sampleweightval = sampleweightval.astype(int)
+        sampleweighttrain = sampleweighttrain.astype(int)
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
 
         blp_res = self.evaluate_blp(Xtrain=Xtrain,
                                     Xval=Xval,
