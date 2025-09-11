@@ -104,27 +104,3 @@ def weighted_stat(values, q, sample_weight=None, axis=None, keepdims=False, mode
 
     return result
 
-def weighted_se(values: np.ndarray, weights: np.ndarray) -> float:
-    """
-    Compute the weighted standard error of the mean.
-
-    Parameters
-    ----------
-    values : array-like
-        Input data.
-    weights : array-like
-        Weights associated with each value. Must be the same shape as `values`.
-
-    Returns
-    -------
-    float
-        Weighted standard error of the mean.
-    """
-    mean = np.average(values, weights=weights)
-    variance = np.average((values - mean) ** 2, weights=weights)
-    sd = np.sqrt(variance)
-
-    # Effective sample size
-    n_eff = (np.sum(weights) ** 2) / np.sum(weights ** 2)
-
-    return sd / np.sqrt(n_eff)
