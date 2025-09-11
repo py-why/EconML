@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from .weighted_utils import weighted_stat
+from .weighted_utils import weighted_stat, weighted_se
 
 def calculate_dr_outcomes(
     D: np.ndarray,
@@ -147,9 +147,9 @@ def calc_uplift(
 
         # standard error of tau(q)
         if sample_weight_val.ndim > 1:
-            toc_std[it] = np.sqrt(np.average(toc_psi[it] ** 2, weights=sample_weight_val[:, 0], axis=0) / w_tot)
+            toc_std[it] = weighted_se(values=toc_psi[it], weights=sample_weight_val[:, 0])
         else:
-            toc_std[it] = np.sqrt(np.average(toc_psi[it] ** 2, weights=sample_weight_val, axis=0) / w_tot)
+            toc_std[it] = weighted_se(values=toc_psi[it], weights=sample_weight_val)
 
     # calculate critical values for uniform confidence bands via multiplier bootstrap
     n_size_bootstrap = sample_weight_val.shape[0]
@@ -168,9 +168,9 @@ def calc_uplift(
 
     # standard error of the coefficient
     if sample_weight_val.ndim > 1:
-        coeff_stderr = np.sqrt(np.average(coeff_psi ** 2, weights=sample_weight_val[:, 0]) / w_tot)
+        coeff_stderr = weighted_se(values=coeff_psi, weights=sample_weight_val[:, 0])
     else:
-        coeff_stderr = np.sqrt(np.average(coeff_psi ** 2, weights=sample_weight_val) / w_tot)
+        coeff_stderr = weighted_se(values=coeff_psi, weights=sample_weight_val)
 
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,

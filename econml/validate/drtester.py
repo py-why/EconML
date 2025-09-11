@@ -14,7 +14,7 @@ from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
-from .weighted_utils import weighted_stat
+from .weighted_utils import weighted_stat, weighted_se
 
 class DRTester:
     """
@@ -491,13 +491,11 @@ class DRTester:
 
                 # Group average treatment effect (GATE) -- average of DR outcomes in group
                 gate[i] = np.average(self.dr_val_[ind, k], weights=sampleweightval[ind])
-                se_gate[i] = np.sqrt(np.average((self.dr_val_[ind, k] - gate[i])**2,
-                                                weights=sampleweightval[ind]) / w_tot_inds)
+                se_gate[i] = weighted_se(values=self.dr_val_[ind, k], weights=sampleweightval[ind])
 
                 # Average of CATE predictions in group
                 g_cate[i] = np.average(self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
-                se_g_cate[i] = np.sqrt(np.average((self.cate_preds_val_[ind, k] - g_cate[i])**2,
-                                                  weights=sampleweightval[ind]) / w_tot_inds)
+                se_g_cate[i] = weighted_se(values=self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
 
             # Calculate group calibration score
             cal_score_g = np.sum(abs(gate - g_cate) * probs)

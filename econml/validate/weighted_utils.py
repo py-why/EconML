@@ -104,3 +104,35 @@ def weighted_stat(values, q, sample_weight=None, axis=None, keepdims=False, mode
 
     return result
 
+def weighted_se(values: np.ndarray, weights: np.ndarray) -> float:
+    """
+    Compute the standard error of the weighted mean.
+
+    Parameters
+    ----------
+    values : array-like
+        Data values (x_i).
+    weights : array-like
+        Sample weights (w_i), must be non-negative and same shape as values.
+
+    Returns
+    -------
+    float
+        Standard error of the weighted mean.
+    """
+    values = np.asarray(values)
+    weights = np.asarray(weights)
+    if values.shape != weights.shape:
+        raise ValueError("values and weights must have the same shape")
+
+    W_sum = np.sum(weights)
+    if W_sum == 0:
+        return np.nan
+
+    wmean = np.average(values, weights=weights)
+    diff = values - wmean
+
+    num = np.sum((weights**2) * (diff**2))
+    den = W_sum**2
+
+    return np.sqrt(num / den)
