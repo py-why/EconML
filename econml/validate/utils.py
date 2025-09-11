@@ -56,7 +56,7 @@ def calc_uplift(
     n_bootstrap: int = 1000,
     sample_weight_train: np.ndarray = None,
     sample_weight_val: np.ndarray = None
-) -> Tuple[float, float, pd.DataFrame]:
+    ) -> Tuple[float, float, pd.DataFrame]:
     """
     Calculate uplift curve points, integral, and errors on both points and integral.
 
@@ -132,8 +132,9 @@ def calc_uplift(
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n_inds)  # standard error of tau(q)
 
-    w = np.random.normal(0, 1, size=(n, n_bootstrap))
-    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
+    n_size_bootstrap = sample_weight_val.shape[0]
+    w = np.random.normal(0, 1, size=(n_size_bootstrap, n_bootstrap))
+    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n_size_bootstrap
 
     max_mboot = np.max(np.abs(mboot), axis=0)
     uniform_critical_value = np.percentile(max_mboot, 95)
@@ -143,7 +144,7 @@ def calc_uplift(
 
     coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
     coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
-    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n)
+    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n_size_bootstrap)
 
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,
