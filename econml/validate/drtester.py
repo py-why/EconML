@@ -246,13 +246,26 @@ class DRTester:
             reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain, sampleweighttrain)
             self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
 
+            # standardize to always have 2 dimensions
+            if self.dr_train_.ndim == 1:
+                self.dr_train_ = self.dr_train_[..., np.newaxis]
+
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval, sampleweighttrain)
             self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+
+            # standardize to always have 2 dimensions
+            if self.dr_val_.ndim == 1:
+                self.dr_val_ = self.dr_val_[..., np.newaxis]
+
         else:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval, sampleweightval)
             self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+
+            # standardize to always have 2 dimensions
+            if self.dr_val_.ndim == 1:
+                self.dr_val_ = self.dr_val_[..., np.newaxis]
 
         # Calculate ATE in the validation sample
         self.ate_val = np.average(self.dr_val_, axis=0, weights=sampleweightval)
@@ -388,18 +401,23 @@ class DRTester:
         """
         base = self.treatments[0]
         vals = [self.cate.effect(X=Xval, T0=base, T1=t) for t in self.treatments[1:]]
-        #squeeze to avoid unnecessary dimensions with 1 value
-        self.cate_preds_val_ = np.stack(vals).T
 
-        if self.cate_preds_val_.ndim > 2:
-            self.cate_preds_val_ = self.cate_preds_val_.squeeze()
+        #squeeze to avoid unnecessary dimensions with 1 value (some cases with 3 dimensions)
+        self.cate_preds_val_ = np.stack(vals).T.squeeze()
+
+        # standardize to always have 2 dimensions
+        if self.cate_preds_val_.ndim == 1:
+            self.cate_preds_val_ = self.cate_preds_val_[..., np.newaxis]
 
         if Xtrain is not None:
             trains = [self.cate.effect(X=Xtrain, T0=base, T1=t) for t in self.treatments[1:]]
-            #squeeze to avoid unnecessary dimensions with 1 value
-            self.cate_preds_train_ = np.stack(trains).T
-            if self.cate_preds_train_.ndim > 2:
-                self.cate_preds_train_ = self.cate_preds_train_.squeeze()
+
+            #squeeze to avoid unnecessary dimensions with 1 value (some cases with 3 dimensions)
+            self.cate_preds_train_ = np.stack(trains).T.squeeze()
+
+            # standardize to always have 2 dimensions
+            if self.cate_preds_train_.ndim == 1:
+                self.cate_preds_train_ = self.cate_preds_train_[..., np.newaxis]
 
     def evaluate_cal(
         self,
@@ -562,22 +580,17 @@ class DRTester:
         if sampleweightval is None:
             sampleweightval = np.ones(self.cate_preds_val_.shape[0])
 
-        if self.n_treat == 1:  # binary treatment
-            # Run WLS of DR outcomes on CATE predictions
-            reg = WLS(self.dr_val_, add_constant(self.cate_preds_val_), weights=sampleweightval).fit()
-            params = [reg.params[1]]
-            errs = [reg.bse[1]]
-            pvals = [reg.pvalues[1]]
-        else:  # categorical treatment
-            params = []
-            errs = []
-            pvals = []
-            for k in range(self.n_treat):  # run a separate regression for each
-                reg = WLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k]),
-                          weights=sampleweightval).fit(cov_type='HC1')
-                params.append(reg.params[1])
-                errs.append(reg.bse[1])
-                pvals.append(reg.pvalues[1])
+        params = []
+        errs = []
+        pvals = []
+
+        # run a separate regression for each treatment
+        for k in range(self.n_treat):
+            reg = WLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k]),
+                        weights=sampleweightval).fit(cov_type='HC1')
+            params.append(reg.params[1])
+            errs.append(reg.bse[1])
+            pvals.append(reg.pvalues[1])
 
         self.blp_res = BLPEvaluationResults(
             params=params,
@@ -656,37 +669,22 @@ class DRTester:
         assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
 
         curve_data_dict = dict()
-        if self.n_treat == 1:
+        coeffs = []
+        errs = []
+        for k in range(self.n_treat):
             coeff, err, curve_df = calc_uplift(
-                cate_preds_train=self.cate_preds_train_,
-                cate_preds_val=self.cate_preds_val_,
-                dr_val=self.dr_val_,
+                cate_preds_train=self.cate_preds_train_[:, k],
+                cate_preds_val=self.cate_preds_val_[:, k],
+                dr_val=self.dr_val_[:, k],
                 percentiles=percentiles,
                 metric=metric,
                 n_bootstrap=n_bootstrap,
                 sample_weight_train=sampleweighttrain,
-                sample_weight_val=sampleweightval
+                sample_weight_val=sampleweightval,
             )
-            coeffs = [coeff]
-            errs = [err]
-            curve_data_dict[self.treatments[1]] = curve_df
-        else:
-            coeffs = []
-            errs = []
-            for k in range(self.n_treat):
-                coeff, err, curve_df = calc_uplift(
-                    cate_preds_train=self.cate_preds_train_[:, k],
-                    cate_preds_val=self.cate_preds_val_[:, k],
-                    dr_val=self.dr_val_[:, k],
-                    percentiles=percentiles,
-                    metric=metric,
-                    n_bootstrap=n_bootstrap,
-                    sample_weight_train=sampleweighttrain,
-                    sample_weight_val=sampleweightval,
-                )
-                coeffs.append(coeff)
-                errs.append(err)
-                curve_data_dict[self.treatments[k + 1]] = curve_df
+            coeffs.append(coeff)
+            errs.append(err)
+            curve_data_dict[self.treatments[k + 1]] = curve_df
 
         pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
