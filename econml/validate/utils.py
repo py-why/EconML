@@ -103,26 +103,41 @@ def calc_uplift(
             sample_weight_val = sample_weight_val[:, np.newaxis]
         sample_weight_val = np.broadcast_to(sample_weight_val, cate_preds_val.shape)
 
+    # calculate weighted quantiles of CATE predictions in training set
     qs = weighted_stat(values=cate_preds_train,
                        q=percentiles,
                        sample_weight=sample_weight_train,
                        mode="percentile")
+
+    # initialize arrays
     toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
     toc_psi = np.zeros((len(qs), dr_val.shape[0]))
-    n = np.sum(sample_weight_val)
-    ate = np.average(dr_val, weights=sample_weight_val)  # E[Y(1) - Y(0)]
+
+    # total sample size (weighted). if sample weights are all 1's, this is just n
+    w_tot = np.sum(sample_weight_val)
+
+    # ATE estimate in validation set. If sample weights are all 1's, this is just the average
+    # of the DR outcomes - E[Y(1) - Y(0)]
+    ate = np.average(dr_val, weights=sample_weight_val)
+
+    # calculate point estimates and influence functions for each quantile
     for it in range(len(qs)):
+
         # group with larger CATE prediction than the q-th quantile
         inds = (qs[it] <= cate_preds_val)
-        n_inds = np.sum(sample_weight_val[inds])
+        w_tot_inds = np.sum(sample_weight_val[inds])
+
         # fraction of population in this group
-        group_prob = n_inds / n
+        group_prob = w_tot_inds / w_tot
+
+        # calculate point estimate and influence function for tau(q)
         if metric == 'qini':
             # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc[it] = group_prob * (
                 np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate)
+            # influence function for the tau(q)
             toc_psi[it, :] = np.squeeze(
-                (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+                (dr_val - ate) * (inds - group_prob) - toc[it])
         elif metric == 'toc':
             # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc[it] = np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate
@@ -130,11 +145,16 @@ def calc_uplift(
         else:
             raise ValueError(f"Unsupported metric {metric!r} - must be one of ['toc', 'qini']")
 
-        toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n_inds)  # standard error of tau(q)
+        # standard error of tau(q)
+        if sample_weight_val.ndim > 1:
+            toc_std[it] = np.sqrt(np.average(toc_psi[it] ** 2, weights=sample_weight_val[:, 0], axis=0) / w_tot)
+        else:
+            toc_std[it] = np.sqrt(np.average(toc_psi[it] ** 2, weights=sample_weight_val, axis=0) / w_tot)
 
+    # calculate critical values for uniform confidence bands via multiplier bootstrap
     n_size_bootstrap = sample_weight_val.shape[0]
     w = np.random.normal(0, 1, size=(n_size_bootstrap, n_bootstrap))
-    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n_size_bootstrap
+    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / w_tot
 
     max_mboot = np.max(np.abs(mboot), axis=0)
     uniform_critical_value = np.percentile(max_mboot, 95)
@@ -142,9 +162,15 @@ def calc_uplift(
     min_mboot = np.min(mboot, axis=0)
     uniform_one_side_critical_value = np.abs(np.percentile(min_mboot, 5))
 
+    # calculate coefficient and standard error of the coefficient
     coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
     coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
-    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n_size_bootstrap)
+
+    # standard error of the coefficient
+    if sample_weight_val.ndim > 1:
+        coeff_stderr = np.sqrt(np.average(coeff_psi ** 2, weights=sample_weight_val[:, 0]) / w_tot)
+    else:
+        coeff_stderr = np.sqrt(np.average(coeff_psi ** 2, weights=sample_weight_val) / w_tot)
 
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,
