@@ -9,7 +9,8 @@ def calculate_dr_outcomes(
     D: np.ndarray,
     y: np.ndarray,
     reg_preds: np.ndarray,
-    prop_preds: np.ndarray
+    prop_preds: np.ndarray,
+    treatments: np.ndarray = None
 ) -> np.ndarray:
     """
     Calculate doubly-robust (DR) outcomes using predictions from nuisance models.
@@ -26,6 +27,9 @@ def calculate_dr_outcomes(
         Outcome predictions for each potential treatment
     prop_preds: (n x n_treat) matrix
         Propensity score predictions for each treatment
+    treatments: vector of length n_treat, default None
+        Unique treatment values. If None, will be inferred from D.
+        Should be sorted in increasing order and include control.
 
     Returns
     -------
@@ -34,16 +38,22 @@ def calculate_dr_outcomes(
     # treat each treatment as a separate regression
     # here, prop_preds should be a matrix
     # with rows corresponding to units and columns corresponding to treatment statuses
+
+    if treatments is None:
+        treatments = np.sort(np.unique(D))
+
     dr_vec = []
     d0_mask = np.where(D == 0, 1, 0)
     y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], .01, np.inf)) * (y - reg_preds[:, 0])
-    for k in np.sort(np.unique(D)):  # pick a treatment status
-        if k > 0:  # make sure it is not control
-            dk_mask = np.where(D == k, 1, 0)
-            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], .01, np.inf)) * (y - reg_preds[:, k])
-            dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
-            dr_vec.append(dr_k)
-    dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
+
+    for ind, k in enumerate(treatments[1:]):  # pick a treatment status
+        dk_mask = np.where(D == k, 1, 0)
+        y_dr_k = reg_preds[:, ind + 1] + \
+            (dk_mask / np.clip(prop_preds[:, ind + 1], .01, np.inf)) * (y - reg_preds[:, ind + 1])
+        dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
+        dr_vec.append(dr_k)
+
+    dr = np.column_stack(dr_vec)  # this is an n x n_treatment-1 matrix
 
     return dr
 

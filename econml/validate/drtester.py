@@ -244,15 +244,27 @@ class DRTester:
         if self.fit_on_train:
             # Get DR outcomes in training sample
             reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain, sampleweighttrain)
-            self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
+            self.dr_train_ = calculate_dr_outcomes(Dtrain,
+                                                   ytrain,
+                                                   reg_preds_train,
+                                                   prop_preds_train,
+                                                   self.treatments)
 
             # standardize to always have 2 dimensions
             if self.dr_train_.ndim == 1:
                 self.dr_train_ = self.dr_train_[..., np.newaxis]
 
             # Get DR outcomes in validation sample
-            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval, sampleweighttrain)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain,
+                                                                    Dtrain,
+                                                                    ytrain,
+                                                                    Xval,
+                                                                    sampleweighttrain)
+            self.dr_val_ = calculate_dr_outcomes(Dval,
+                                                 yval,
+                                                 reg_preds_val,
+                                                 prop_preds_val,
+                                                 self.treatments)
 
             # standardize to always have 2 dimensions
             if self.dr_val_.ndim == 1:
@@ -261,7 +273,11 @@ class DRTester:
         else:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval, sampleweightval)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            self.dr_val_ = calculate_dr_outcomes(Dval,
+                                                 yval,
+                                                 reg_preds_val,
+                                                 prop_preds_val,
+                                                 self.treatments)
 
             # standardize to always have 2 dimensions
             if self.dr_val_.ndim == 1:
