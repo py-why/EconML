@@ -1,13 +1,9 @@
 import numpy as np
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier
+from sklearn.utils import indexable
+from sklearn.utils.validation import _num_samples
 from sklearn.model_selection import check_cv
-
-# sklearn >= 1.0 exposes _num_samples from sklearn.utils.validation
-try:
-    from sklearn.utils.validation import _num_samples
-except ImportError:  # fallback for older versions
-    from sklearn.utils import _num_samples
-
+from joblib import Parallel, delayed
 
 def _weighted_quantile_1d(values, quantiles, sample_weight):
     """
@@ -146,72 +142,77 @@ def weighted_se(values: np.ndarray, weights: np.ndarray) -> float:
 
     return np.sqrt(num / den)
 
-def cross_val_predict_with_weights(estimator, X, y=None, sample_weight=None,
-                                   cv=5, method="predict", fit_params=None):
+def cross_val_predict_with_weights(
+    estimator, X, y, *, sample_weight=None, cv=5, method="predict", n_jobs=None, verbose=0, fit_params=None
+):
     """
-    Weighted version of sklearn.model_selection.cross_val_predict.
+    Cross-validation predictions with support for sample_weight.
+
+    Works like sklearn.model_selection.cross_val_predict, but passes sample_weight to estimator.fit.
 
     Parameters
     ----------
-    estimator : estimator object
+    estimator : estimator object implementing 'fit'
         The object to use to fit the data.
-    X : array-like of shape (n_samples, n_features)
-        Input data.
-    y : array-like of shape (n_samples,), default=None
-        Target data (for supervised learning).
+    X : array-like
+        Input features.
+    y : array-like
+        Target variable.
     sample_weight : array-like of shape (n_samples,), default=None
-        Sample weights to pass to estimator.fit.
-    cv : int, cross-validation generator, or iterable
+        Sample weights to pass to fit.
+    cv : int, cross-validation generator, or iterable, default=5
         Determines the cross-validation splitting strategy.
-    method : str, default="predict"
-        Invoked method on the estimator. E.g. "predict_proba".
+    method : str, default='predict'
+        Invokes the passed method name of the estimator.
+    n_jobs : int, default=None
+        Number of jobs to run in parallel.
+    verbose : int, default=0
+        Verbosity level.
     fit_params : dict, default=None
-        Additional parameters to pass to the fit method.
+        Additional fit parameters.
 
     Returns
     -------
-    predictions : ndarray of shape (n_samples, ...)
-        Cross-validated estimates for each input data point.
+    predictions : ndarray
+        Array of predictions aligned with the input data.
     """
     if fit_params is None:
         fit_params = {}
 
-    X = np.asarray(X)
+    X, y = indexable(X, y)
+    cv = check_cv(cv, y, classifier=is_classifier(estimator))
+
+    # Where predictions will be stored
     n_samples = _num_samples(X)
-
-    if y is not None:
-        y = np.asarray(y)
-
-    if sample_weight is not None:
-        sample_weight = np.asarray(sample_weight)
-        assert sample_weight.shape[0] == n_samples
-
-    cv = check_cv(cv, y=y, classifier=False)
     predictions = None
 
-    for train_idx, test_idx in cv.split(X, y):
+    parallel = Parallel(n_jobs=n_jobs, verbose=verbose)
+
+    def _fit_and_predict(train, test):
         est = clone(estimator)
-
-        # prepare fit params for this fold
         fit_params_fold = fit_params.copy()
+
+        # If sample_weight is provided, slice it for the train indices
         if sample_weight is not None:
-            fit_params_fold["sample_weight"] = sample_weight[train_idx]
+            fit_params_fold = {**fit_params_fold, "sample_weight": sample_weight[train]}
 
-        # fit and predict
-        if y is not None:
-            est.fit(X[train_idx], y[train_idx], **fit_params_fold)
-        else:
-            est.fit(X[train_idx], **fit_params_fold)
+        est.fit(X[train], y[train], **fit_params_fold)
+        pred = getattr(est, method)(X[test])
+        return test, pred
 
-        pred = getattr(est, method)(X[test_idx])
+    results = parallel(
+        delayed(_fit_and_predict)(train, test)
+        for train, test in cv.split(X, y)
+    )
 
+    # Allocate predictions after we know their shape
+    for test, pred in results:
         if predictions is None:
-            # allocate with right shape
+            # initialize array with right shape and dtype
             if pred.ndim == 1:
                 predictions = np.empty(n_samples, dtype=pred.dtype)
             else:
-                predictions = np.empty((n_samples, *pred.shape[1:]), dtype=pred.dtype)
-
-        predictions[test_idx] = pred
+                predictions = np.empty((n_samples, pred.shape[1]), dtype=pred.dtype)
+        predictions[test] = pred
 
     return predictions
