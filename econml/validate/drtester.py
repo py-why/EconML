@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from copy import deepcopy
 from sklearn.model_selection import check_cv
-from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from statsmodels.api import WLS
 from statsmodels.tools import add_constant
 
@@ -14,7 +14,7 @@ from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
-from .weighted_utils import weighted_stat, weighted_se
+from .weighted_utils import weighted_stat, weighted_se, cross_val_predict_with_weights
 
 class DRTester:
     """
@@ -374,7 +374,12 @@ class DRTester:
             sampleweight = np.ones(X.shape[0])
 
         splits = self.get_cv_splits([X], D)
-        prop_preds = cross_val_predict(self.model_propensity, X, D, cv=splits, method='predict_proba')
+        prop_preds = cross_val_predict_with_weights(
+                    self.model_propensity,
+                    X, D,
+                    sample_weight=sampleweight,
+                    cv=splits,
+                    method="predict_proba")
 
         # Predict outcomes
         # T-learner logic
