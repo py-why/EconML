@@ -684,13 +684,16 @@ class DRTester:
         if sampleweighttrain is None:
             sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
 
-        # Convert weights to integer values
-        sampleweightval = sampleweightval.astype(int)
-        sampleweighttrain = sampleweighttrain.astype(int)
+        assert np.min(sampleweightval) > 0, "Sample weights must be positive"
+        assert np.min(sampleweighttrain) > 0, "Sample weights must be positive"
+
+        # Convert weights to minimum value of 1
+        sampleweightval /= sampleweightval.min()
+        sampleweighttrain /= sampleweighttrain.min()
 
         # Check weights are valid
-        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
-        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be >= 1"
 
         curve_data_dict = dict()
         coeffs = []
