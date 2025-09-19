@@ -512,7 +512,10 @@ class DRTester:
             for i in range(n_groups):
 
                 # Assign units in validation set to groups
-                ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
+                if i < n_groups - 1:
+                    ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] < cuts[i + 1])
+                else:
+                    ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
 
                 # Skip if no units in group
                 if not np.any(ind):
