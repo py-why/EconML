@@ -705,7 +705,7 @@ class DRTester:
             errs.append(err)
             curve_data_dict[self.treatments[k + 1]] = curve_df
 
-        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
+        pvals = [2*st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
         self.uplift_res = UpliftEvaluationResults(
             params=coeffs,
