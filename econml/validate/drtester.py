@@ -702,6 +702,8 @@ class DRTester:
         curve_data_dict = dict()
         coeffs = []
         errs = []
+
+        # run a separate regression for each treatment
         for k in range(self.n_treat):
             coeff, err, curve_df = calc_uplift(
                 cate_preds_train=self.cate_preds_train_[:, k],
