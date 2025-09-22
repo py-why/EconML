@@ -39,7 +39,11 @@ from warnings import warn
 
 import numpy as np
 from sklearn.base import clone
-
+from sklearn.metrics import (
+    get_scorer,
+    get_scorer_names
+)
+from typing import Callable, Union
 
 from .._ortho_learner import _OrthoLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, ForestModelFinalCateEstimatorDiscreteMixin,
@@ -185,7 +189,26 @@ class _ModelFinal:
             preds = np.array([mdl.predict(X).reshape((-1,) + self.d_y) for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None,
+              scoring='mean_squared_error'):
+        """
+        Score final model fit of debiased outcomes from debiased treatments and nuisances.
+
+        The default scoring method "mean_squared_error" is the score used to fit debiased
+        outcomes from debiased treatments and nuisances, and reproduces the behavior of this
+        score function from before the scoring method option.
+
+        :param Y: Unused
+        :param T: Unused
+        :param X: Combined nuisances, treatments and instruments to call _model_final.predict
+        :param W: Unused
+        :param Z: Unused
+        :param nuisances: tuple of the outcome (Y) debiased and treatment (T) debiased
+        :param sample_weight: Optional weighting on the samples
+        :param groups: Unused
+        :param scoring: Optional alternative scoring metric from sklearn.get_scorer
+        :return: Float score
+        """
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         Y_pred, _ = nuisances
@@ -195,7 +218,22 @@ class _ModelFinal:
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
             if self.d_y:
                 cate_pred = cate_pred[:, np.newaxis, :]
-            return np.mean(np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0))
+            # when cate_pred returns a scalar, we should broadcast it to Y_pred_diff shape to match shapes
+            if cate_pred.shape[0] != Y_pred_diff.shape[0]:
+                cate_pred = np.broadcast_to(cate_pred, Y_pred_diff.shape)
+            # squeeze singleton dimensions
+            if cate_pred.ndim > 2:
+                cate_pred = cate_pred.squeeze()
+            if Y_pred_diff.ndim > 2:
+                Y_pred_diff = Y_pred_diff.squeeze()
+            # if the result is still 1D, we should not average over dimensions
+            if Y_pred_diff.ndim == 1:
+                return _ModelFinal._wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                                                 scoring=scoring, sample_weight=sample_weight)
+            else:
+                return np.mean(_ModelFinal.wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                                                    scoring=scoring, sample_weight=sample_weight,
+                                                    score_by_dim=True))
 
         else:
             scores = []
@@ -203,9 +241,70 @@ class _ModelFinal:
                 # since we only allow single dimensional y, we could flatten the prediction
                 Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0]).flatten()
                 cate_pred = self.models_cate[t - 1].predict(X).flatten()
-                score = np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0)
+                # when cate_pred returns a scalar, we should broadcast it to Y_pred_diff shape to match shapes
+                if cate_pred.shape[0] != Y_pred_diff.shape[0]:
+                    cate_pred = np.broadcast_to(cate_pred, Y_pred_diff.shape)
+                score = _ModelFinal.wrap_scoring(Y_true=Y_pred_diff, Y_pred=cate_pred,
+                                                  scoring=scoring, sample_weight=sample_weight)
                 scores.append(score)
             return np.mean(scores)
+
+    @staticmethod
+    def _wrap_scoring(scoring:Union[str, Callable], Y_true, Y_pred, sample_weight=None):
+        """
+        Pull the scoring function from sklearn.get_scorer and call it with Y_true, Y_pred.
+
+        Standard score names like "mean_squared_error" are present in sklearn scoring as
+        "neg_..." so score names are accepted either with or without the "neg_" prefix.
+        The function _score_func is called directly because the scorer objects from get_scorer()
+        do not accept a sample_weight parameter. The _score_func member has been available in
+        sklearn scorers since before sklearn 1.0. Note that custom callable score functions
+        are allowed but they are not validated before use; any errors will be raised.
+
+
+        :param scoring: A string name of a scoring function from sklearn, or any callable that will
+            function as thes core.
+        :param Y_true: True Y values
+        :param Y_pred: Predicted Y values
+        :param sample_weight: Optional weighting on the examples
+        :return: Float score
+        """
+        if isinstance(scoring,str) and scoring in get_scorer_names():
+            score_fn = get_scorer(scoring)._score_func
+        elif isinstance(scoring,str) and 'neg_' + scoring in get_scorer_names():
+            score_fn = get_scorer('neg_' + scoring)._score_func
+        elif callable(scoring):
+            score_fn = scoring
+        else:
+            raise NotImplementedError(f"_wrap_scoring does not support '{scoring}'" )
+
+        # Some score like functions are partial to np.array and not np.ndarray with shape (N,1)
+        Y_true = Y_true.squeeze() if len(Y_true.shape)==2 and Y_true.shape[1]==1 else Y_true
+        Y_pred = Y_pred.squeeze() if len(Y_pred.shape)==2 and Y_pred.shape[1]==1 else Y_pred
+        if sample_weight is not None:
+            res = score_fn(Y_true, Y_pred, sample_weight=sample_weight)
+        else:
+            res = score_fn(Y_true, Y_pred)
+
+        return res
+
+
+    @staticmethod
+    def wrap_scoring(scoring, Y_true, Y_pred, sample_weight=None, score_by_dim=False):
+        """
+        In case the caller wants a score for each dimension of a multiple treatment model.
+
+        Loop over the call to the single score wrapper.
+        """
+        if not score_by_dim:
+            return _ModelFinal._wrap_scoring(scoring, Y_true, Y_pred, sample_weight)
+        else:
+            assert Y_true.shape == Y_pred.shape, "Mismatch shape in wrap_scoring"
+            n_out = Y_pred.shape[1]
+            res = [None]*Y_pred.shape[1]
+            for yidx in range(n_out):
+                res[yidx]= _ModelFinal.wrap_scoring(scoring, Y_true[:,yidx], Y_pred[:,yidx], sample_weight)
+            return res
 
 
 class DRLearner(_OrthoLearner):
@@ -581,7 +680,7 @@ class DRLearner(_OrthoLearner):
         return super().refit_final(inference=inference)
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -604,6 +703,9 @@ class DRLearner(_OrthoLearner):
             Controls for each sample
         sample_weight:(n,) vector, optional
             Weights for each samples
+        scoring: name of an sklearn scoring function to use instead of the default, optional
+            Supports f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score,
+            and roc_auc_score.
 
         Returns
         -------
@@ -611,7 +713,7 @@ class DRLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=scoring)
 
     @property
     def multitask_model_cate(self):
