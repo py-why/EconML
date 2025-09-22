@@ -687,6 +687,10 @@ class DRTester:
         assert np.min(sampleweightval) > 0, "Sample weights must be positive"
         assert np.min(sampleweighttrain) > 0, "Sample weights must be positive"
 
+        # cast sample weights to float
+        sampleweightval = sampleweightval.astype(float)
+        sampleweighttrain = sampleweighttrain.astype(float)
+
         # Convert weights to minimum value of 1
         sampleweightval /= sampleweightval.min()
         sampleweighttrain /= sampleweighttrain.min()
