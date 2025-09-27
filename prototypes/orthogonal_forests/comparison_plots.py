@@ -1,4 +1,3 @@
-#!/usr/bin/env env python3
 """
 Treatment Effect Estimation Results Analysis and Visualization
 
