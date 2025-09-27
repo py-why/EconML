@@ -1,5 +1,5 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the MIT License
 
 import numpy as np
 from sklearn.utils.validation import check_array
@@ -251,3 +251,4 @@ class EnsembleCateEstimator(BaseCateEstimator):
         model_types = [type(mdl).__name__ for mdl in self.cate_models]
         return (f"Ensemble of {len(self.cate_models)} models: {model_types}\n"
                 f"Weights: {self.weights}")
+
