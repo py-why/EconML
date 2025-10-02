@@ -1845,7 +1845,31 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                 self.XXXX = np.einsum('nw,nx->wx', WX, WX)
                 self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
             elif self.cov_type == 'clustered':
-                raise AttributeError("Clustered standard errors are not supported with federation enabled.")
+                group_ids, inverse_idx = np.unique(groups, return_inverse=True)
+                n_groups = len(group_ids)
+                k = WX.shape[1]
+
+                S_local = np.einsum('ni,nj->nij', WX, X)                  # (N, k, k)
+                S_flat = S_local.reshape(S_local.shape[0], -1)            # (N, k*k)
+                group_S_flat = np.zeros((n_groups, k * k))
+                np.add.at(group_S_flat, inverse_idx, S_flat)
+                group_S = group_S_flat.reshape(n_groups, k, k)            # (G, k, k)
+
+                y2d = y.reshape(-1, 1) if y.ndim < 2 else y               # (N, p)
+                TY_local = y2d[:, :, None] * WX[:, None, :]               # (N, p, k)
+                TY_flat = TY_local.reshape(TY_local.shape[0], -1)         # (N, p*k)
+                group_T_flat = np.zeros((n_groups, y2d.shape[1] * k))
+                np.add.at(group_T_flat, inverse_idx, TY_flat)
+                group_t = group_T_flat.reshape(n_groups, y2d.shape[1], k).transpose(1, 0, 2)  # (p, G, k)
+
+                TT = np.einsum('ygk,ygl->ykl', group_t, group_t)                 # (p, k, k)
+                ST = np.einsum('gvw,ygx->yvwx', group_S, group_t)                # (p, k, k, k)
+                SS = np.einsum('gvu,gwx->vuwx', group_S, group_S)                # (k, k, k, k)
+
+                self.CL_TT = TT
+                self.CL_ST = ST
+                self.CL_SS = SS
+                self._n_groups = n_groups
 
         sigma_inv = np.linalg.pinv(self.XX)
 
@@ -1878,7 +1902,14 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
         elif (self.cov_type == 'clustered'):
-            self._var = self._compute_clustered_variance_linear(WX, y - np.matmul(X, param), sigma_inv, groups)
+            f_weight = np.sqrt(freq_weight) if y.ndim < 2 else np.sqrt(freq_weight).reshape(-1, 1)
+            centered_y = y - np.matmul(X, param)
+            self._var = self._compute_clustered_variance_linear(
+                WX,
+                centered_y * f_weight,
+                sigma_inv,
+                groups
+            )
         else:
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1, clustered.")
 
@@ -1917,11 +1948,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         XX = np.sum([model.XX for model in models], axis=0)
         Xy = np.sum([model.Xy for model in models], axis=0)
-        XXyy = np.sum([model.XXyy for model in models], axis=0)
-        XXXy = np.sum([model.XXXy for model in models], axis=0)
-        XXXX = np.sum([model.XXXX for model in models], axis=0)
-
-        sample_var = np.sum([model.sample_var for model in models], axis=0)
         n_obs = np.sum([model._n_obs for model in models], axis=0)
 
         sigma_inv = np.linalg.pinv(XX)
@@ -1938,26 +1964,65 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         else:  # both HC1 and nonrobust use the same correction factor
             correction = (n_obs / (n_obs - df))
 
-        if agg_model.cov_type in ['HC0', 'HC1']:
-            weighted_sigma = XXyy - 2 * np.einsum('yvwx,vy->ywx', XXXy, param) + \
-                np.einsum('uvwx,uy,vy->ywx', XXXX, param, param) + sample_var
-            if agg_model._n_out == 0:
-                agg_model._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma.squeeze(0), sigma_inv))
+        (agg_model.XX, agg_model.Xy, agg_model._n_obs) = (XX, Xy, n_obs)
+
+        if agg_model.cov_type == 'clustered':
+            TT = np.sum([m.CL_TT for m in models], axis=0)      # (p, k, k)
+            ST = np.sum([m.CL_ST for m in models], axis=0)      # (p, k, k, k)
+            SS = np.sum([m.CL_SS for m in models], axis=0)      # (k, k, k, k)
+            G  = int(np.sum([m._n_groups for m in models]))     # total clusters
+
+            (agg_model.CL_TT, agg_model.CL_ST, agg_model.CL_SS, agg_model._n_groups) = (TT, ST, SS, G)
+
+            if G <= 1:
+                warnings.warn("Number of clusters <= 1. Using biased clustered variance calculation!")
+                group_correction = 1.0
             else:
-                agg_model._var = [correction * np.matmul(sigma_inv, np.matmul(ws, sigma_inv)) for ws in weighted_sigma]
+                group_correction = (G / (G - 1))
+
+            param_T = param.T                                       # (p, k)
+            # subtract cross terms of t_g and S_g @ beta
+            cross_tmp = np.einsum('yvwu,yw->yvu', ST, param_T)      # (p, k, k) with axes (y, v, u)
+            cross_left = np.swapaxes(cross_tmp, 1, 2)               # (p, k, k) with axes (y, u, v)
+            cross_right = np.transpose(cross_left, (0, 2, 1))       # (p, k, k)
+            # add quadratic term for (S_g @ beta)(S_g @ beta)^T
+            quad = np.einsum('uvwx,yw,yx->yuv',
+                             np.transpose(SS, (0, 2, 1, 3)),
+                             param_T,
+                             param_T)
+            S = TT - cross_left - cross_right + quad                # (p, k, k)
+
+            if agg_model._n_out == 0:
+                V = group_correction * (sigma_inv @ S.squeeze(0) @ sigma_inv)
+                agg_model._var = V
+            else:
+                agg_model._var = [group_correction * (sigma_inv @ S[j] @ sigma_inv) for j in range(S.shape[0])]
+            agg_model._param_var = np.array(agg_model._var)
         else:
-            assert agg_model.cov_type == 'nonrobust' or agg_model.cov_type is None
-            sigma = XXyy - 2 * np.einsum('yx,xy->y', XXXy, param) + np.einsum('wx,wy,xy->y', XXXX, param, param)
-            var_i = (sample_var + sigma) / n_obs
+            assert agg_model.cov_type in ['HC0', 'HC1', 'nonrobust', None]
+            XXyy = np.sum([model.XXyy for model in models], axis=0)
+            XXXy = np.sum([model.XXXy for model in models], axis=0)
+            XXXX = np.sum([model.XXXX for model in models], axis=0)
+            sample_var = np.sum([model.sample_var for model in models], axis=0)
+
+            (agg_model.sample_var, agg_model.XXyy, agg_model.XXXy, agg_model.XXXX) = sample_var, XXyy, XXXy, XXXX
+
+            if agg_model.cov_type in ['HC0', 'HC1']:
+                weighted_sigma = XXyy - 2 * np.einsum('yvwx,vy->ywx', XXXy, param) + \
+                    np.einsum('uvwx,uy,vy->ywx', XXXX, param, param) + sample_var
+                matrices = [weighted_sigma.squeeze(0)] if agg_model._n_out == 0 else list(weighted_sigma)
+                agg_model._var = [correction * np.matmul(sigma_inv, np.matmul(ws, sigma_inv))
+                                  for ws in matrices]
+            else:  # non-robust
+                sigma = XXyy - 2 * np.einsum('yx,xy->y', XXXy, param) + np.einsum('wx,wy,xy->y', XXXX, param, param)
+                var_i = (sample_var + sigma) / n_obs
+                matrices = [var_i] if agg_model._n_out == 0 else list(var_i)
+                agg_model._var = [correction * var * sigma_inv for var in matrices]
+
             if agg_model._n_out == 0:
-                agg_model._var = correction * var_i * sigma_inv
-            else:
-                agg_model._var = [correction * var * sigma_inv for var in var_i]
+                agg_model._var = agg_model._var[0]
 
         agg_model._param_var = np.array(agg_model._var)
-
-        (agg_model.XX, agg_model.Xy, agg_model.XXyy, agg_model.XXXy, agg_model.XXXX,
-         agg_model.sample_var, agg_model._n_obs) = XX, Xy, XXyy, XXXy, XXXX, sample_var, n_obs
 
         return agg_model
 

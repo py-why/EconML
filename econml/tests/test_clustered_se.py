@@ -178,3 +178,80 @@ class TestClusteredSE(unittest.TestCase):
         relative_diff = abs(econml_se - adjusted_sm_se) / adjusted_sm_se
         self.assertLess(relative_diff, 1e-4,
                        f"EconML SE ({econml_se:.8f}) differs from adjusted statsmodels SE ({adjusted_sm_se:.8f})")
+
+    def test_clustered_micro_equals_aggregated(self):
+        """Test that clustered SE matches for summarized and non-summarized data."""
+
+        def _generate_micro_and_aggregated(rng, *, n_groups=12, cells_per_group=6, d=4, p=1):
+            """Build a micro dataset and aggregated counterpart with many freq > 1."""
+            G = n_groups
+            K = cells_per_group
+            N = G * K
+
+            # Design
+            X = rng.normal(size=(N, d))
+            # True coefficients used just to generate data; intercept will be fit by the model
+            beta_true = rng.normal(size=(d + 1, p))
+
+            # Positive sample weights and integer freq weights with many freq > 1
+            sw = np.exp(rng.normal(scale=0.3, size=N))
+            freq = rng.integers(1, 6, size=N)  # values in {1,2,3,4,5}
+
+            # Group labels
+            groups = np.repeat(np.arange(G), K)
+
+            # Build micro outcomes y_{ij}
+            ybar = np.zeros((N, p), dtype=float)
+            svar = np.zeros((N, p), dtype=float)
+
+            X_micro, y_micro, sw_micro, groups_micro = [], [], [], []
+
+            for i in range(N):
+                f = int(freq[i])
+                x_i = X[i]
+                mu_i = np.concatenate(([1.0], x_i)) @ beta_true  # shape (p,)
+                eps = rng.normal(scale=1.0, size=(f, p))
+                y_ij = mu_i + eps  # shape (f, p)
+
+                X_micro.append(np.repeat(x_i[None, :], f, axis=0))
+                y_micro.append(y_ij)
+                sw_micro.append(np.repeat(sw[i], f))
+                groups_micro.append(np.repeat(groups[i], f))
+
+                ybar[i, :] = y_ij.mean(axis=0)
+                svar[i, :] = y_ij.var(axis=0, ddof=0)
+
+            X_micro = np.vstack(X_micro)
+            y_micro = np.vstack(y_micro)
+            sw_micro = np.concatenate(sw_micro)
+            groups_micro = np.concatenate(groups_micro)
+
+            if p == 1:
+                ybar = ybar.ravel()
+                svar = svar.ravel()
+                y_micro = y_micro.ravel()
+
+            return (X, ybar, sw, freq, svar, groups), (X_micro, y_micro, sw_micro, groups_micro)
+
+        rng = np.random.default_rng(7)
+        for p in [1, 3]:
+            (X, ybar, sw, freq, svar, groups), (X_micro, y_micro, sw_micro, groups_micro) = \
+                _generate_micro_and_aggregated(rng, n_groups=10, cells_per_group=7, d=5, p=p)
+
+            m_agg = StatsModelsLinearRegression(fit_intercept=True, cov_type="clustered", enable_federation=False)
+            m_agg.fit(X, ybar, sample_weight=sw, freq_weight=freq, sample_var=svar, groups=groups)
+
+            m_micro = StatsModelsLinearRegression(fit_intercept=True, cov_type="clustered",
+                                                 enable_federation=False)
+            m_micro.fit(
+                X_micro,
+                y_micro,
+                sample_weight=sw_micro,
+                freq_weight=None,
+                sample_var=None,
+                groups=groups_micro
+            )
+
+            np.testing.assert_allclose(m_agg._param, m_micro._param, rtol=1e-12, atol=1e-12)
+            np.testing.assert_allclose(np.array(m_agg._param_var), np.array(m_micro._param_var),
+                                       rtol=1e-10, atol=1e-12)
