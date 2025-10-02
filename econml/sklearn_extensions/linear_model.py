@@ -1694,13 +1694,21 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         Whether to fit an intercept in this model
     cov_type : string, default "HC0"
         The covariance approach to use.  Supported values are "HC0", "HC1", "nonrobust", and "clustered".
+    cov_options : dict, optional
+        Additional options for covariance estimation. For clustered covariance, supports:
+        - 'group_correction': bool, default True. Whether to apply N_G/(N_G-1) correction.
+        - 'df_correction': bool, default True. Whether to apply (N-1)/(N-K) correction.
     enable_federation : bool, default False
         Whether to enable federation (aggregating this model's results with other models in a distributed setting).
         This requires additional memory proportional to the number of columns in X to the fourth power.
     """
 
-    def __init__(self, fit_intercept=True, cov_type="HC0", *, enable_federation=False):
+    def __init__(self, fit_intercept=True, cov_type="HC0", cov_options=None, *, enable_federation=False):
         self.cov_type = cov_type
+        self.cov_options = cov_options if cov_options is not None else {}
+        if cov_type == 'clustered':
+            self.cov_options.setdefault('group_correction', True)
+            self.cov_options.setdefault('df_correction', True)
         self.fit_intercept = fit_intercept
         self.enable_federation = enable_federation
 
@@ -2050,8 +2058,10 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         group_ids, inverse_idx = np.unique(groups, return_inverse=True)
         n_groups = len(group_ids)
 
-        # Group correction factor
-        group_correction = (n_groups / (n_groups - 1))
+        # Apply correction factors based on cov_options
+        group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+        df_correction = ((n - 1) / (n - k)) if self.cov_options['df_correction'] else 1.0
+        correction = group_correction * df_correction
 
         if eps_i.ndim < 2:
             # Single outcome case
@@ -2060,7 +2070,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             np.add.at(group_sums, inverse_idx, WX_e)
             s = group_sums.T @ group_sums
 
-            return group_correction * np.matmul(sigma_inv, np.matmul(s, sigma_inv))
+            return correction * np.matmul(sigma_inv, np.matmul(s, sigma_inv))
         else:
             # Multiple outcome case
             var_list = []
@@ -2070,7 +2080,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                 np.add.at(group_sums, inverse_idx, WX_e)
                 s = group_sums.T @ group_sums
 
-                var_list.append(group_correction * np.matmul(sigma_inv, np.matmul(s, sigma_inv)))
+                var_list.append(correction * np.matmul(sigma_inv, np.matmul(s, sigma_inv)))
 
             return var_list
 
@@ -2162,11 +2172,19 @@ class StatsModels2SLS(_StatsModelsWrapper):
     ----------
     cov_type : {'HC0', 'HC1', 'nonrobust', 'clustered', or None}, default 'HC0'
         Indicates how the covariance matrix is estimated. 'clustered' requires groups to be provided in fit().
+    cov_options : dict, optional
+        Additional options for covariance estimation. For clustered covariance, supports:
+        - 'group_correction': bool, default True. Whether to apply N_G/(N_G-1) correction.
+        - 'df_correction': bool, default True. Whether to apply (N-1)/(N-K) correction.
     """
 
-    def __init__(self, cov_type="HC0"):
+    def __init__(self, cov_type="HC0", cov_options=None):
         self.fit_intercept = False
         self.cov_type = cov_type
+        self.cov_options = cov_options if cov_options is not None else {}
+        if cov_type == 'clustered':
+            self.cov_options.setdefault('group_correction', True)
+            self.cov_options.setdefault('df_correction', True)
         return
 
     def _check_input(self, Z, T, y, sample_weight, groups=None):
@@ -2322,8 +2340,10 @@ class StatsModels2SLS(_StatsModelsWrapper):
         group_ids, inverse_idx = np.unique(groups, return_inverse=True)
         n_groups = len(group_ids)
 
-        # Group correction factor
-        group_correction = (n_groups / (n_groups - 1))
+        # Apply correction factors based on cov_options
+        group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+        df_correction = ((n - 1) / (n - k)) if self.cov_options['df_correction'] else 1.0
+        correction = group_correction * df_correction
 
         if eps_i.ndim < 2:
             # Single outcome case
@@ -2332,7 +2352,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
             np.add.at(group_sums, inverse_idx, that_e)
             s = group_sums.T @ group_sums
 
-            return group_correction * np.matmul(thatT_that_inv, np.matmul(s, thatT_that_inv))
+            return correction * np.matmul(thatT_that_inv, np.matmul(s, thatT_that_inv))
         else:
             # Multiple outcome case
             var_list = []
@@ -2342,6 +2362,6 @@ class StatsModels2SLS(_StatsModelsWrapper):
                 np.add.at(group_sums, inverse_idx, that_e)
                 s = group_sums.T @ group_sums
 
-                var_list.append(group_correction * np.matmul(thatT_that_inv, np.matmul(s, thatT_that_inv)))
+                var_list.append(correction * np.matmul(thatT_that_inv, np.matmul(s, thatT_that_inv)))
 
             return var_list

@@ -110,7 +110,7 @@ class TestClusteredSE(unittest.TestCase):
         T = np.random.binomial(1, 0.5, n)
         Y = np.random.normal(0, 1, n)
 
-        # Clustered SE without groups (defaults to individual groups)
+        # Clustered SE with default corrections (both enabled)
         np.random.seed(123)
         est_clustered = DML(model_y=LassoCV(), model_t=LogisticRegression(),
                            model_final=StatsModelsLinearRegression(fit_intercept=False, cov_type='clustered'),
@@ -129,16 +129,13 @@ class TestClusteredSE(unittest.TestCase):
         lb_clustered, ub_clustered = est_clustered.effect_interval(X_test, alpha=0.05)
         lb_hc0, ub_hc0 = est_hc0.effect_interval(X_test, alpha=0.05)
 
-        # Clustered SE should be HC0 SE * sqrt(n/(n-1)) when each obs is its own cluster
-        # Width of confidence intervals should differ by the adjustment factor
-        width_clustered = ub_clustered - lb_clustered
-        width_hc0 = ub_hc0 - lb_hc0
-
-        # When each observation is its own cluster, clustered SE should equal HC0 * sqrt(n/(n-1))
-        # due to the finite sample correction factor
-        correction_factor = np.sqrt(n / (n - 1))
-        expected_width = width_hc0 * correction_factor
-        np.testing.assert_allclose(width_clustered, expected_width, rtol=1e-10)
+        # With both corrections: sqrt(n/(n-1)) * sqrt((n-1)/(n-k)) = sqrt(n/(n-k))
+        # Get k from the fitted model (includes treatment variable)
+        k_params = est_clustered.model_final_.coef_.shape[0]
+        correction_factor = np.sqrt(n / (n - k_params))
+        expected_width = (ub_hc0 - lb_hc0) * correction_factor
+        actual_width = ub_clustered - lb_clustered
+        np.testing.assert_allclose(actual_width, expected_width, rtol=1e-10)
 
         # Test basic functionality still works
         effects = est_clustered.effect(X_test)
@@ -169,15 +166,11 @@ class TestClusteredSE(unittest.TestCase):
         sm_model = sm.OLS(Y, X_with_intercept).fit(cov_type='cluster', cov_kwds={'groups': groups})
         sm_se = sm_model.bse[1]  # SE for X[:, 0] coefficient
 
-        # Account for statsmodels' additional n/(n-k) adjustment
-        k = X_with_intercept.shape[1]  # Number of parameters
-        sm_adjustment = np.sqrt((n - 1) / (n - k))
-        adjusted_sm_se = sm_se / sm_adjustment
-
-        # Should match very closely
-        relative_diff = abs(econml_se - adjusted_sm_se) / adjusted_sm_se
+        # Statsmodels applies both G/(G-1) and (N-1)/(N-K) corrections by default
+        # Our implementation also applies both by default, so they should match
+        relative_diff = abs(econml_se - sm_se) / sm_se
         self.assertLess(relative_diff, 1e-4,
-                       f"EconML SE ({econml_se:.8f}) differs from adjusted statsmodels SE ({adjusted_sm_se:.8f})")
+                       f"EconML SE ({econml_se:.8f}) differs from statsmodels SE ({sm_se:.8f})")
 
     def test_clustered_micro_equals_aggregated(self):
         """Test that clustered SE matches for summarized and non-summarized data."""
@@ -238,11 +231,14 @@ class TestClusteredSE(unittest.TestCase):
             (X, ybar, sw, freq, svar, groups), (X_micro, y_micro, sw_micro, groups_micro) = \
                 _generate_micro_and_aggregated(rng, n_groups=10, cells_per_group=7, d=5, p=p)
 
-            m_agg = StatsModelsLinearRegression(fit_intercept=True, cov_type="clustered", enable_federation=False)
+            # Disable DF correction since n differs between aggregated and micro datasets
+            cov_opts = {'group_correction': True, 'df_correction': False}
+            m_agg = StatsModelsLinearRegression(fit_intercept=True, cov_type="clustered",
+                                               cov_options=cov_opts, enable_federation=False)
             m_agg.fit(X, ybar, sample_weight=sw, freq_weight=freq, sample_var=svar, groups=groups)
 
             m_micro = StatsModelsLinearRegression(fit_intercept=True, cov_type="clustered",
-                                                 enable_federation=False)
+                                                 cov_options=cov_opts, enable_federation=False)
             m_micro.fit(
                 X_micro,
                 y_micro,
@@ -255,3 +251,55 @@ class TestClusteredSE(unittest.TestCase):
             np.testing.assert_allclose(m_agg._param, m_micro._param, rtol=1e-12, atol=1e-12)
             np.testing.assert_allclose(np.array(m_agg._param_var), np.array(m_micro._param_var),
                                        rtol=1e-10, atol=1e-12)
+
+    def test_clustered_correction_factors(self):
+        """Test that correction factors are applied correctly."""
+        np.random.seed(42)
+        n = 200
+        n_groups = 20
+        X = np.random.randn(n, 3)
+        groups = np.repeat(np.arange(n_groups), n // n_groups)
+        y = X[:, 0] + 0.5 * X[:, 1] + np.random.randn(n) * 0.5
+
+        # Fit models with different correction options
+        m_none = StatsModelsLinearRegression(
+            cov_type='clustered',
+            cov_options={'group_correction': False, 'df_correction': False}
+        ).fit(X, y, groups=groups)
+
+        m_group = StatsModelsLinearRegression(
+            cov_type='clustered',
+            cov_options={'group_correction': True, 'df_correction': False}
+        ).fit(X, y, groups=groups)
+
+        m_df = StatsModelsLinearRegression(
+            cov_type='clustered',
+            cov_options={'group_correction': False, 'df_correction': True}
+        ).fit(X, y, groups=groups)
+
+        m_both = StatsModelsLinearRegression(
+            cov_type='clustered',
+            cov_options={'group_correction': True, 'df_correction': True}
+        ).fit(X, y, groups=groups)
+
+        # Get actual number of parameters
+        k_params = len(m_none.coef_) + 1
+
+        # Verify group correction
+        group_ratio = m_group.coef_stderr_ / m_none.coef_stderr_
+        expected_group_ratio = np.sqrt(n_groups / (n_groups - 1))
+        np.testing.assert_allclose(group_ratio, expected_group_ratio, rtol=1e-10)
+
+        # Verify DF correction
+        df_ratio = m_df.coef_stderr_ / m_none.coef_stderr_
+        expected_df_ratio = np.sqrt((n - 1) / (n - k_params))
+        np.testing.assert_allclose(df_ratio, expected_df_ratio, rtol=1e-10)
+
+        # Verify combined correction
+        combined_ratio = m_both.coef_stderr_ / m_none.coef_stderr_
+        expected_combined_ratio = np.sqrt(n_groups / (n_groups - 1) * (n - 1) / (n - k_params))
+        np.testing.assert_allclose(combined_ratio, expected_combined_ratio, rtol=1e-10)
+
+        # Verify multiplicative property
+        both_from_components = m_group.coef_stderr_ * m_df.coef_stderr_ / m_none.coef_stderr_
+        np.testing.assert_allclose(m_both.coef_stderr_, both_from_components, rtol=1e-10)
