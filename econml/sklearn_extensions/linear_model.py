@@ -1943,14 +1943,18 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         if len(models) == 0:
             raise ValueError("Must aggregate at least one model!")
         cov_types = set([model.cov_type for model in models])
+        cov_options = set([str(model.cov_options) for model in models])
         fit_intercepts = set([model.fit_intercept for model in models])
         enable_federation = set([model.enable_federation for model in models])
         _n_outs = set([model._n_out for model in models])
         assert enable_federation == {True}, "All models must have enable_federation=True!"
         assert len(cov_types) == 1, "All models must have the same cov_type!"
+        assert len(cov_options) == 1, "All models must have the same cov_options!"
         assert len(fit_intercepts) == 1, "All models must have the same fit_intercept!"
         assert len(_n_outs) == 1, "All models must have the same number of outcomes!"
-        agg_model = StatsModelsLinearRegression(cov_type=models[0].cov_type, fit_intercept=models[0].fit_intercept)
+        agg_model = StatsModelsLinearRegression(cov_type=models[0].cov_type,
+                                                cov_options=models[0].cov_options,
+                                                fit_intercept=models[0].fit_intercept)
 
         agg_model._n_out = models[0]._n_out
 
@@ -1986,7 +1990,10 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
                 warnings.warn("Number of clusters <= 1. Using biased clustered variance calculation!")
                 group_correction = 1.0
             else:
-                group_correction = (G / (G - 1))
+                group_correction = (G / (G - 1)) if agg_model.cov_options['group_correction'] else 1.0
+
+            df_correction = ((n_obs - 1) / (n_obs - df)) if agg_model.cov_options['df_correction'] else 1.0
+            correction_clustered = group_correction * df_correction
 
             param_T = param.T                                       # (p, k)
             # subtract cross terms of t_g and S_g @ beta
@@ -2001,10 +2008,10 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             S = TT - cross_left - cross_right + quad                # (p, k, k)
 
             if agg_model._n_out == 0:
-                V = group_correction * (sigma_inv @ S.squeeze(0) @ sigma_inv)
+                V = correction_clustered * (sigma_inv @ S.squeeze(0) @ sigma_inv)
                 agg_model._var = V
             else:
-                agg_model._var = [group_correction * (sigma_inv @ S[j] @ sigma_inv) for j in range(S.shape[0])]
+                agg_model._var = [correction_clustered * (sigma_inv @ S[j] @ sigma_inv) for j in range(S.shape[0])]
             agg_model._param_var = np.array(agg_model._var)
         else:
             assert agg_model.cov_type in ['HC0', 'HC1', 'nonrobust', None]
@@ -2058,8 +2065,12 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         group_ids, inverse_idx = np.unique(groups, return_inverse=True)
         n_groups = len(group_ids)
 
-        # Apply correction factors based on cov_options
-        group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+        if n_groups <= 1:
+            warnings.warn("Number of clusters <= 1. Using biased clustered variance calculation!")
+            group_correction = 1.0
+        else:
+            group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+
         df_correction = ((n - 1) / (n - k)) if self.cov_options['df_correction'] else 1.0
         correction = group_correction * df_correction
 
@@ -2340,8 +2351,12 @@ class StatsModels2SLS(_StatsModelsWrapper):
         group_ids, inverse_idx = np.unique(groups, return_inverse=True)
         n_groups = len(group_ids)
 
-        # Apply correction factors based on cov_options
-        group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+        if n_groups <= 1:
+            warnings.warn("Number of clusters <= 1. Using biased clustered variance calculation!")
+            group_correction = 1.0
+        else:
+            group_correction = (n_groups / (n_groups - 1)) if self.cov_options['group_correction'] else 1.0
+
         df_correction = ((n - 1) / (n - k)) if self.cov_options['df_correction'] else 1.0
         correction = group_correction * df_correction
 

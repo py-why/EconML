@@ -303,3 +303,46 @@ class TestClusteredSE(unittest.TestCase):
         # Verify multiplicative property
         both_from_components = m_group.coef_stderr_ * m_df.coef_stderr_ / m_none.coef_stderr_
         np.testing.assert_allclose(m_both.coef_stderr_, both_from_components, rtol=1e-10)
+
+    def test_clustered_se_federated(self):
+        """Test federated calculation of clustered standard errors."""
+        np.random.seed(42)
+        n = 300
+        n_groups = 30
+        X = np.random.randn(n, 3)
+        groups = np.repeat(np.arange(n_groups), n // n_groups)
+        group_effects = np.random.randn(n_groups) * 0.5
+        y = 1 + 2 * X[:, 0] + 3 * X[:, 1] - X[:, 2] + group_effects[groups] + np.random.randn(n) * 0.5
+
+        # Baseline: fit on full data
+        baseline = StatsModelsLinearRegression(
+            cov_type='clustered',
+            enable_federation=False
+        ).fit(X, y, groups=groups)
+
+        # Split data into chunks at group boundaries
+        n_chunks = 3
+        groups_per_chunk = n_groups // n_chunks
+        models = []
+        for i in range(n_chunks):
+            start_group = i * groups_per_chunk
+            end_group = (i + 1) * groups_per_chunk if i < n_chunks - 1 else n_groups
+            mask = (groups >= start_group) & (groups < end_group)
+            X_chunk = X[mask]
+            y_chunk = y[mask]
+            groups_chunk = groups[mask]
+
+            model = StatsModelsLinearRegression(
+                cov_type='clustered',
+                enable_federation=True
+            ).fit(X_chunk, y_chunk, groups=groups_chunk)
+            models.append(model)
+
+        # Aggregate models
+        aggregated = StatsModelsLinearRegression.aggregate(models)
+
+        # Compare coefficients and standard errors
+        np.testing.assert_allclose(aggregated.coef_, baseline.coef_, rtol=1e-10)
+        np.testing.assert_allclose(aggregated.intercept_, baseline.intercept_, rtol=1e-10)
+        np.testing.assert_allclose(aggregated.coef_stderr_, baseline.coef_stderr_, rtol=1e-10)
+        np.testing.assert_allclose(aggregated.intercept_stderr_, baseline.intercept_stderr_, rtol=1e-10)
