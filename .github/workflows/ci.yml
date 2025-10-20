@@ -118,7 +118,7 @@ jobs:
         kind: [except-customer-scenarios, customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
-          extras: "[plt,ray]"
+          extras: "[nn,plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.12'
@@ -223,16 +223,16 @@ jobs:
             extras: ""
           - kind: other
             opts: '-m "cate_api and not ray" -n auto'
-            extras: "[plt]"
+            extras: "[nn,plt]"
           - kind: dml
             opts: '-m "dml and not ray"'
-            extras: "[plt]"
+            extras: "[nn,plt]"
           - kind: main
             opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization or ray)" -n 2'
-            extras: "[plt,dowhy]"
+            extras: "[nn,plt,dowhy]"
           - kind: treatment
             opts: '-m "treatment_featurization and not ray" -n auto'
-            extras: "[plt]"
+            extras: "[nn,plt]"
           - kind: ray
             opts: '-m "ray"'
             extras: "[ray]"
