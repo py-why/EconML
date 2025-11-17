@@ -52,11 +52,11 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
     # DML
     import numpy as np
-    X = np.random.choice(np.arange(5), size=(100,3))
+    X = np.random.choice(6, size=(100,3))
     Y = np.random.normal(size=(100,2))
     y = np.random.normal(size=(100,))
-    T = T0 = T1 = np.random.choice(np.arange(3), size=(100,2))
-    t = t0 = t1 = T[:,0]
+    (T, T0, T1) = (np.random.choice(np.arange(3), size=(100,2)) for _ in range(3))
+    (t, t0, t1) = (a[:,0] for a in (T, T0, T1))
     W = np.random.normal(size=(100,2))
 
 .. testcode::
@@ -646,7 +646,7 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     from sklearn.preprocessing import PolynomialFeatures
     est = LinearDML(model_y=RandomForestRegressor(),
                     model_t=RandomForestRegressor(),
-                    featurizer=PolynomialFeatures(degree=3, include_bias=True))
+                    featurizer=PolynomialFeatures(degree=3, include_bias=False))
     est.fit(y, T, X=X, W=W)
 
     # To get the coefficients of the polynomial fitted in the final stage we can
@@ -663,7 +663,7 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
     from econml.dml import LinearDML
     from sklearn.preprocessing import OneHotEncoder
     # removing one id to avoid colinearity, as is standard for fixed effects
-    X_oh = OneHotEncoder(sparse_output=False).fit_transform(X)[:, 1:]
+    X_oh = OneHotEncoder(sparse_output=False, drop="first").fit_transform(X)
 
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor())
@@ -703,7 +703,7 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
     est = LinearDML(model_y=RandomForestRegressor(), 
                     model_t=RandomForestRegressor(),
                     featurizer=Pipeline([('log', LogFeatures()), 
-                                         ('poly', PolynomialFeatures(degree=2))]))
+                                         ('poly', PolynomialFeatures(degree=2, include_bias=False))]))
     est.fit(y, T, X=X, W=W)
 
 
