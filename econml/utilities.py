@@ -1460,9 +1460,15 @@ class _TransformerWrapper:
             powers = self.featurizer.powers_
             result = np.zeros(X.shape + (self.featurizer.n_output_features_,))
             for i in range(X.shape[1]):
-                p = powers.copy()
+                # d/dx_i of x_1^p_1 * x_2^p_2 * ... x_i^p_i * ... x_n^p_n
+                # = p_i * x_1^p_1 * x_2^p_2 * ... x_i^(p_i-1) * ... x_n^p_n
+                # store the coefficient in c, and the updated powers in p
                 c = powers[:, i]
-                p[:, i] -= 1
+                p = powers.copy()
+                # decrement p[:, i], but only if it was more than 0 already
+                # (if it is 0 then c=0 so we'll correctly get 0 for a result regardless of the updated entries in p,
+                #  but float_power would return nan if X has a 0 and the exponent is -1)
+                p[p[:, i] > 0, i] -= 1
                 M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
                 result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
             return result

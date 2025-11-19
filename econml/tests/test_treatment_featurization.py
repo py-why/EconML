@@ -486,20 +486,21 @@ class TestTreatmentFeaturization(unittest.TestCase):
     def test_jac(self):
         def func_transform(x):
             x = x.reshape(-1, 1)
-            return np.hstack([x, x**2])
+            return np.hstack([np.ones_like(x), x, x**2])
 
         def calc_expected_jacobian(T):
-            jac = DPolynomialFeatures(degree=2, include_bias=False).fit_transform(T)
+            jac = DPolynomialFeatures(degree=2, include_bias=True).fit_transform(T)
             return jac
 
         treatment_featurizers = [
-            PolynomialFeatures(degree=2, include_bias=False),
+            PolynomialFeatures(degree=2, include_bias=True),
             FunctionTransformer(func=func_transform)
         ]
 
         n = 10000
         d_t = 1
         T = np.random.normal(size=(n, d_t))
+        T[0, 0] = 0  # hardcode one value of exactly zero to test that we don't generate nan
 
         for treatment_featurizer in treatment_featurizers:
             # fit a dummy estimator first so the featurizer can be fit to the treatment
