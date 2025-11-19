@@ -106,7 +106,8 @@ class TestDMLIV(unittest.TestCase):
 
                                 for est in est_list:
                                     with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
-                                                      featurizer=featurizer, est=est):
+                                                      featurizer=repr(featurizer), est=type(est).__name__,
+                                                      projection=getattr(est, 'projection', None)):
 
                                         # ensure we can serialize unfit estimator
                                         pickle.dumps(est)
@@ -195,7 +196,7 @@ class TestDMLIV(unittest.TestCase):
             return true_ate
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
-            with self.subTest(est=est):
+            with self.subTest(projection=est.projection):
                 est.fit(y, T, Z=Z, X=None, W=X, inference="auto")
                 ate_lb, ate_ub = est.effect_interval()
                 np.testing.assert_array_less(ate_lb, true_ate)
@@ -250,7 +251,7 @@ class TestDMLIV(unittest.TestCase):
         ]
 
         for est in est_list:
-            with self.subTest(est=est):
+            with self.subTest(est=type(est).__name__, projection=getattr(est, 'projection', None)):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
                 est.score(y, T, Z=Z, X=X, W=W)
                 est.const_marginal_effect(X)

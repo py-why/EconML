@@ -37,7 +37,7 @@ class TestShap(unittest.TestCase):
                             ), model_t=LinearRegression(), model_final=RandomForestRegressor(), featurizer=featurizer),
                         ]
                     for est in est_list:
-                        with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
+                        with self.subTest(est=type(est).__name__, featurizer=repr(featurizer), d_y=d_y, d_t=d_t):
                             est.fit(Y, T, X=X, W=W)
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
@@ -95,7 +95,7 @@ class TestShap(unittest.TestCase):
                                      DRLearner(multitask_model_final=False, featurizer=featurizer),
                                      ForestDRLearner()]
                     for est in est_list:
-                        with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
+                        with self.subTest(est=type(est).__name__, featurizer=repr(featurizer), d_y=d_y, d_t=d_t):
                             if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner)):
                                 est.fit(Y, T, X=X)
                             else:

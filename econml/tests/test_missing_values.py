@@ -235,7 +235,10 @@ class TestMissing(unittest.TestCase):
         ]
 
         for est in x_w_missing_models:
-            with self.subTest(est=est, kind='missing X and W'):
+            with self.subTest(est=type(est).__name__,
+                              projection=getattr(est, 'projection', None),
+                              prel_cate_approach=getattr(est, 'prel_cate_approach', None),
+                              kind='missing X and W'):
 
                 if 'Z' in inspect.getfullargspec(est.fit).kwonlyargs:
                     include_Z = True
@@ -265,7 +268,10 @@ class TestMissing(unittest.TestCase):
                 self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
         for est in w_missing_models:
-            with self.subTest(est=est, kind='missing W'):
+            with self.subTest(est=type(est).__name__,
+                              projection=getattr(est, 'projection', None),
+                              prel_cate_approach=getattr(est, 'prel_cate_approach', None),
+                              kind='missing W'):
 
                 if 'Z' in inspect.getfullargspec(est.fit).kwonlyargs:
                     include_Z = True
@@ -291,7 +297,10 @@ class TestMissing(unittest.TestCase):
                 self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
         for est in metalearners:
-            with self.subTest(est=est, kind='metalearner'):
+            with self.subTest(est=type(est).__name__,
+                              projection=getattr(est, 'projection', None),
+                              prel_cate_approach=getattr(est, 'prel_cate_approach', None),
+                              kind='metalearner'):
 
                 data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
                                              X_has_missing=True, W_has_missing=False, include_Z=False)
