@@ -207,7 +207,9 @@ class TestDML(unittest.TestCase):
 
                                         for inf in infs:
                                             with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                              is_discrete=is_discrete, est=est, inf=inf):
+                                                              is_discrete=is_discrete, est=type(est).__name__,
+                                                              model_final=repr(getattr(est, 'model_final', None)),
+                                                              inf=repr(inf)):
 
                                                 if X is None and (not fit_cate_intercept):
                                                     with pytest.raises(AttributeError):
@@ -485,7 +487,8 @@ class TestDML(unittest.TestCase):
 
                                 for inf in infs:
                                     with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                      is_discrete=is_discrete, est=est, inf=inf):
+                                                      is_discrete=is_discrete,
+                                                      featurizer=repr(est.featurizer), inf=repr(inf)):
                                         if X is None:
                                             with pytest.raises(AttributeError):
                                                 est.fit(Y, T, X=X, W=W, inference=inf)

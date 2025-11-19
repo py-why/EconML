@@ -93,7 +93,7 @@ class TestDynamicDML(unittest.TestCase):
 
                                 for inf in all_infs:
                                     with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                      is_discrete=is_discrete, est=est, inf=inf):
+                                                      is_discrete=is_discrete, est=type(est).__name__, inf=repr(inf)):
 
                                         if X is None and (not fit_cate_intercept):
                                             with pytest.raises(AttributeError):

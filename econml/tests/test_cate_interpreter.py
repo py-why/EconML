@@ -33,7 +33,7 @@ class TestCateInterpreter(unittest.TestCase):
                 est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
                 est.fit(Y, T, X=X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
-                    with self.subTest(t_shape=t_shape, y_shape=y_shape, intrp=intrp):
+                    with self.subTest(t_shape=t_shape, y_shape=y_shape, intrp=type(intrp).__name__):
                         with self.assertRaises(Exception):
                             # prior to calling interpret, can't plot, render, etc.
                             intrp.plot()
@@ -137,12 +137,12 @@ class TestCateInterpreter(unittest.TestCase):
                 policy_intrp_kwargs.update(sample_treatment_costs=0.1)
             elif self.coinflip():
                 if discrete_t:
-                    policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 2)))
+                    policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 2)).tolist())
                 else:
                     if self.coinflip():
-                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 1)))
+                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 1)).tolist())
                     else:
-                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10,)))
+                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10,)).tolist())
 
             if self.coinflip():
                 common_kwargs.update(feature_names=['A', 'B', 'C', 'D'])

@@ -172,8 +172,7 @@ class TestDRIV(unittest.TestCase):
             for est in est_list:
                 with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
                                   projection=projection, fit_cov_directly=fit_cov_directly,
-                                  featurizer=featurizer,
-                                  est=est):
+                                  featurizer=repr(featurizer), est=type(est).__name__):
 
                     # TODO: serializing/deserializing for every combination -- is this necessary?
                     # ensure we can serialize unfit estimator
@@ -266,7 +265,7 @@ class TestDRIV(unittest.TestCase):
             use_ray=use_ray
         )]
         for est in ests_list:
-            with self.subTest(est=est):
+            with self.subTest(est=type(est).__name__):
                 # no heterogeneity
                 n = 1000
                 p = 10
@@ -415,7 +414,7 @@ class TestDRIV(unittest.TestCase):
         ]
 
         for est in est_list:
-            with self.subTest(est=est):
+            with self.subTest(est=type(est).__name__):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
                 est.score(y, T, Z=Z, X=X, W=W)
                 est.const_marginal_effect(X)
