@@ -47,7 +47,7 @@ Finally, some times we might not only be interested in the effect but also in th
 Our package does not offer support for counterfactual prediction. However, for most of our estimators (the ones
 assuming a linear-in-treatment model), counterfactual prediction can be easily constructed by combining any baseline predictive model
 with our causal effect model, i.e. train any machine learning model :math:`b(\vec{t}, \vec{x})` to solve the regression/classification
-problem :math:`\E[Y | T=\vec{t}, X=\vec{x}]`, and then set :math:`\mu(vec{t}, \vec{x}) = \tau(\vec{t}, T, \vec{x}) + b(T, \vec{x})`,
+problem :math:`\E[Y | T=\vec{t}, X=\vec{x}]`, and then set :math:`\mu(\vec{t}, \vec{x}) = \tau(\vec{t}, T, \vec{x}) + b(T, \vec{x})`,
 where :math:`T` is either the observed treatment for that sample under the observational policy or the treatment
 that the observational policy would have assigned to that sample. These auxiliary ML models can be trained
 with any machine learning package outside of EconML.
