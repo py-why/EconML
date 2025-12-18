@@ -130,7 +130,7 @@ class TestModelSelection(unittest.TestCase):
             for mdl in mdls:
                 # these models only work on multi-output data
                 use_array = isinstance(mdl, (MultiTaskElasticNetCV, MultiTaskLassoCV))
-                with self.subTest(model=mdl):
+                with self.subTest(model=type(mdl).__name__):
                     est = LinearDML(model_t=mdl,
                                     discrete_treatment=is_discrete,
                                     model_y=LinearRegression())

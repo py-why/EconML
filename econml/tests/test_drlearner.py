@@ -136,7 +136,7 @@ class TestDRLearner(unittest.TestCase):
 
                             for inf in infs:
                                 with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                  is_discrete=is_discrete, est=est, inf=inf):
+                                                  is_discrete=is_discrete, est=type(est).__name__, inf=repr(inf)):
                                     est.fit(Y, T, X=X, W=W, inference=inf)
 
                                     # ensure that we can serialize fit estimator
@@ -453,9 +453,12 @@ class TestDRLearner(unittest.TestCase):
                                     if (not isinstance(models[2], StatsModelsLinearRegression)) and (sample_var
                                                                                                      is not None):
                                         continue
-                                    with self.subTest(X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
-                                                      sample_var=sample_var,
-                                                      featurizer=featurizer, models=models,
+                                    with self.subTest(X_present=(X is not None), W_present=(W is not None),
+                                                      sample_weight_present=(sample_weight is not None),
+                                                      freq_weight_present=(freq_weight is not None),
+                                                      sample_var_present=(sample_var is not None),
+                                                      featurizer=repr(featurizer),
+                                                      models=[type(m).__name__ for m in models],
                                                       multitask_model_final=multitask_model_final):
                                         est = DRLearner(model_propensity=models[0],
                                                         model_regression=models[1],
@@ -577,10 +580,13 @@ class TestDRLearner(unittest.TestCase):
                                                                             LinearRegression(), SparseLinearDRLearner,
                                                                             'auto')
                                                                            ]:
-                                with self.subTest(X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
-                                                  sample_var=sample_var,
-                                                  featurizer=featurizer, model_y=model_y, model_t=model_t,
-                                                  est_class=est_class, inference=inference):
+                                with self.subTest(X_present=(X is not None), W_present=(W is not None),
+                                                  sample_weight_present=(sample_weight is not None),
+                                                  freq_weight_present=(freq_weight is not None),
+                                                  sample_var_present=(sample_var is not None),
+                                                  featurizer=repr(featurizer),
+                                                  model_y=type(model_y).__name__, model_t=type(model_t).__name__,
+                                                  est_class=est_class.__name__, inference=repr(inference)):
                                     if (X is None) and (est_class == SparseLinearDRLearner):
                                         continue
                                     if (X is None) and (est_class == ForestDRLearner):

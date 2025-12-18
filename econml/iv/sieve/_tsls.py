@@ -151,7 +151,7 @@ class DPolynomialFeatures(TransformerMixin):
         for i in range(X.shape[1]):
             p = powers.copy()
             c = powers[:, i]
-            p[:, i] -= 1
+            p[p[:, i] > 0, i] -= 1
             M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
             result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
         return result

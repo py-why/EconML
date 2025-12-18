@@ -204,7 +204,7 @@ class TestDiscreteOutcome(unittest.TestCase):
         ]
 
         for est in ests:
-            with self.subTest(est=est, kind='discrete treatment'):
+            with self.subTest(est=type(est).__name__, kind='discrete treatment'):
                 est.discrete_treatment = False
                 est.model_t = LogisticRegression()
                 with pytest.raises(AttributeError):
@@ -217,7 +217,7 @@ class TestDiscreteOutcome(unittest.TestCase):
         ests += [LinearDRLearner()]
         for est in ests:
             print(est)
-            with self.subTest(est=est, kind='discrete outcome'):
+            with self.subTest(est=type(est).__name__, kind='discrete outcome'):
                 est.discrete_outcome = False
                 if isinstance(est, LinearDRLearner):
                     est.model_regression = LogisticRegression()

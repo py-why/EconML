@@ -253,6 +253,9 @@ jobs:
       # lightgbm needs libomp on mac
       run: brew install libomp
       if: matrix.os == 'macos-latest'
+    - name: Install graphviz on Ubuntu
+      run: sudo apt-get -yq install graphviz
+      if: ${{ matrix.os == 'ubuntu-latest' }}
     - name: Install uv
       # check if we're running on windows
       run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
