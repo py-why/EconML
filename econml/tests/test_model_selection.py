@@ -63,7 +63,7 @@ class TestModelSelection(unittest.TestCase):
                 beta[ft_inds_beta] = 10 * np.random.normal(1, size=(m,))
                 gamma[ft_inds_gamma] = 10 * np.random.normal(1, size=(m,))
 
-                t = np.random.normal(size=(n,)) + fts @ beta + np.random.normal(scale=0.5, size=(n,))
+                t = fts @ beta + np.random.normal(scale=4, size=(n,))
                 y = np.random.normal(size=(n,)) + t * (alpha_1 + X @ alpha_x) + fts @ gamma
 
                 # just test a polynomial T model, since for Y the correct degree also depends on
