@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 import numpy as np
-from sklearn.utils.validation import check_array
+from ..utilities import check_input_arrays
 from .._cate_estimator import BaseCateEstimator, LinearCateEstimator
 
 
@@ -63,8 +63,8 @@ class EnsembleCateEstimator:
 
     @weights.setter
     def weights(self, value):
-        weights = check_array(value, accept_sparse=False, ensure_2d=False, allow_nd=False, dtype='numeric',
-                              force_all_finite=True)
+        weights, = check_input_arrays(value, dtype='numeric',
+                                      force_all_finite=True)
         if np.any(weights < 0):
             raise ValueError("All weights in parameter `weights` must be non-negative.")
         self._weights = weights

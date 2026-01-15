@@ -115,10 +115,9 @@ class TestDRLearner(unittest.TestCase):
                         intercept_shape = (d_y,) if d_y > 0 else ()
                         intercept_summaryframe_shape = (d_y if d_y > 0 else 1, 6)
 
-                        for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
-                                                                                        multi_class='auto'),
+                        for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs'),
                                                     use_ray=use_ray),
-                                    DRLearner(model_propensity=LogisticRegression(multi_class='auto'),
+                                    DRLearner(model_propensity=LogisticRegression(),
                                               model_regression=LinearRegression(),
                                               model_final=StatsModelsLinearRegression(),
                                               multitask_model_final=True, use_ray=use_ray)]:
@@ -319,7 +318,7 @@ class TestDRLearner(unittest.TestCase):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
-                                  C=1000, solver='lbfgs', multi_class='auto'),
+                                  C=1000, solver='lbfgs'),
                               fit_cate_intercept=False,
                               featurizer=FunctionTransformer(validate=True))
         dml.fit(np.array([1, 2, 1, 2]), np.array(
@@ -331,7 +330,7 @@ class TestDRLearner(unittest.TestCase):
         """Test that we can pass sample weights to an estimator."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
-                                  C=1000, solver='lbfgs', multi_class='auto'),
+                                  C=1000, solver='lbfgs'),
                               featurizer=FunctionTransformer(validate=True))
         dml.fit(np.array([1, 2, 1, 2]), np.array([1, 2, 1, 2]), W=np.ones((4, 1)),
                 sample_weight=np.ones((4, )))
@@ -342,7 +341,7 @@ class TestDRLearner(unittest.TestCase):
         """Test that we can use discrete treatments."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
-                                  C=1000, solver='lbfgs', multi_class='auto'),
+                                  C=1000, solver='lbfgs'),
                               featurizer=FunctionTransformer(validate=True))
         # create a simple artificial setup where effect of moving from treatment
         #     1 -> 2 is 2,
@@ -366,7 +365,7 @@ class TestDRLearner(unittest.TestCase):
         """Test that we can fit with a KFold instance."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
-                                  C=1000, solver='lbfgs', multi_class='auto'),
+                                  C=1000, solver='lbfgs'),
                               cv=KFold(n_splits=3))
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
@@ -376,7 +375,7 @@ class TestDRLearner(unittest.TestCase):
         # test that we can fit with a train/test iterable
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
-                                  C=1000, solver='lbfgs', multi_class='auto'),
+                                  C=1000, solver='lbfgs'),
                               cv=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
@@ -387,7 +386,7 @@ class TestDRLearner(unittest.TestCase):
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals."""
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
+                              model_propensity=LogisticRegression(C=1000, solver='lbfgs'))
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
             [3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
         interval = dml.effect_interval(np.ones((9, 1)),
@@ -447,7 +446,7 @@ class TestDRLearner(unittest.TestCase):
                                            (GradientBoostingClassifier(), GradientBoostingRegressor(),
                                             RandomForestRegressor(n_estimators=100,
                                                                   max_depth=5, min_samples_leaf=50)),
-                                           (LogisticRegression(solver='lbfgs', multi_class='auto'),
+                                           (LogisticRegression(solver='lbfgs'),
                                             LinearRegression(), StatsModelsLinearRegression())]:
                                 for multitask_model_final in [False, True]:
                                     if (not isinstance(models[2], StatsModelsLinearRegression)) and (sample_var
@@ -566,17 +565,14 @@ class TestDRLearner(unittest.TestCase):
                             for model_t, model_y, est_class, inference in [(GradientBoostingClassifier(),
                                                                             GradientBoostingRegressor(),
                                                                             ForestDRLearner, 'auto'),
-                                                                           (LogisticRegression(solver='lbfgs',
-                                                                                               multi_class='auto'),
+                                                                           (LogisticRegression(solver='lbfgs'),
                                                                             LinearRegression(),
                                                                             LinearDRLearner, 'auto'),
-                                                                           (LogisticRegression(solver='lbfgs',
-                                                                                               multi_class='auto'),
+                                                                           (LogisticRegression(solver='lbfgs'),
                                                                             LinearRegression(), LinearDRLearner,
                                                                             StatsModelsInferenceDiscrete(
                                                                                cov_type='nonrobust')),
-                                                                           (LogisticRegression(solver='lbfgs',
-                                                                                               multi_class='auto'),
+                                                                           (LogisticRegression(solver='lbfgs'),
                                                                             LinearRegression(), SparseLinearDRLearner,
                                                                             'auto')
                                                                            ]:

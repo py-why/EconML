@@ -1315,9 +1315,12 @@ class TestDML(unittest.TestCase):
                     T0=np.array(['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'c'], dtype='object'),
                     T1=np.array(['a', 'b', 'c', 'a', 'b', 'c', 'a', 'b', 'c'], dtype='object')
                 ),
-                decimal=4)
+                # although effects should be exactly identical in theory,
+                # coordinate descent used by (Debiased)Lasso has a numerical dependency on feature column ordering
+                # so we need to add a tolerance here for when SparseLinearDML is used
+                decimal=3)
 
-            # but const_marginal_effect should be reordered based on the explicit cagetories
+            # but const_marginal_effect should be reordered based on the explicit categories
             cme1 = dml1.const_marginal_effect(np.ones((1, 1))).reshape(-1)
             cme2 = dml2.const_marginal_effect(np.ones((1, 1))).reshape(-1)
             self.assertAlmostEqual(cme1[1], -cme2[1], places=3)  # 1->3 in original ordering; 3->1 in new ordering

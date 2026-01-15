@@ -759,7 +759,8 @@ class CausalForestDML(_BaseDML):
         """
         from ..score import RScorer  # import here to avoid circular import issue
         Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
-        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True,
+                                ensure_2d=True)
 
         if params == 'auto':
             params = {
