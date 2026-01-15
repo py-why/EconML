@@ -12,7 +12,7 @@ import sparse as sp
 import inspect
 from collections import defaultdict, Counter
 from sklearn import clone
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
@@ -1394,7 +1394,7 @@ def reshape_arrays_2dim(length, *args):
     return new_args
 
 
-class _RegressionWrapper:
+class _RegressionWrapper(RegressorMixin, BaseEstimator):
     """
     A simple wrapper that makes a binary classifier behave like a regressor.
 
@@ -1408,7 +1408,16 @@ class _RegressionWrapper:
     """
 
     def __init__(self, clf):
-        self._clf = clf
+        self.clf = clf
+
+    def __sklearn_is_fitted__(self):
+        """Check if the wrapped classifier has been fitted."""
+        from sklearn.utils.validation import check_is_fitted as _check
+        try:
+            _check(self.clf)
+            return True
+        except Exception:
+            return False
 
     def fit(self, X, y, **kwargs):
         """
@@ -1421,7 +1430,7 @@ class _RegressionWrapper:
         """
         if len(y.shape) > 1 and y.shape[1] > 1:
             y = y @ np.arange(1, y.shape[1] + 1)
-        self._clf.fit(X, y, **kwargs)
+        self.clf.fit(X, y, **kwargs)
         return self
 
     def predict(self, X):
@@ -1432,7 +1441,7 @@ class _RegressionWrapper:
         ----------
         X : features
         """
-        return self._clf.predict_proba(X)[:, 1:]
+        return self.clf.predict_proba(X)[:, 1:]
 
 
 class _TransformerWrapper:

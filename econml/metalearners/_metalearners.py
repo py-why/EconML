@@ -13,8 +13,7 @@ from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentE
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.utils import check_array
-from ..utilities import (check_inputs, check_models, broadcast_unit_treatments,
+from ..utilities import (check_input_arrays, check_inputs, check_models, broadcast_unit_treatments,
                          one_hot_encoder, inverse_onehot, transpose)
 from .._shap import _shap_explain_model_cate
 
@@ -137,7 +136,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X = check_array(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         taus = []
         for ind in range(self._d_t[0]):
             taus.append(self.models[ind + 1].predict(X) - self.models[0].predict(X))
@@ -269,7 +268,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X = check_array(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
         prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
@@ -434,7 +433,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X = check_array(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         m = X.shape[0]
         taus = []
         for ind in range(self._d_t[0]):
@@ -606,7 +605,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X = check_array(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite)
         taus = []
         for model in self.final_models:
             taus.append(model.predict(X))

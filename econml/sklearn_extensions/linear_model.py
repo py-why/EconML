@@ -21,6 +21,7 @@ import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
 from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
+import sklearn
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
@@ -105,16 +106,26 @@ class WeightedModelMixin:
                             sample_weight.shape[0], X.shape[0])
                     )
 
-            # Normalize inputs
-            X, y, X_offset, y_offset, X_scale = _preprocess_data(
-                X, y, fit_intercept=self.fit_intercept,
-                copy=self.copy_X, check_input=check_input if check_input is not None else True,
-                sample_weight=sample_weight)
             # Weight inputs
             normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
-            sqrt_weights = np.sqrt(normalized_weights)
-            X_weighted = sqrt_weights.reshape(-1, 1) * X
-            y_weighted = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
+
+            # Normalize inputs
+            preprocessed_data = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input if check_input is not None else True,
+                sample_weight=normalized_weights)
+
+            from packaging.version import parse
+
+            # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
+            if parse(sklearn.__version__) >= parse("1.8"):
+                X_weighted, y_weighted, X_offset, y_offset, X_scale, sqrt_weights = preprocessed_data
+            else:
+                X, y, X_offset, y_offset, X_scale = preprocessed_data
+                sqrt_weights = np.sqrt(normalized_weights)
+                X_weighted = sqrt_weights.reshape(-1, 1) * X
+                y_weighted = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
+
             fit_params['X'] = X_weighted
             fit_params['y'] = y_weighted
             if self.fit_intercept:
@@ -735,9 +746,18 @@ class DebiasedLasso(WeightedLasso):
         # Fit weighted lasso with user input
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
-        X, y, X_offset, y_offset, X_scale = _preprocess_data(
-            X, y, fit_intercept=self.fit_intercept,
-            copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
+        # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
+        from packaging.version import parse
+        if parse(sklearn.__version__) >= parse("1.8"):
+            X, y, X_offset, y_offset, X_scale, sqrt_weights = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input, sample_weight=sample_weight,
+                rescale_with_sw=False  # explicitly opt-out of rescaling
+            )
+        else:
+            X, y, X_offset, y_offset, X_scale = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
 
         # Calculate quantities that will be used later on. Account for centered data
         y_pred = self.predict(X) - self.intercept_
@@ -1247,13 +1267,13 @@ class _PairedEstimatorWrapper:
         return self.model.score(X, y, sample_weight)
 
     def __getattr__(self, key):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             return getattr(self.model, key)
         else:
             raise AttributeError("No attribute " + key)
 
     def __setattr__(self, key, value):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             setattr(self.model, key, value)
         else:
             super().__setattr__(key, value)
@@ -1497,6 +1517,10 @@ class _StatsModelsWrapper(BaseEstimator):
         to the scaled covariance matrix of the parameters of the linear model.
     _n_out: the second dimension of the training y, or 0 if y is a vector
     """
+
+    def __sklearn_is_fitted__(self):
+        """Check if the model has been fitted."""
+        return hasattr(self, "_param")
 
     def predict(self, X):
         """
