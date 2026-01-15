@@ -26,7 +26,7 @@ dependencies = [
     # in addition to dependencies)
     "numba > 0.53.1",
     "scipy > 1.4.0",
-    "scikit-learn >= 1.0, < 1.7",
+    "scikit-learn >= 1.0, < 1.9",
     "sparse",
     "joblib >= 0.13.0",
     "statsmodels >= 0.10",

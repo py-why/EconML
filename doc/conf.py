@@ -18,6 +18,22 @@ import doctest
 import econml
 sys.path.insert(0, os.path.abspath('econml'))
 
+# Use scipy-doctest's float-tolerant output checker for compatibility
+# with inherited sklearn docstrings that use it for approximate float comparisons.
+#
+# Why monkey-patch instead of switching to scipy-doctest entirely?
+# We run doctests via `sphinx-build -b doctest`, which uses sphinx.ext.doctest.
+# This lets us use Sphinx-specific directives like `.. testcode::` and
+# `.. testoutput::` blocks throughout our documentation. scipy-doctest only
+# supports standard Python doctest syntax and cannot parse these directives.
+# By monkey-patching the OutputChecker, we get scipy-doctest's float-tolerant
+# comparisons while retaining full Sphinx doctest functionality.
+try:
+    from scipy_doctest import DTChecker
+    doctest.OutputChecker = DTChecker
+except ImportError:
+    pass  # Fall back to default if scipy-doctest not installed
+
 
 # -- Project information -----------------------------------------------------
 
@@ -257,4 +273,3 @@ def exclude_entity(app, what, name, obj, skip, opts):
 
 def setup(app):
     app.connect('autodoc-skip-member', exclude_entity)
-    ()
