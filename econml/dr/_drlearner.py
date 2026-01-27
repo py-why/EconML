@@ -97,7 +97,18 @@ class _ModelNuisance(ModelSelector):
 
     def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
-        propensities = np.clip(self._model_propensity.predict_proba(XW), self._min_propensity, 1-self._min_propensity)
+        if hasattr(self._model_propensity, 'predict_proba'):
+            propensities = np.clip(self._model_propensity.predict_proba(XW),
+                                   self._min_propensity, 1-self._min_propensity)
+        else:
+            warn("A regressor was passed to model_propensity. "
+                 "Using a classifier is recommended.", UserWarning)
+            # NOTE: we assume binary treatment here since there's no way to recover more than one
+            #       propensity with a regressor
+            prop_preds = self._model_propensity.predict(XW).reshape(-1)
+            prop_preds = np.stack([1 - prop_preds, prop_preds], axis=1)
+            propensities = np.clip(prop_preds,
+                                   self._min_propensity, 1 - self._min_propensity)
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
