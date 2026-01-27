@@ -761,6 +761,19 @@ class _BaseDMLIVNuisanceSelector(ModelSelector):
             TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
         Y_res = Y - Y_pred.reshape(Y.shape)
         T_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
+        if not T_res.any():
+            raise ValueError(
+                """
+                All values of the treatment residual are 0,
+                which then makes them unsuitable to use as weights.
+                DRIV requires that the instrument Z has an effect on the
+                expected treatment value of at least some rows.
+
+                If you are using regularized models, it's possible that this error is a
+                result of regularizing too strongly, so that all predictions from both
+                models are constant.
+                """
+            )
         return Y_res, T_res
 
 
