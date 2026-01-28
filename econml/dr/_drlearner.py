@@ -62,7 +62,7 @@ def _calculate_crump_threshold(propensities):
 
     The optimal threshold alpha minimizes the asymptotic variance of the treatment
     effect estimator. For binary treatment, this is found by solving:
-    alpha = 1/2 - sqrt(1/4 - /gamma) where gamma is determined by the
+    alpha = 1/2 - sqrt(1/4 - gamma) where gamma is determined by the
     propensity score distribution.
 
     Parameters
