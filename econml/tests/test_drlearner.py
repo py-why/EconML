@@ -1296,7 +1296,7 @@ class TestSampleTrimming(unittest.TestCase):
         Y = T + np.random.randn(n) * 0.5
 
         # Use a flexible model that can learn the propensity accurately
-        # Gradient boosting can fit the non-linear relationship well
+# The propensity is linear in the feature, so just use LinearRegression as the propensity model even though it's a regressor rather than a classifier.
         est = DRLearner(
             model_propensity=LinearRegression(),
             model_regression=LinearRegression(),
@@ -1331,7 +1331,7 @@ class TestSampleTrimming(unittest.TestCase):
         # Generate outcome
         Y = T + np.random.randn(n) * 0.5
 
-        # Use a flexible model that can learn the propensity accurately
+# The propensity is linear in the feature, so just use LinearRegression as the propensity model even though it's a regressor rather than a classifier.
         est = DRLearner(
             model_propensity=LinearRegression(),
             model_regression=LinearRegression(),
