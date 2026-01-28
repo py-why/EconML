@@ -153,6 +153,8 @@ class _ModelNuisance(ModelSelector):
             #       propensity with a regressor
             raw_propensities = self._model_propensity.predict(XW).reshape(-1)
             raw_propensities = np.stack([1 - raw_propensities, raw_propensities], axis=1)
+            # Ensure raw propensities are valid probabilities before further clipping and trimming
+            raw_propensities = np.clip(raw_propensities, 0, 1)
         propensities = np.clip(raw_propensities, self._min_propensity, 1-self._min_propensity)
 
         n = T.shape[0]
