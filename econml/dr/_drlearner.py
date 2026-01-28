@@ -219,14 +219,14 @@ class _ModelFinal:
         trim_mask : ndarray of shape (n_samples,), dtype bool
             True for samples to keep, False for samples to trim.
         """
-        # Check for multiple treatments with trimming and bail early
-        if self._trimming_threshold is not None:
-            if T_pred.shape[1] > 2:
-                warn("Sample trimming is currently only supported for binary treatment "
-                     "(single treatment plus control).", UserWarning)
-                return np.ones(T_pred.shape[0], dtype=bool)
+        # If no trimming threshold specified, keep all samples
+        if self._trimming_threshold is None:
+            return np.ones(T_pred.shape[0], dtype=bool)
 
-        elif self._trimming_threshold is None:
+        # Check for multiple treatments with trimming and bail early
+        if T_pred.shape[1] > 2:
+            warn("Sample trimming is currently only supported for binary treatment "
+                 "(single treatment plus control).", UserWarning)
             return np.ones(T_pred.shape[0], dtype=bool)
 
         if self._trimming_threshold == 'auto':
