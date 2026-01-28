@@ -1000,3 +1000,352 @@ class TestDRLearner(unittest.TestCase):
         treat_effect = np.apply_along_axis(lambda x: treatment_effect(x), 1, X)
         Y = Y0 + treat_effect * T
         return (X, T, Y)
+
+
+class TestSampleTrimming(unittest.TestCase):
+    """Tests for sample trimming functionality in DRLearner."""
+
+    @classmethod
+    def setUpClass(cls):
+        # Set random seed for reproducibility
+        cls.random_state = np.random.RandomState(42)
+        cls.n = 500
+        cls.d = 3
+
+        # Generate data with varying propensity scores
+        cls.X = cls.random_state.randn(cls.n, cls.d)
+        # Propensity based on X[:,0] - creates some extreme propensities
+        cls.true_propensity = 1 / (1 + np.exp(-2 * cls.X[:, 0]))
+        cls.T = (cls.random_state.rand(cls.n) < cls.true_propensity).astype(int)
+        cls.Y = cls.T + cls.X[:, 0] + cls.random_state.randn(cls.n) * 0.5
+
+    def test_trimming_disabled_by_default(self):
+        """Test that trimming is disabled when trimming_threshold=None (default)."""
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        self.assertEqual(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_used_, self.n)
+
+    def test_trimming_with_fixed_threshold(self):
+        """Test trimming with a fixed threshold value."""
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        # Some samples should be trimmed
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+    def test_trimming_with_auto_threshold(self):
+        """Test trimming with automatic threshold calculation."""
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold='auto',
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        # Auto trimming should trim some samples
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+    def test_higher_threshold_trims_more(self):
+        """Test that higher threshold values trim more samples."""
+        est_low = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.05,
+            random_state=123
+        )
+        est_high = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.15,
+            random_state=123
+        )
+
+        est_low.fit(self.Y, self.T, X=self.X)
+        est_high.fit(self.Y, self.T, X=self.X)
+
+        self.assertGreater(est_high.n_samples_trimmed_, est_low.n_samples_trimmed_)
+
+    def test_trimming_uses_raw_propensities(self):
+        """Test that trimming uses raw propensities, not clipped ones."""
+        # If trimming used clipped propensities, different min_propensity values
+        # would result in different trimming counts (with same random_state)
+        est1 = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            min_propensity=0.05,
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est2 = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            min_propensity=0.15,
+            trimming_threshold=0.1,
+            random_state=123
+        )
+
+        est1.fit(self.Y, self.T, X=self.X)
+        est2.fit(self.Y, self.T, X=self.X)
+
+        # Same trimming count regardless of min_propensity
+        self.assertEqual(est1.n_samples_trimmed_, est2.n_samples_trimmed_)
+
+    def test_trimming_warning_when_threshold_less_than_min_propensity(self):
+        """Test that a warning is emitted when trimming_threshold < min_propensity."""
+        import warnings
+
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            min_propensity=0.1,
+            trimming_threshold=0.05,
+            random_state=123
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            est.fit(self.Y, self.T, X=self.X)
+
+            # Check that a warning was raised
+            trimming_warnings = [
+                x for x in w
+                if 'trimming_threshold' in str(x.message) and 'min_propensity' in str(x.message)
+            ]
+            self.assertEqual(len(trimming_warnings), 1)
+
+    def test_no_warning_when_threshold_greater_than_min_propensity(self):
+        """Test that no warning is emitted when trimming_threshold >= min_propensity."""
+        import warnings
+
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            min_propensity=0.05,
+            trimming_threshold=0.1,
+            random_state=123
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            est.fit(self.Y, self.T, X=self.X)
+
+            # Check that no trimming-related warning was raised
+            trimming_warnings = [
+                x for x in w
+                if 'trimming_threshold' in str(x.message) and 'min_propensity' in str(x.message)
+            ]
+            self.assertEqual(len(trimming_warnings), 0)
+
+    def test_trimming_with_linear_drlearner(self):
+        """Test that trimming works with LinearDRLearner."""
+        est = LinearDRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+        # Verify that we can still compute effects
+        effect = est.effect(self.X[:5])
+        self.assertEqual(effect.shape, (5,))
+
+    def test_trimming_with_sparse_linear_drlearner(self):
+        """Test that trimming works with SparseLinearDRLearner."""
+        est = SparseLinearDRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+    def test_trimming_with_forest_drlearner(self):
+        """Test that trimming works with ForestDRLearner."""
+        est = ForestDRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123,
+            n_estimators=16  # Must be divisible by subforest_size (default 4)
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+    def test_score_respects_trimming(self):
+        """Test that the score method respects the trimming setting."""
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X)
+
+        # Score should work without errors
+        score = est.score(self.Y, self.T, X=self.X)
+        self.assertIsInstance(score, float)
+
+    def test_trimming_with_sample_weights(self):
+        """Test that trimming works correctly with sample weights."""
+        sample_weight = np.ones(self.n)
+        sample_weight[:100] = 2.0  # Higher weight for first 100 samples
+
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(self.Y, self.T, X=self.X, sample_weight=sample_weight)
+
+        self.assertGreater(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_trimmed_ + est.n_samples_used_, self.n)
+
+    def test_trimming_preserves_effect_estimation(self):
+        """Test that trimming doesn't break effect estimation."""
+        # Create a simple DGP with known treatment effect
+        np.random.seed(42)
+        n = 1000
+        X = np.random.randn(n, 2)
+        true_effect = 2.0
+        propensity = 1 / (1 + np.exp(-X[:, 0]))
+        T = (np.random.rand(n) < propensity).astype(int)
+        Y = true_effect * T + X[:, 0] + np.random.randn(n) * 0.5
+
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+        est.fit(Y, T, X=X)
+
+        # Average effect should be close to true effect
+        effects = est.effect(X)
+        np.testing.assert_allclose(np.mean(effects), true_effect, atol=0.3)
+
+    def test_multitreatment_trimming_warns(self):
+        """Test that trimming with multiple treatments emits a warning."""
+        # Generate multi-treatment data
+        np.random.seed(42)
+        n = 500
+        X = np.random.randn(n, 3)
+        T = np.random.choice([0, 1, 2], size=n, p=[0.4, 0.3, 0.3])
+        Y = T + X[:, 0] + np.random.randn(n) * 0.5
+
+        est = DRLearner(
+            model_propensity=LogisticRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold=0.1,
+            random_state=123
+        )
+
+        # Should emit a warning about multiple treatments
+        with self.assertWarns(UserWarning) as cm:
+            est.fit(Y, T, X=X)
+
+        self.assertIn("binary treatment", str(cm.warning))
+
+        # Should still work, but without performing any trimming
+        self.assertEqual(est.n_samples_trimmed_, 0)
+        self.assertEqual(est.n_samples_used_, n)
+
+    def test_auto_trimming_uniform_propensity_full_range(self):
+        """Test auto trimming with propensity scores uniform on [0, 1].
+
+        Following Crump et al. (2009), when propensity scores are uniformly
+        distributed on [0, 1], the optimal threshold is approximately 0.1,
+        which means roughly 20.3% of observations should be trimmed
+        (those with propensity < 0.1 or > 0.9).
+        """
+        n = 10000
+
+        # Generate X uniform on [0, 1] which will be used directly as propensity
+        # Use logistic transformation to make propensity = X
+        # p = 1 / (1 + exp(-f(X))) => f(X) = log(p / (1-p)) = logit(X)
+        X_uniform = np.random.uniform(0.001, 0.999, size=(n, 1))  # Avoid exact 0 and 1
+        true_propensity = X_uniform[:, 0]
+
+        # Generate treatment from Bernoulli with these propensities
+        T = (np.random.rand(n) < true_propensity).astype(int)
+
+        # Generate outcome
+        Y = T + np.random.randn(n) * 0.5
+
+        # The propensity is linear in the feature, so just use LinearRegression as the propensity model
+        # even though it's a regressor rather than a classifier.
+        est = DRLearner(
+            model_propensity=LinearRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold='auto'
+        )
+        est.fit(Y, T, X=X_uniform)
+
+        # Expected trimming: ~20.3% (propensity < 0.1 or > 0.9)
+        # Allow some tolerance due to model estimation and sampling variation
+        trim_fraction = est.n_samples_trimmed_ / n
+
+        # Check that trimming fraction is approximately correct
+        # Expected is ~0.203 (10.15% on each tail for uniform distribution)
+        self.assertGreater(trim_fraction, 0.165, "Should trim at least 16.5% of samples")
+        self.assertLess(trim_fraction, 0.245, "Should trim at most 24.5% of samples")
+
+    def test_auto_trimming_uniform_propensity_narrow_range(self):
+        """Test auto trimming with propensity scores uniform on [0.25, 0.75].
+
+        When propensity scores are uniformly distributed on [0.25, 0.75],
+        all observations have reasonable overlap and no trimming should occur.
+        """
+        n = 10000
+
+        # Generate X uniform on [0.25, 0.75] which will be the propensity
+        X_uniform = np.random.uniform(0.25, 0.75, size=(n, 1))
+        true_propensity = X_uniform[:, 0]
+
+        # Generate treatment from Bernoulli with these propensities
+        T = (np.random.rand(n) < true_propensity).astype(int)
+
+        # Generate outcome
+        Y = T + np.random.randn(n) * 0.5
+
+        # The propensity is linear in the feature, so just use LinearRegression as the propensity model
+        # even though it's a regressor rather than a classifier.
+        est = DRLearner(
+            model_propensity=LinearRegression(),
+            model_regression=LinearRegression(),
+            trimming_threshold='auto',
+            random_state=123
+        )
+        est.fit(Y, T, X=X_uniform)
+
+        # Expected: no trimming since all propensities are in [0.25, 0.75]
+        # The optimal threshold should be <= 0.25, so no observations are trimmed
+        trim_fraction = est.n_samples_trimmed_ / n
+
+        # Should trim very few or no samples (allow up to 1% for estimation error)
+        self.assertLess(trim_fraction, 0.01,
+                        f"Should trim very few samples when propensities are in [0.25, 0.75], "
+                        f"but trimmed {trim_fraction*100:.1f}%")
