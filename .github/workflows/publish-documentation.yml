@@ -79,7 +79,7 @@ jobs:
       - name: Install graphviz
         run: sudo apt-get -yq install graphviz
       - name: Build documentation
-        run: pip install "sphinx~=7.0" "sphinx_rtd_theme~=2.0.0" && sphinx-build ./doc/ ./build/sphinx/html/ -W
+        run: pip install "sphinx~=7.0" "sphinx_rtd_theme~=2.0.0" scipy-doctest && sphinx-build ./doc/ ./build/sphinx/html/ -W
       - name: Upload docs as artifact
         uses: actions/upload-artifact@v4
         with:

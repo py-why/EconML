@@ -20,13 +20,18 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
+    # numba is only a transitive dependency, so ideally we wouldn't need to specify it here,
+    # but to avoid issues with very old incompatible versions being installed with numpy 2.4.x
+    # we need to constrain it here (at least until package metadata directly supports constraints
+    # in addition to dependencies)
+    "numba > 0.53.1",
     "scipy > 1.4.0",
-    "scikit-learn >= 1.0, < 1.7",
+    "scikit-learn >= 1.0, < 1.9",
     "sparse",
     "joblib >= 0.13.0",
     "statsmodels >= 0.10",
     "pandas > 1.0",
-    "shap >= 0.38.1, < 0.49.0",
+    "shap >= 0.38.1",
     "lightgbm",
     "packaging"
 ]
@@ -49,7 +54,7 @@ plt = [
 ]
 dowhy = [
     # when updating this, also update the version check in dowhy.py
-    "dowhy < 0.13"
+    "dowhy >= 0.13, < 0.15"
 ]
 ray = [
     "ray > 2.2.0"
@@ -60,7 +65,7 @@ all = [
     "azure-cli",
     "graphviz",
     "matplotlib",    
-    "dowhy < 0.13",
+    "dowhy >= 0.13, < 0.15",
     "ray > 2.2.0"
 ]
 
@@ -68,7 +73,7 @@ all = [
 requires = [
     "setuptools",
     "wheel",
-    "numpy>=2,<3",
+    "numpy >=2, <3",
     "scipy",
     "cython"
 ]

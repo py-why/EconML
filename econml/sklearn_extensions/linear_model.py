@@ -1247,13 +1247,13 @@ class _PairedEstimatorWrapper:
         return self.model.score(X, y, sample_weight)
 
     def __getattr__(self, key):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             return getattr(self.model, key)
         else:
             raise AttributeError("No attribute " + key)
 
     def __setattr__(self, key, value):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             setattr(self.model, key, value)
         else:
             super().__setattr__(key, value)
