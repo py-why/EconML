@@ -21,13 +21,23 @@ from sklearn.dummy import DummyClassifier
 
 
 from ..._ortho_learner import _OrthoLearner
-from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
-                                ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference,
-                                LinearCateEstimator)
+from ..._cate_estimator import (
+    StatsModelsCateEstimatorMixin,
+    DebiasedLassoCateEstimatorMixin,
+    ForestModelFinalCateEstimatorMixin,
+    GenericSingleTreatmentModelFinalInference,
+    LinearCateEstimator,
+)
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
 from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector
-from ...utilities import (add_intercept, filter_none_kwargs,
-                          inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
+from ...utilities import (
+    add_intercept,
+    filter_none_kwargs,
+    inverse_onehot,
+    get_feature_names_or_default,
+    check_high_dimensional,
+    check_input_arrays,
+)
 from ...grf import RegressionForest
 from ...dml.dml import _make_first_stage_selector
 from ...iv.dml import NonParamDMLIV
@@ -42,9 +52,9 @@ def _combine(W, Z, n_samples):
 
 
 class _BaseDRIVNuisanceSelector(ModelSelector):
-    def __init__(self, *, prel_model_effect, model_y_xw, model_t_xw, model_z,
-                 projection,
-                 discrete_treatment, discrete_instrument):
+    def __init__(
+        self, *, prel_model_effect, model_y_xw, model_t_xw, model_z, projection, discrete_treatment, discrete_instrument
+    ):
         self._prel_model_effect = prel_model_effect
         self._model_y_xw = model_y_xw
         self._model_t_xw = model_t_xw
@@ -56,28 +66,34 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
         else:
             self._model_z_xw = model_z
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
         # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
         T = T.ravel() if not self._discrete_treatment else T
         Z = Z.ravel() if not self._discrete_instrument else Z
 
-        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
-        self._model_t_xw.train(is_selecting, folds, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_y_xw.train(
+            is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups, **fit_params
+        )
+        self._model_t_xw.train(
+            is_selecting, folds, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups, **fit_params
+        )
 
         if self._projection:
             WZ = _combine(W, Z, Y.shape[0])
-            self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T,
-                                    sample_weight=sample_weight, groups=groups)
+            self._model_t_xwz.train(
+                is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups, **fit_params
+            )
         else:
-            self._model_z_xw.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+            self._model_z_xw.train(
+                is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups, **fit_params
+            )
 
         # TODO: prel_model_effect could allow sample_var and freq_weight?
         if self._discrete_instrument:
             Z = inverse_onehot(Z)
         if self._discrete_treatment:
             T = inverse_onehot(T)
-        self._prel_model_effect.fit(Y, T, Z=Z, X=X,
-                                    W=W, sample_weight=sample_weight, groups=groups)
+        self._prel_model_effect.fit(Y, T, Z=Z, X=X, W=W, sample_weight=sample_weight, groups=groups, **fit_params)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -99,8 +115,7 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
             # since it expects raw values
             raw_T = inverse_onehot(T) if self._discrete_treatment else T
             raw_Z = inverse_onehot(Z) if self._discrete_instrument else Z
-            effect_score = self._prel_model_effect.score(Y, raw_T,
-                                                         Z=raw_Z, X=X, W=W, sample_weight=sample_weight)
+            effect_score = self._prel_model_effect.score(Y, raw_T, Z=raw_Z, X=X, W=W, sample_weight=sample_weight)
         else:
             effect_score = None
 
@@ -133,8 +148,12 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
                 T_pred = np.tile(T_pred.reshape(1, -1), (Y.shape[0], 1))
 
         # for convenience, reshape Z,T to a vector since they are either binary or single dimensional continuous
-        T = T.reshape(T.shape[0],)
-        Z = Z.reshape(Z.shape[0],)
+        T = T.reshape(
+            T.shape[0],
+        )
+        Z = Z.reshape(
+            Z.shape[0],
+        )
         # reshape the predictions
         Y_pred = Y_pred.reshape(Y.shape)
         T_pred = T_pred.reshape(T.shape)
@@ -163,9 +182,7 @@ class _BaseDRIVNuisanceSelector(ModelSelector):
 
 
 class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
-    def __init__(self, *, model_tz_xw,
-                 projection, fit_cov_directly,
-                 discrete_treatment, discrete_instrument):
+    def __init__(self, *, model_tz_xw, projection, fit_cov_directly, discrete_treatment, discrete_instrument):
         self._model_tz_xw = model_tz_xw
         self._projection = projection
         self._fit_cov_directly = fit_cov_directly
@@ -189,7 +206,9 @@ class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
                 # return shape (n,)
                 T_pred = T - T_res.reshape(T.shape)
                 T_proj = T_pred + Z_res.reshape(T.shape)
-                target = (T * T_proj).reshape(T.shape[0],)
+                target = (T * T_proj).reshape(
+                    T.shape[0],
+                )
         else:
             if self._fit_cov_directly:
                 # we will fit on the covariance (T_res*Z_res) directly
@@ -213,13 +232,28 @@ class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
                         target = T * Z
         return target
 
-    def train(self, is_selecting, folds,
-              prel_theta, Y_res, T_res, Z_res,
-              Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(
+        self,
+        is_selecting,
+        folds,
+        prel_theta,
+        Y_res,
+        T_res,
+        Z_res,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        sample_weight=None,
+        groups=None,
+        **fit_params,
+    ):
         # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
         target = self._get_target(T_res, Z_res, T, Z)
-        self._model_tz_xw.train(is_selecting, folds, X=X, W=W, Target=target,
-                                sample_weight=sample_weight, groups=groups)
+        self._model_tz_xw.train(
+            is_selecting, folds, X=X, W=W, Target=target, sample_weight=sample_weight, groups=groups, **fit_params
+        )
 
         return self
 
@@ -240,8 +274,12 @@ class _BaseDRIVNuisanceCovarianceSelector(ModelSelector):
             TZ_pred = np.tile(TZ_pred.reshape(1, -1), (Y.shape[0], 1))
 
         # for convenience, reshape Z,T to a vector since they are either binary or single dimensional continuous
-        T = T.reshape(T.shape[0],)
-        Z = Z.reshape(Z.shape[0],)
+        T = T.reshape(
+            T.shape[0],
+        )
+        Z = Z.reshape(
+            Z.shape[0],
+        )
 
         # reshape the predictions
         TZ_pred = TZ_pred.reshape(T.shape)
@@ -277,11 +315,11 @@ class _BaseDRIVModelFinal:
         self._opt_reweighted = opt_reweighted
 
         if self._fit_cate_intercept:
-            add_intercept_trans = FunctionTransformer(add_intercept,
-                                                      validate=True)
+            add_intercept_trans = FunctionTransformer(add_intercept, validate=True)
             if featurizer:
-                self._featurizer = Pipeline([('featurize', self._original_featurizer),
-                                             ('add_intercept', add_intercept_trans)])
+                self._featurizer = Pipeline(
+                    [('featurize', self._original_featurizer), ('add_intercept', add_intercept_trans)]
+                )
             else:
                 self._featurizer = add_intercept_trans
         else:
@@ -298,8 +336,7 @@ class _BaseDRIVModelFinal:
         # to the model-based preliminary estimate and do not add the correction term.
         cov_sign = np.sign(cov)
         cov_sign[cov_sign == 0] = 1
-        clipped_cov = cov_sign * np.clip(np.abs(cov),
-                                         self._cov_clip, np.inf)
+        clipped_cov = cov_sign * np.clip(np.abs(cov), self._cov_clip, np.inf)
         return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov, res_z
 
     def _transform_X(self, X, n=1, fitting=True):
@@ -314,20 +351,34 @@ class _BaseDRIVModelFinal:
             F = np.ones((n, 1))
         return F
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
-            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
+    def fit(
+        self,
+        Y,
+        T,
+        X=None,
+        W=None,
+        Z=None,
+        nuisances=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+    ):
         self.d_y = Y.shape[1:]
         self.d_t = T.shape[1:]
         theta_dr, clipped_cov, res_z = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, n=theta_dr.shape[0])
         if self._opt_reweighted and (sample_weight is not None):
-            sample_weight = sample_weight * clipped_cov.ravel()**2
+            sample_weight = sample_weight * clipped_cov.ravel() ** 2
         elif self._opt_reweighted:
-            sample_weight = clipped_cov.ravel()**2
+            sample_weight = clipped_cov.ravel() ** 2
         target_var = sample_var * (res_z**2 / clipped_cov**2) if sample_var is not None else None
-        self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight,
-                                                                freq_weight=freq_weight, sample_var=target_var))
+        self._model_final.fit(
+            X,
+            theta_dr,
+            **filter_none_kwargs(sample_weight=sample_weight, freq_weight=freq_weight, sample_var=target_var),
+        )
         return self
 
     def predict(self, X=None):
@@ -340,52 +391,56 @@ class _BaseDRIVModelFinal:
         X = self._transform_X(X, fitting=False)
 
         if self._opt_reweighted and (sample_weight is not None):
-            sample_weight = sample_weight * clipped_cov.ravel()**2
+            sample_weight = sample_weight * clipped_cov.ravel() ** 2
         elif self._opt_reweighted:
-            sample_weight = clipped_cov.ravel()**2
+            sample_weight = clipped_cov.ravel() ** 2
 
-        return np.average((theta_dr.ravel() - self._model_final.predict(X).ravel())**2,
-                          weights=sample_weight, axis=0)
+        return np.average((theta_dr.ravel() - self._model_final.predict(X).ravel()) ** 2, weights=sample_weight, axis=0)
 
 
 class _BaseDRIV(_OrthoLearner):
     # A helper class that access all the internal fitted objects of a DRIV Cate Estimator.
     # Used by both DRIV and IntentToTreatDRIV.
-    def __init__(self, *,
-                 model_final,
-                 featurizer=None,
-                 fit_cate_intercept=False,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
+    def __init__(
+        self,
+        *,
+        model_final,
+        featurizer=None,
+        fit_cate_intercept=False,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -403,11 +458,16 @@ class _BaseDRIV(_OrthoLearner):
         return clone(self.model_final, safe=False)
 
     def _gen_ortho_learner_model_final(self):
-        return _BaseDRIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept,
-                                   self.cov_clip, self.opt_reweighted)
+        return _BaseDRIVModelFinal(
+            self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept, self.cov_clip, self.opt_reweighted
+        )
 
     def _check_inputs(self, Y, T, Z, X, W):
-        Y1, T1, Z1, = check_input_arrays(Y, T, Z)
+        (
+            Y1,
+            T1,
+            Z1,
+        ) = check_input_arrays(Y, T, Z)
         if len(Y1.shape) > 1 and Y1.shape[1] > 1:
             raise AssertionError("DRIV only supports single dimensional outcome")
         if len(T1.shape) > 1 and T1.shape[1] > 1:
@@ -424,8 +484,21 @@ class _BaseDRIV(_OrthoLearner):
                 raise AttributeError("DRIV only supports single-dimensional continuous instruments")
         return Y, T, Z, X, W
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference="auto"):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference="auto",
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -467,12 +540,23 @@ class _BaseDRIV(_OrthoLearner):
         """
         Y, T, Z, X, W = self._check_inputs(Y, T, Z, X, W)
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
+
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
@@ -575,13 +659,20 @@ class _BaseDRIV(_OrthoLearner):
         return self.ortho_learner_model_final_._model_final
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,
-                                        featurizer=self.featurizer_,
-                                        feature_names=feature_names,
-                                        treatment_names=treatment_names,
-                                        output_names=output_names,
-                                        input_names=self._input_names,
-                                        background_samples=background_samples)
+        return _shap_explain_model_cate(
+            self.const_marginal_effect,
+            self.model_cate,
+            X,
+            self._d_t,
+            self._d_y,
+            featurizer=self.featurizer_,
+            feature_names=feature_names,
+            treatment_names=treatment_names,
+            output_names=output_names,
+            input_names=self._input_names,
+            background_samples=background_samples,
+        )
+
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     @property
@@ -596,43 +687,54 @@ class _BaseDRIV(_OrthoLearner):
         if not hasattr(self, '_cached_values'):
             raise AttributeError("Estimator is not fitted yet!")
         if self._cached_values is None:
-            raise AttributeError("`fit` was called with `cache_values=False`. "
-                                 "Set to `True` to enable residual storage.")
+            raise AttributeError(
+                "`fit` was called with `cache_values=False`. Set to `True` to enable residual storage."
+            )
         prel_theta, Y_res, T_res, Z_res, cov = self._cached_values.nuisances
-        return (prel_theta, Y_res, T_res, Z_res, cov, self._cached_values.X, self._cached_values.W,
-                self._cached_values.Z)
+        return (
+            prel_theta,
+            Y_res,
+            T_res,
+            Z_res,
+            cov,
+            self._cached_values.X,
+            self._cached_values.W,
+            self._cached_values.Z,
+        )
 
 
 class _DRIV(_BaseDRIV):
     """Private Base class for the DRIV algorithm."""
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_z_xw="auto",
-                 model_t_xwz="auto",
-                 model_tz_xw="auto",
-                 fit_cov_directly=True,
-                 prel_model_effect,
-                 model_final,
-                 projection=False,
-                 featurizer=None,
-                 fit_cate_intercept=False,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None
-                 ):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_z_xw="auto",
+        model_t_xwz="auto",
+        model_tz_xw="auto",
+        fit_cov_directly=True,
+        prel_model_effect,
+        model_final,
+        projection=False,
+        featurizer=None,
+        fit_cate_intercept=False,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -641,23 +743,25 @@ class _DRIV(_BaseDRIV):
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         self.projection = projection
         self.fit_cov_directly = fit_cov_directly
-        super().__init__(model_final=model_final,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            model_final=model_final,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -668,38 +772,44 @@ class _DRIV(_BaseDRIV):
 
         if self.projection:
             # this is a regression model since the instrument E[T|X,W,Z] is always continuous
-            model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
-                                                     is_discrete=False,
-                                                     random_state=self.random_state)
+            model_tz_xw = _make_first_stage_selector(
+                self.model_tz_xw, is_discrete=False, random_state=self.random_state
+            )
 
             # we're using E[T|X,W,Z] as the instrument
-            model_z = _make_first_stage_selector(self.model_t_xwz,
-                                                 is_discrete=self.discrete_treatment,
-                                                 random_state=self.random_state)
+            model_z = _make_first_stage_selector(
+                self.model_t_xwz, is_discrete=self.discrete_treatment, random_state=self.random_state
+            )
 
         else:
-            model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
-                                                     is_discrete=(self.discrete_treatment and
-                                                                  self.discrete_instrument and
-                                                                  not self.fit_cov_directly),
-                                                     random_state=self.random_state)
+            model_tz_xw = _make_first_stage_selector(
+                self.model_tz_xw,
+                is_discrete=(self.discrete_treatment and self.discrete_instrument and not self.fit_cov_directly),
+                random_state=self.random_state,
+            )
 
-            model_z = _make_first_stage_selector(self.model_z_xw,
-                                                 is_discrete=self.discrete_instrument,
-                                                 random_state=self.random_state)
+            model_z = _make_first_stage_selector(
+                self.model_z_xw, is_discrete=self.discrete_instrument, random_state=self.random_state
+            )
 
-        return [_BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
-                                          model_y_xw=model_y_xw,
-                                          model_t_xw=model_t_xw,
-                                          model_z=model_z,
-                                          projection=self.projection,
-                                          discrete_treatment=self.discrete_treatment,
-                                          discrete_instrument=self.discrete_instrument),
-                _BaseDRIVNuisanceCovarianceSelector(model_tz_xw=model_tz_xw,
-                                                    projection=self.projection,
-                                                    fit_cov_directly=self.fit_cov_directly,
-                                                    discrete_treatment=self.discrete_treatment,
-                                                    discrete_instrument=self.discrete_instrument)]
+        return [
+            _BaseDRIVNuisanceSelector(
+                prel_model_effect=self._gen_prel_model_effect(),
+                model_y_xw=model_y_xw,
+                model_t_xw=model_t_xw,
+                model_z=model_z,
+                projection=self.projection,
+                discrete_treatment=self.discrete_treatment,
+                discrete_instrument=self.discrete_instrument,
+            ),
+            _BaseDRIVNuisanceCovarianceSelector(
+                model_tz_xw=model_tz_xw,
+                projection=self.projection,
+                fit_cov_directly=self.fit_cov_directly,
+                discrete_treatment=self.discrete_treatment,
+                discrete_instrument=self.discrete_instrument,
+            ),
+        ]
 
 
 class DRIV(_DRIV):
@@ -904,36 +1014,38 @@ class DRIV(_DRIV):
     array([-4.15076...,  5.99286..., -2.86512...])
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_z_xw="auto",
-                 model_t_xwz="auto",
-                 model_tz_xw="auto",
-                 fit_cov_directly=True,
-                 flexible_model_effect="auto",
-                 model_final=None,
-                 prel_cate_approach="driv",
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 projection=False,
-                 featurizer=None,
-                 fit_cate_intercept=False,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None
-                 ):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_z_xw="auto",
+        model_t_xwz="auto",
+        model_tz_xw="auto",
+        fit_cov_directly=True,
+        flexible_model_effect="auto",
+        model_final=None,
+        prel_cate_approach="driv",
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        projection=False,
+        featurizer=None,
+        fit_cate_intercept=False,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
         else:
@@ -941,31 +1053,33 @@ class DRIV(_DRIV):
         self.prel_cate_approach = prel_cate_approach
         self.prel_cv = prel_cv
         self.prel_opt_reweighted = prel_opt_reweighted
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xw=model_t_xw,
-                         model_z_xw=model_z_xw,
-                         model_t_xwz=model_t_xwz,
-                         model_tz_xw=model_tz_xw,
-                         fit_cov_directly=fit_cov_directly,
-                         prel_model_effect=self.prel_cate_approach,
-                         model_final=model_final,
-                         projection=projection,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xw=model_t_xw,
+            model_z_xw=model_z_xw,
+            model_t_xwz=model_t_xwz,
+            model_tz_xw=model_tz_xw,
+            fit_cov_directly=fit_cov_directly,
+            prel_model_effect=self.prel_cate_approach,
+            model_final=model_final,
+            projection=projection,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -974,50 +1088,67 @@ class DRIV(_DRIV):
 
     def _gen_prel_model_effect(self):
         if self.prel_cate_approach == "driv":
-            return _DRIV(model_y_xw=clone(self.model_y_xw, safe=False),
-                         model_t_xw=clone(self.model_t_xw, safe=False),
-                         model_z_xw=clone(self.model_z_xw, safe=False),
-                         model_t_xwz=clone(self.model_t_xwz, safe=False),
-                         model_tz_xw=clone(self.model_tz_xw, safe=False),
-                         prel_model_effect=_DummyCATE(),
-                         model_final=clone(self.flexible_model_effect, safe=False),
-                         projection=self.projection,
-                         fit_cov_directly=self.fit_cov_directly,
-                         featurizer=self._gen_featurizer(),
-                         fit_cate_intercept=self.fit_cate_intercept,
-                         cov_clip=self.cov_clip,
-                         opt_reweighted=self.prel_opt_reweighted,
-                         discrete_instrument=self.discrete_instrument,
-                         discrete_treatment=self.discrete_treatment,
-                         discrete_outcome=self.discrete_outcome,
-                         categories=self.categories,
-                         cv=self.prel_cv,
-                         mc_iters=self.mc_iters,
-                         mc_agg=self.mc_agg,
-                         random_state=self.random_state,
-                         allow_missing=self.allow_missing)
+            return _DRIV(
+                model_y_xw=clone(self.model_y_xw, safe=False),
+                model_t_xw=clone(self.model_t_xw, safe=False),
+                model_z_xw=clone(self.model_z_xw, safe=False),
+                model_t_xwz=clone(self.model_t_xwz, safe=False),
+                model_tz_xw=clone(self.model_tz_xw, safe=False),
+                prel_model_effect=_DummyCATE(),
+                model_final=clone(self.flexible_model_effect, safe=False),
+                projection=self.projection,
+                fit_cov_directly=self.fit_cov_directly,
+                featurizer=self._gen_featurizer(),
+                fit_cate_intercept=self.fit_cate_intercept,
+                cov_clip=self.cov_clip,
+                opt_reweighted=self.prel_opt_reweighted,
+                discrete_instrument=self.discrete_instrument,
+                discrete_treatment=self.discrete_treatment,
+                discrete_outcome=self.discrete_outcome,
+                categories=self.categories,
+                cv=self.prel_cv,
+                mc_iters=self.mc_iters,
+                mc_agg=self.mc_agg,
+                random_state=self.random_state,
+                allow_missing=self.allow_missing,
+            )
         elif self.prel_cate_approach == "dmliv":
-            return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
-                                 model_t_xw=clone(self.model_t_xw, safe=False),
-                                 model_t_xwz=clone(self.model_t_xwz, safe=False),
-                                 model_final=clone(self.flexible_model_effect, safe=False),
-                                 discrete_instrument=self.discrete_instrument,
-                                 discrete_treatment=self.discrete_treatment,
-                                 discrete_outcome=self.discrete_outcome,
-                                 featurizer=self._gen_featurizer(),
-                                 categories=self.categories,
-                                 cv=self.prel_cv,
-                                 mc_iters=self.mc_iters,
-                                 mc_agg=self.mc_agg,
-                                 random_state=self.random_state,
-                                 allow_missing=self.allow_missing)
+            return NonParamDMLIV(
+                model_y_xw=clone(self.model_y_xw, safe=False),
+                model_t_xw=clone(self.model_t_xw, safe=False),
+                model_t_xwz=clone(self.model_t_xwz, safe=False),
+                model_final=clone(self.flexible_model_effect, safe=False),
+                discrete_instrument=self.discrete_instrument,
+                discrete_treatment=self.discrete_treatment,
+                discrete_outcome=self.discrete_outcome,
+                featurizer=self._gen_featurizer(),
+                categories=self.categories,
+                cv=self.prel_cv,
+                mc_iters=self.mc_iters,
+                mc_agg=self.mc_agg,
+                random_state=self.random_state,
+                allow_missing=self.allow_missing,
+            )
         else:
             raise ValueError(
-                "We only support 'dmliv' or 'driv' preliminary model effect, "
-                f"but received '{self.prel_cate_approach}'!")
+                f"We only support 'dmliv' or 'driv' preliminary model effect, but received '{self.prel_cate_approach}'!"
+            )
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference="auto"):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference="auto",
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1058,15 +1189,28 @@ class DRIV(_DRIV):
         self
         """
         if self.projection:
-            assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
-                                               "please keep it as default!")
+            assert self.model_z_xw == "auto", (
+                "In the case of projection=True, model_z_xw will not be fitted, please keep it as default!"
+            )
         if self.prel_cate_approach == "driv" and not self.projection:
-            assert self.model_t_xwz == "auto", ("In the case of projection=False and prel_cate_approach='driv', "
-                                                "model_t_xwz will not be fitted, "
-                                                "please keep it as default!")
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+            assert self.model_t_xwz == "auto", (
+                "In the case of projection=False and prel_cate_approach='driv', "
+                "model_t_xwz will not be fitted, "
+                "please keep it as default!"
+            )
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     @property
     def models_y_xw(self):
@@ -1405,69 +1549,86 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     (-1.27151..., 1.01512...)
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_z_xw="auto",
-                 model_t_xwz="auto",
-                 model_tz_xw="auto",
-                 fit_cov_directly=True,
-                 flexible_model_effect="auto",
-                 prel_cate_approach="driv",
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 projection=False,
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None
-                 ):
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xw=model_t_xw,
-                         model_z_xw=model_z_xw,
-                         model_t_xwz=model_t_xwz,
-                         model_tz_xw=model_tz_xw,
-                         fit_cov_directly=fit_cov_directly,
-                         flexible_model_effect=flexible_model_effect,
-                         model_final=None,
-                         prel_cate_approach=prel_cate_approach,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
-                         projection=projection,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_z_xw="auto",
+        model_t_xwz="auto",
+        model_tz_xw="auto",
+        fit_cov_directly=True,
+        flexible_model_effect="auto",
+        prel_cate_approach="driv",
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        projection=False,
+        featurizer=None,
+        fit_cate_intercept=True,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xw=model_t_xw,
+            model_z_xw=model_z_xw,
+            model_t_xwz=model_t_xwz,
+            model_tz_xw=model_tz_xw,
+            fit_cov_directly=fit_cov_directly,
+            flexible_model_effect=flexible_model_effect,
+            model_final=None,
+            prel_cate_approach=prel_cate_approach,
+            prel_cv=prel_cv,
+            prel_opt_reweighted=prel_opt_reweighted,
+            projection=projection,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference='auto',
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1508,9 +1669,19 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         self
         """
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     @property
     def fit_cate_intercept_(self):
@@ -1774,41 +1945,44 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     (-1.20712..., 1.07641...)
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_z_xw="auto",
-                 model_t_xwz="auto",
-                 model_tz_xw="auto",
-                 fit_cov_directly=True,
-                 flexible_model_effect="auto",
-                 prel_cate_approach="driv",
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 projection=False,
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 alpha='auto',
-                 n_alphas=100,
-                 alpha_cov='auto',
-                 n_alphas_cov=10,
-                 max_iter=1000,
-                 tol=1e-4,
-                 n_jobs=None,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_z_xw="auto",
+        model_t_xwz="auto",
+        model_tz_xw="auto",
+        fit_cov_directly=True,
+        flexible_model_effect="auto",
+        prel_cate_approach="driv",
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        projection=False,
+        featurizer=None,
+        fit_cate_intercept=True,
+        alpha='auto',
+        n_alphas=100,
+        alpha_cov='auto',
+        n_alphas_cov=10,
+        max_iter=1000,
+        tol=1e-4,
+        n_jobs=None,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1816,49 +1990,51 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         self.max_iter = max_iter
         self.tol = tol
         self.n_jobs = n_jobs
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xw=model_t_xw,
-                         model_z_xw=model_z_xw,
-                         model_t_xwz=model_t_xwz,
-                         model_tz_xw=model_tz_xw,
-                         fit_cov_directly=fit_cov_directly,
-                         flexible_model_effect=flexible_model_effect,
-                         model_final=None,
-                         prel_cate_approach=prel_cate_approach,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
-                         projection=projection,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options
-                         )
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xw=model_t_xw,
+            model_z_xw=model_z_xw,
+            model_t_xwz=model_t_xwz,
+            model_tz_xw=model_tz_xw,
+            fit_cov_directly=fit_cov_directly,
+            flexible_model_effect=flexible_model_effect,
+            model_final=None,
+            prel_cate_approach=prel_cate_approach,
+            prel_cv=prel_cv,
+            prel_opt_reweighted=prel_opt_reweighted,
+            projection=projection,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_model_final(self):
-        return DebiasedLasso(alpha=self.alpha,
-                             n_alphas=self.n_alphas,
-                             alpha_cov=self.alpha_cov,
-                             n_alphas_cov=self.n_alphas_cov,
-                             fit_intercept=False,
-                             max_iter=self.max_iter,
-                             tol=self.tol,
-                             n_jobs=self.n_jobs,
-                             random_state=self.random_state)
+        return DebiasedLasso(
+            alpha=self.alpha,
+            n_alphas=self.n_alphas,
+            alpha_cov=self.alpha_cov,
+            n_alphas_cov=self.n_alphas_cov,
+            fit_intercept=False,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            n_jobs=self.n_jobs,
+            random_state=self.random_state,
+        )
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1893,13 +2069,26 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         """
         # TODO: support freq_weight and sample_var in debiased lasso
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
-        check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
-                               discrete_treatment=self.discrete_treatment,
-                               msg="The number of features in the final model (< 5) is too small for a sparse model. "
-                                   "We recommend using the LinearDRLearner for this low-dimensional setting.")
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        check_high_dimensional(
+            X,
+            T,
+            threshold=5,
+            featurizer=self.featurizer,
+            discrete_treatment=self.discrete_treatment,
+            msg="The number of features in the final model (< 5) is too small for a sparse model. "
+            "We recommend using the LinearDRLearner for this low-dimensional setting.",
+        )
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     @property
     def fit_cate_intercept_(self):
@@ -2064,8 +2253,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
         The weighted impurity decrease equation is the following::
 
-            N_t / N * (impurity - N_t_R / N_t * right_impurity
-                                - N_t_L / N_t * left_impurity)
+            N_t / N * (impurity - N_t_R / N_t * right_impurity - N_t_L / N_t * left_impurity)
 
         where ``N`` is the total number of split samples, ``N_t`` is the number of
         split samples at the current node, ``N_t_L`` is the number of split samples in the
@@ -2223,46 +2411,49 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
     array([ 1.36983..., 10.23568..., -0.17805...]))
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_z_xw="auto",
-                 model_t_xwz="auto",
-                 model_tz_xw="auto",
-                 fit_cov_directly=True,
-                 flexible_model_effect="auto",
-                 prel_cate_approach="driv",
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 projection=False,
-                 featurizer=None,
-                 n_estimators=1000,
-                 max_depth=None,
-                 min_samples_split=5,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 subforest_size=4,
-                 n_jobs=-1,
-                 verbose=0,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 discrete_outcome=False,
-                 discrete_instrument=False,
-                 discrete_treatment=False,
-                 treatment_featurizer=None,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xw="auto",
+        model_z_xw="auto",
+        model_t_xwz="auto",
+        model_tz_xw="auto",
+        fit_cov_directly=True,
+        flexible_model_effect="auto",
+        prel_cate_approach="driv",
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        projection=False,
+        featurizer=None,
+        n_estimators=1000,
+        max_depth=None,
+        min_samples_split=5,
+        min_samples_leaf=5,
+        min_weight_fraction_leaf=0.0,
+        max_features="auto",
+        min_impurity_decrease=0.0,
+        max_samples=0.45,
+        min_balancedness_tol=0.45,
+        honest=True,
+        subforest_size=4,
+        n_jobs=-1,
+        verbose=0,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        discrete_outcome=False,
+        discrete_instrument=False,
+        discrete_treatment=False,
+        treatment_featurizer=None,
+        categories='auto',
+        cv=2,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -2276,55 +2467,58 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xw=model_t_xw,
-                         model_z_xw=model_z_xw,
-                         model_t_xwz=model_t_xwz,
-                         model_tz_xw=model_tz_xw,
-                         fit_cov_directly=fit_cov_directly,
-                         flexible_model_effect=flexible_model_effect,
-                         model_final=None,
-                         prel_cate_approach=prel_cate_approach,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
-                         projection=projection,
-                         featurizer=featurizer,
-                         fit_cate_intercept=False,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         discrete_outcome=discrete_outcome,
-                         discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment,
-                         treatment_featurizer=treatment_featurizer,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xw=model_t_xw,
+            model_z_xw=model_z_xw,
+            model_t_xwz=model_t_xwz,
+            model_tz_xw=model_tz_xw,
+            fit_cov_directly=fit_cov_directly,
+            flexible_model_effect=flexible_model_effect,
+            model_final=None,
+            prel_cate_approach=prel_cate_approach,
+            prel_cv=prel_cv,
+            prel_opt_reweighted=prel_opt_reweighted,
+            projection=projection,
+            featurizer=featurizer,
+            fit_cate_intercept=False,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            discrete_outcome=discrete_outcome,
+            discrete_instrument=discrete_instrument,
+            discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_model_final(self):
-        return RegressionForest(n_estimators=self.n_estimators,
-                                max_depth=self.max_depth,
-                                min_samples_split=self.min_samples_split,
-                                min_samples_leaf=self.min_samples_leaf,
-                                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                max_features=self.max_features,
-                                min_impurity_decrease=self.min_impurity_decrease,
-                                max_samples=self.max_samples,
-                                min_balancedness_tol=self.min_balancedness_tol,
-                                honest=self.honest,
-                                inference=True,
-                                subforest_size=self.subforest_size,
-                                n_jobs=self.n_jobs,
-                                random_state=self.random_state,
-                                verbose=self.verbose,
-                                warm_start=False)
+        return RegressionForest(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            min_samples_leaf=self.min_samples_leaf,
+            min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+            max_features=self.max_features,
+            min_impurity_decrease=self.min_impurity_decrease,
+            max_samples=self.max_samples,
+            min_balancedness_tol=self.min_balancedness_tol,
+            honest=self.honest,
+            inference=True,
+            subforest_size=self.subforest_size,
+            n_jobs=self.n_jobs,
+            random_state=self.random_state,
+            verbose=self.verbose,
+            warm_start=False,
+        )
 
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -2361,9 +2555,17 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
             raise ValueError("This estimator does not support X=None!")
 
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            X=X,
+            W=W,
+            Z=Z,
+            sample_weight=sample_weight,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     @property
     def model_final(self):
@@ -2376,26 +2578,42 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
 
 class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
-    def __init__(self,
-                 model_y_xw: SingleModelSelector,
-                 model_t_xwz: SingleModelSelector,
-                 dummy_z: SingleModelSelector,
-                 prel_model_effect):
+    def __init__(
+        self,
+        model_y_xw: SingleModelSelector,
+        model_t_xwz: SingleModelSelector,
+        dummy_z: SingleModelSelector,
+        prel_model_effect,
+    ):
         self._model_y_xw = model_y_xw
         self._model_t_xwz = model_t_xwz
         self._dummy_z = dummy_z
         self._prel_model_effect = prel_model_effect
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.train(is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
+        self._model_y_xw.train(
+            is_selecting, folds, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups, **fit_params
+        )
         # concat W and Z
         WZ = _combine(W, Z, Y.shape[0])
-        self._model_t_xwz.train(is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
-        self._dummy_z.train(is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+        self._model_t_xwz.train(
+            is_selecting, folds, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups, **fit_params
+        )
+        self._dummy_z.train(
+            is_selecting, folds, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups, **fit_params
+        )
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
-        self._prel_model_effect.fit(Y, inverse_onehot(T), Z=inverse_onehot(Z), X=X, W=W,
-                                    sample_weight=sample_weight, groups=groups)
+        self._prel_model_effect.fit(
+            Y,
+            inverse_onehot(T),
+            Z=inverse_onehot(Z),
+            X=X,
+            W=W,
+            sample_weight=sample_weight,
+            groups=groups,
+            **fit_params,
+        )
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -2412,8 +2630,9 @@ class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
         if hasattr(self._prel_model_effect, 'score'):
             # we need to undo the one-hot encoding for calling effect,
             # since it expects raw values
-            effect_score = self._prel_model_effect.score(Y, inverse_onehot(T),
-                                                         inverse_onehot(Z), X=X, W=W, sample_weight=sample_weight)
+            effect_score = self._prel_model_effect.score(
+                Y, inverse_onehot(T), inverse_onehot(Z), X=X, W=W, sample_weight=sample_weight
+            )
         else:
             effect_score = None
 
@@ -2472,54 +2691,59 @@ class _DummyClassifier:
 class _IntentToTreatDRIV(_BaseDRIV):
     """Base class for the DRIV algorithm for the intent-to-treat A/B test setting."""
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xwz="auto",
-                 prel_model_effect,
-                 model_final,
-                 z_propensity="auto",
-                 featurizer=None,
-                 fit_cate_intercept=False,
-                 discrete_outcome=False,
-                 cov_clip=1e-3,
-                 opt_reweighted=False,
-                 categories='auto',
-                 cv=3,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xwz="auto",
+        prel_model_effect,
+        model_final,
+        z_propensity="auto",
+        featurizer=None,
+        fit_cate_intercept=False,
+        discrete_outcome=False,
+        cov_clip=1e-3,
+        opt_reweighted=False,
+        categories='auto',
+        cv=3,
+        mc_iters=None,
+        mc_agg='mean',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         self.z_propensity = z_propensity
 
-        super().__init__(model_final=model_final,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         discrete_outcome=discrete_outcome,
-                         cov_clip=cov_clip,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         discrete_instrument=True,
-                         discrete_treatment=True,
-                         categories=categories,
-                         opt_reweighted=opt_reweighted,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            model_final=model_final,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            discrete_outcome=discrete_outcome,
+            cov_clip=cov_clip,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            discrete_instrument=True,
+            discrete_treatment=True,
+            categories=categories,
+            opt_reweighted=opt_reweighted,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        model_y_xw = _make_first_stage_selector(self.model_y_xw,
-                                                is_discrete=self.discrete_outcome,
-                                                random_state=self.random_state)
+        model_y_xw = _make_first_stage_selector(
+            self.model_y_xw, is_discrete=self.discrete_outcome, random_state=self.random_state
+        )
         model_t_xwz = _make_first_stage_selector(self.model_t_xwz, is_discrete=True, random_state=self.random_state)
 
         if self.z_propensity == "auto":
@@ -2704,29 +2928,31 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     array([-4.52684...,  6.38767..., -2.67082...])
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xwz="auto",
-                 prel_cate_approach="driv",
-                 flexible_model_effect="auto",
-                 model_final=None,
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 z_propensity="auto",
-                 featurizer=None,
-                 fit_cate_intercept=False,
-                 discrete_outcome=False,
-                 cov_clip=1e-3,
-                 cv=3,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 opt_reweighted=False,
-                 categories='auto',
-                 random_state=None,
-                 allow_missing=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
-
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xwz="auto",
+        prel_cate_approach="driv",
+        flexible_model_effect="auto",
+        model_final=None,
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        z_propensity="auto",
+        featurizer=None,
+        fit_cate_intercept=False,
+        discrete_outcome=False,
+        cov_clip=1e-3,
+        cv=3,
+        mc_iters=None,
+        mc_agg='mean',
+        opt_reweighted=False,
+        categories='auto',
+        random_state=None,
+        allow_missing=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
         # maybe shouldn't expose fit_cate_intercept in this class?
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -2735,24 +2961,26 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         self.prel_cate_approach = prel_cate_approach
         self.prel_cv = prel_cv
         self.prel_opt_reweighted = prel_opt_reweighted
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xwz=model_t_xwz,
-                         prel_model_effect=self.prel_cate_approach,
-                         model_final=model_final,
-                         z_propensity=z_propensity,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         discrete_outcome=discrete_outcome,
-                         cov_clip=cov_clip,
-                         opt_reweighted=opt_reweighted,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xwz=model_t_xwz,
+            prel_model_effect=self.prel_cate_approach,
+            model_final=model_final,
+            z_propensity=z_propensity,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            discrete_outcome=discrete_outcome,
+            cov_clip=cov_clip,
+            opt_reweighted=opt_reweighted,
+            categories=categories,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -2761,36 +2989,40 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     def _gen_prel_model_effect(self):
         if self.prel_cate_approach == "driv":
-            return _IntentToTreatDRIV(model_y_xw=clone(self.model_y_xw, safe=False),
-                                      model_t_xwz=clone(self.model_t_xwz, safe=False),
-                                      prel_model_effect=_DummyCATE(),
-                                      model_final=clone(self.flexible_model_effect, safe=False),
-                                      featurizer=self._gen_featurizer(),
-                                      fit_cate_intercept=self.fit_cate_intercept,
-                                      cov_clip=self.cov_clip,
-                                      categories=self.categories,
-                                      opt_reweighted=self.prel_opt_reweighted,
-                                      cv=self.prel_cv,
-                                      random_state=self.random_state,
-                                      allow_missing=self.allow_missing)
+            return _IntentToTreatDRIV(
+                model_y_xw=clone(self.model_y_xw, safe=False),
+                model_t_xwz=clone(self.model_t_xwz, safe=False),
+                prel_model_effect=_DummyCATE(),
+                model_final=clone(self.flexible_model_effect, safe=False),
+                featurizer=self._gen_featurizer(),
+                fit_cate_intercept=self.fit_cate_intercept,
+                cov_clip=self.cov_clip,
+                categories=self.categories,
+                opt_reweighted=self.prel_opt_reweighted,
+                cv=self.prel_cv,
+                random_state=self.random_state,
+                allow_missing=self.allow_missing,
+            )
         elif self.prel_cate_approach == "dmliv":
-            return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
-                                 model_t_xw=clone(self.model_t_xwz, safe=False),
-                                 model_t_xwz=clone(self.model_t_xwz, safe=False),
-                                 model_final=clone(self.flexible_model_effect, safe=False),
-                                 discrete_instrument=True,
-                                 discrete_treatment=True,
-                                 featurizer=self._gen_featurizer(),
-                                 categories=self.categories,
-                                 cv=self.prel_cv,
-                                 mc_iters=self.mc_iters,
-                                 mc_agg=self.mc_agg,
-                                 random_state=self.random_state,
-                                 allow_missing=self.allow_missing)
+            return NonParamDMLIV(
+                model_y_xw=clone(self.model_y_xw, safe=False),
+                model_t_xw=clone(self.model_t_xwz, safe=False),
+                model_t_xwz=clone(self.model_t_xwz, safe=False),
+                model_final=clone(self.flexible_model_effect, safe=False),
+                discrete_instrument=True,
+                discrete_treatment=True,
+                featurizer=self._gen_featurizer(),
+                categories=self.categories,
+                cv=self.prel_cv,
+                mc_iters=self.mc_iters,
+                mc_agg=self.mc_agg,
+                random_state=self.random_state,
+                allow_missing=self.allow_missing,
+            )
         else:
             raise ValueError(
-                "We only support 'dmliv' or 'driv' preliminary model effect, "
-                f"but received '{self.prel_cate_approach}'!")
+                f"We only support 'dmliv' or 'driv' preliminary model effect, but received '{self.prel_cate_approach}'!"
+            )
 
     @property
     def models_y_xw(self):
@@ -3018,57 +3250,75 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     (-2.07685..., 1.49784...)
     """
 
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xwz="auto",
-                 prel_cate_approach="driv",
-                 flexible_model_effect="auto",
-                 prel_cv=1,
-                 prel_opt_reweighted=True,
-                 z_propensity="auto",
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 discrete_outcome=False,
-                 cov_clip=1e-3,
-                 cv=3,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 opt_reweighted=False,
-                 categories='auto',
-                 random_state=None,
-                 allow_missing=False,
-                 enable_federation=False,
-                 use_ray=False,
-                 ray_remote_func_options=None):
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xwz=model_t_xwz,
-                         flexible_model_effect=flexible_model_effect,
-                         model_final=None,
-                         prel_cate_approach=prel_cate_approach,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
-                         z_propensity=z_propensity,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         discrete_outcome=discrete_outcome,
-                         cov_clip=cov_clip,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         opt_reweighted=opt_reweighted,
-                         categories=categories,
-                         random_state=random_state,
-                         allow_missing=allow_missing,
-                         use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options)
+    def __init__(
+        self,
+        *,
+        model_y_xw="auto",
+        model_t_xwz="auto",
+        prel_cate_approach="driv",
+        flexible_model_effect="auto",
+        prel_cv=1,
+        prel_opt_reweighted=True,
+        z_propensity="auto",
+        featurizer=None,
+        fit_cate_intercept=True,
+        discrete_outcome=False,
+        cov_clip=1e-3,
+        cv=3,
+        mc_iters=None,
+        mc_agg='mean',
+        opt_reweighted=False,
+        categories='auto',
+        random_state=None,
+        allow_missing=False,
+        enable_federation=False,
+        use_ray=False,
+        ray_remote_func_options=None,
+    ):
+        super().__init__(
+            model_y_xw=model_y_xw,
+            model_t_xwz=model_t_xwz,
+            flexible_model_effect=flexible_model_effect,
+            model_final=None,
+            prel_cate_approach=prel_cate_approach,
+            prel_cv=prel_cv,
+            prel_opt_reweighted=prel_opt_reweighted,
+            z_propensity=z_propensity,
+            featurizer=featurizer,
+            fit_cate_intercept=fit_cate_intercept,
+            discrete_outcome=discrete_outcome,
+            cov_clip=cov_clip,
+            cv=cv,
+            mc_iters=mc_iters,
+            mc_agg=mc_agg,
+            opt_reweighted=opt_reweighted,
+            categories=categories,
+            random_state=random_state,
+            allow_missing=allow_missing,
+            use_ray=use_ray,
+            ray_remote_func_options=ray_remote_func_options,
+        )
         self.enable_federation = enable_federation
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False, enable_federation=self.enable_federation)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+    def fit(
+        self,
+        Y,
+        T,
+        *,
+        Z,
+        X=None,
+        W=None,
+        sample_weight=None,
+        freq_weight=None,
+        sample_var=None,
+        groups=None,
+        cache_values=False,
+        inference='auto',
+    ):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -3109,9 +3359,19 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         self : instance
         """
         # TODO: do correct adjustment for sample_var
-        return super().fit(Y, T, Z=Z, X=X, W=W,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+        return super().fit(
+            Y,
+            T,
+            Z=Z,
+            X=X,
+            W=W,
+            sample_weight=sample_weight,
+            freq_weight=freq_weight,
+            sample_var=sample_var,
+            groups=groups,
+            cache_values=cache_values,
+            inference=inference,
+        )
 
     @property
     def fit_cate_intercept_(self):
