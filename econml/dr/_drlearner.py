@@ -82,6 +82,7 @@ def _calculate_crump_threshold(propensities):
     """
     n_samples = propensities.shape[0]
 
+    # compute the product of the propensities across treatments (e.g. p(1-p) for binary treatment), then sort
     sorted_props = np.sort(np.prod(propensities, axis=1))[::-1]
     # Set any zeros to 1 when inverting to avoid division by zero; we won't use these values anyway
     sorted_inv = 1 / (sorted_props + (sorted_props == 0))
@@ -100,7 +101,9 @@ def _calculate_crump_threshold(propensities):
         threshold_index = n_samples - 1
 
     gamma = sorted_props[threshold_index]
-    return 1/2 - np.sqrt(1/4 - gamma)
+    alpha = 1/2 - np.sqrt(1/4 - gamma)
+    # Subtract small tolerance in case precision was lost in sqrt
+    return max(0, alpha - 1e-10)
 
 
 class _ModelNuisance(ModelSelector):
@@ -736,6 +739,10 @@ class DRLearner(_OrthoLearner):
                  f"({self.min_propensity}). This may lead to unexpected behavior, as samples with propensities between "
                  "these values will be kept but have their propensities clipped. Consider setting "
                  "trimming_threshold >= min_propensity.", UserWarning)
+        if (self.trimming_threshold is not None
+                and self.trimming_threshold != 'auto'
+                and (self.trimming_threshold <= 0 or self.trimming_threshold >= 0.5)):
+            raise ValueError("trimming_threshold must be None, 'auto', or a float in the interval (0, 0.5).")
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
