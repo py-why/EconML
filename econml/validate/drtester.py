@@ -3,16 +3,18 @@ from typing import Tuple, Union, List
 import numpy as np
 import pandas as pd
 import scipy.stats as st
+from copy import deepcopy
 from sklearn.model_selection import check_cv
-from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
-from statsmodels.api import OLS
+from sklearn.model_selection import StratifiedKFold, KFold
+from statsmodels.api import WLS
 from statsmodels.tools import add_constant
 
 from econml.utilities import deprecated
+from econml._cate_estimator import BaseCateEstimator
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
-
+from .weighted_utils import weighted_stat, weighted_se, cross_val_predict_with_weights
 
 class DRTester:
     """
@@ -20,6 +22,7 @@ class DRTester:
 
     Includes the best linear predictor (BLP) test as in Chernozhukov et al. (2022),
     the calibration test in Dwivedi et al. (2020), and the QINI coefficient as in Radcliffe (2007).
+    Has support for sample weights in all tests.
 
     **Best Linear Predictor (BLP)**
 
@@ -124,7 +127,7 @@ class DRTester:
         *,
         model_regression,
         model_propensity,
-        cate,
+        cate: BaseCateEstimator,
         cv: Union[int, List] = 5
     ):
         self.model_regression = model_regression
@@ -154,7 +157,7 @@ class DRTester:
             splitter.random_state = random_state
         self.cv_splitter = splitter
 
-    def get_cv_splits(self, vars: np.array, T: np.array):
+    def get_cv_splits(self, vars: np.ndarray, T: np.ndarray):
         """
         Generate splits for cross-validation, given a set of variables and treatment vector.
 
@@ -181,12 +184,14 @@ class DRTester:
 
     def fit_nuisance(
         self,
-        Xval: np.array,
-        Dval: np.array,
-        yval: np.array,
-        Xtrain: np.array = None,
-        Dtrain: np.array = None,
-        ytrain: np.array = None,
+        Xval: np.ndarray,
+        Dval: np.ndarray,
+        yval: np.ndarray,
+        Xtrain: np.ndarray = None,
+        Dtrain: np.ndarray = None,
+        ytrain: np.ndarray = None,
+        sampleweightval: np.ndarray = None,
+        sampleweighttrain: np.ndarray = None
     ):
         """
         Generate nuisance predictions and calculates doubly robust (DR) outcomes.
@@ -212,6 +217,10 @@ class DRTester:
             the control status be equal to 0, and all other treatments integers starting at 1.
         ytrain: vector of length n_train, optional
             Outcomes for the training sample
+        sampleweightval: vector of length n_val, optional
+            Sample weights for validation sample
+        sampleweighttrain: vector of length n_train, optional
+            Sample weights for training sample
 
         Returns
         -------
@@ -234,29 +243,59 @@ class DRTester:
 
         if self.fit_on_train:
             # Get DR outcomes in training sample
-            reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain)
-            self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
+            reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain, sampleweighttrain)
+            self.dr_train_ = calculate_dr_outcomes(Dtrain,
+                                                   ytrain,
+                                                   reg_preds_train,
+                                                   prop_preds_train,
+                                                   self.treatments)
+
+            # standardize to always have 2 dimensions
+            if self.dr_train_.ndim == 1:
+                self.dr_train_ = self.dr_train_[..., np.newaxis]
 
             # Get DR outcomes in validation sample
-            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain,
+                                                                    Dtrain,
+                                                                    ytrain,
+                                                                    Xval,
+                                                                    sampleweighttrain)
+            self.dr_val_ = calculate_dr_outcomes(Dval,
+                                                 yval,
+                                                 reg_preds_val,
+                                                 prop_preds_val,
+                                                 self.treatments)
+
+            # standardize to always have 2 dimensions
+            if self.dr_val_.ndim == 1:
+                self.dr_val_ = self.dr_val_[..., np.newaxis]
+
         else:
             # Get DR outcomes in validation sample
-            reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval, sampleweightval)
+            self.dr_val_ = calculate_dr_outcomes(Dval,
+                                                 yval,
+                                                 reg_preds_val,
+                                                 prop_preds_val,
+                                                 self.treatments)
+
+            # standardize to always have 2 dimensions
+            if self.dr_val_.ndim == 1:
+                self.dr_val_ = self.dr_val_[..., np.newaxis]
 
         # Calculate ATE in the validation sample
-        self.ate_val = self.dr_val_.mean(axis=0)
+        self.ate_val = np.average(self.dr_val_, axis=0, weights=sampleweightval)
 
         return self
 
     def fit_nuisance_train(
         self,
-        Xtrain: np.array,
-        Dtrain: np.array,
-        ytrain: np.array,
-        Xval: np.array
-    ) -> Tuple[np.array, np.array]:
+        Xtrain: np.ndarray,
+        Dtrain: np.ndarray,
+        ytrain: np.ndarray,
+        Xval: np.ndarray,
+        sampleweighttrain: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Fits nuisance models in training sample and applies to generate predictions in validation sample.
 
@@ -272,33 +311,43 @@ class DRTester:
             Outcomes for training sample
         Xval: (n_train x k) matrix
             Validation sample features used to predict both treatment status and outcomes
+        sampleweighttrain: array of length n_train, optional
+            Sample weights for training sample
 
         Returns
         -------
         2 (n_val x n_treatment + 1) arrays corresponding to the predicted outcomes under treatment status and predicted
         treatment probabilities, respectively. Both evaluated on validation set.
         """
+        # set default weights if none provided
+        if sampleweighttrain is None:
+            sampleweighttrain = np.ones(Xtrain.shape[0])
         # Fit propensity in treatment
-        model_propensity_fitted = self.model_propensity.fit(Xtrain, Dtrain)
+        self.model_propensity_ = deepcopy(self.model_propensity)
+        self.model_propensity_.fit(Xtrain, Dtrain, sample_weight=sampleweighttrain)
         # Predict propensity scores
-        prop_preds = model_propensity_fitted.predict_proba(Xval)
+        prop_preds = self.model_propensity_.predict_proba(Xval)
 
         # Possible treatments (need to allow more than 2)
         n = Xval.shape[0]
         reg_preds = np.zeros((n, self.n_treat + 1))
         for i in range(self.n_treat + 1):
             model_regression_fitted = self.model_regression.fit(
-                Xtrain[Dtrain == self.treatments[i]], ytrain[Dtrain == self.treatments[i]])
+                Xtrain[Dtrain == self.treatments[i]],
+                ytrain[Dtrain == self.treatments[i]],
+                sample_weight=sampleweighttrain[Dtrain == self.treatments[i]]
+                )
             reg_preds[:, i] = model_regression_fitted.predict(Xval)
 
         return reg_preds, prop_preds
 
     def fit_nuisance_cv(
         self,
-        X: np.array,
-        D: np.array,
-        y: np.array
-    ) -> Tuple[np.array, np.array]:
+        X: np.ndarray,
+        D: np.ndarray,
+        y: np.ndarray,
+        sampleweight: np.ndarray = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Generate nuisance function predictions using k-folds cross validation.
 
@@ -312,14 +361,25 @@ class DRTester:
             starting at 1
         y: array of length n
             Outcomes
+        sampleweight: array of length n, optional
+            Sample weights
 
         Returns
         -------
         2 (n x n_treatment + 1) arrays corresponding to the predicted outcomes under treatment status and predicted
         treatment probabilities, respectively.
         """
+        # set default weights if none provided
+        if sampleweight is None:
+            sampleweight = np.ones(X.shape[0])
+
         splits = self.get_cv_splits([X], D)
-        prop_preds = cross_val_predict(self.model_propensity, X, D, cv=splits, method='predict_proba')
+        prop_preds = cross_val_predict_with_weights(
+                    self.model_propensity,
+                    X, D,
+                    sample_weight=sampleweight,
+                    cv=splits,
+                    method="predict_proba")
 
         # Predict outcomes
         # T-learner logic
@@ -327,16 +387,18 @@ class DRTester:
         reg_preds = np.zeros((N, self.n_treat + 1))
         for k in range(self.n_treat + 1):
             for train, test in splits:
-                model_regression_fitted = self.model_regression.fit(X[train][D[train] == self.treatments[k]],
-                                                                    y[train][D[train] == self.treatments[k]])
+                model_regression_fitted = self.model_regression.fit(
+                    X[train][D[train] == self.treatments[k]],
+                    y[train][D[train] == self.treatments[k]],
+                    sample_weight=sampleweight[train][D[train] == self.treatments[k]])
                 reg_preds[test, k] = model_regression_fitted.predict(X[test])
 
         return reg_preds, prop_preds
 
     def get_cate_preds(
         self,
-        Xval: np.array,
-        Xtrain: np.array = None
+        Xval: np.ndarray,
+        Xtrain: np.ndarray = None
     ):
         """
         Generate predictions from fitted CATE model.
@@ -360,17 +422,31 @@ class DRTester:
         """
         base = self.treatments[0]
         vals = [self.cate.effect(X=Xval, T0=base, T1=t) for t in self.treatments[1:]]
-        self.cate_preds_val_ = np.stack(vals).T
+
+        #squeeze to avoid unnecessary dimensions with 1 value (some cases with 3 dimensions)
+        self.cate_preds_val_ = np.stack(vals).T.squeeze()
+
+        # standardize to always have 2 dimensions
+        if self.cate_preds_val_.ndim == 1:
+            self.cate_preds_val_ = self.cate_preds_val_[..., np.newaxis]
 
         if Xtrain is not None:
             trains = [self.cate.effect(X=Xtrain, T0=base, T1=t) for t in self.treatments[1:]]
-            self.cate_preds_train_ = np.stack(trains).T
+
+            #squeeze to avoid unnecessary dimensions with 1 value (some cases with 3 dimensions)
+            self.cate_preds_train_ = np.stack(trains).T.squeeze()
+
+            # standardize to always have 2 dimensions
+            if self.cate_preds_train_.ndim == 1:
+                self.cate_preds_train_ = self.cate_preds_train_[..., np.newaxis]
 
     def evaluate_cal(
         self,
-        Xval: np.array = None,
-        Xtrain: np.array = None,
-        n_groups: int = 4
+        Xval: np.ndarray = None,
+        Xtrain: np.ndarray = None,
+        n_groups: int = 4,
+        sampleweightval: np.ndarray = None,
+        sampleweighttrain: np.ndarray = None,
     ) -> CalibrationEvaluationResults:
         """
         Implement calibration test as in [Dwivedi2020].
@@ -385,6 +461,10 @@ class DRTester:
             implemented (with Xtrain specified)
         n_groups: integer, default 4
             Number of quantile-based groups used to calculate calibration score.
+        sampleweightval: np.ndarray = None,
+            Sample weights for validation sample
+        sampleweighttrain: np.ndarray = None,
+            Sample weights for training sample
 
         Returns
         -------
@@ -399,26 +479,65 @@ class DRTester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
+        # Default to equal weights if none provided
+        if sampleweighttrain is None:
+            sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
+        if sampleweightval is None:
+            sampleweightval = np.ones(self.cate_preds_val_.shape[0])
+
+        # Convert weights to integer values
+        sampleweightval = sampleweightval.astype(int)
+        sampleweighttrain = sampleweighttrain.astype(int)
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
+
         cal_r_squared = np.zeros(self.n_treat)
         plot_data_dict = dict()
+
         for k in range(self.n_treat):
-            cuts = np.quantile(self.cate_preds_train_[:, k], np.linspace(0, 1, n_groups + 1))
+
+            # Determine quantile-based cuts based on training set
+            cuts = weighted_stat(values=self.cate_preds_train_[:, k],
+                                 q=np.linspace(0, 1, n_groups + 1),
+                                 sample_weight=sampleweighttrain,
+                                 mode='quantile')
+
+            # Initialize arrays
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
             se_g_cate = np.zeros(n_groups)
             gate = np.zeros(n_groups)
             se_gate = np.zeros(n_groups)
+
+            w_tot = np.sum(sampleweightval)
+
+            # Calculate group statistics
             for i in range(n_groups):
+
                 # Assign units in validation set to groups
-                ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
+                if i < n_groups - 1:
+                    ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] < cuts[i + 1])
+                else:
+                    ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
+
+                # Skip if no units in group
+                if not np.any(ind):
+                    continue
+
+                w_tot_inds = np.sum(sampleweightval[ind])
+
                 # Proportion of validations set in group
-                probs[i] = np.mean(ind)
+                probs[i] = w_tot_inds / w_tot
+
                 # Group average treatment effect (GATE) -- average of DR outcomes in group
-                gate[i] = np.mean(self.dr_val_[ind, k])
-                se_gate[i] = np.std(self.dr_val_[ind, k]) / np.sqrt(np.sum(ind))
+                gate[i] = np.average(self.dr_val_[ind, k], weights=sampleweightval[ind])
+                se_gate[i] = weighted_se(values=self.dr_val_[ind, k], weights=sampleweightval[ind])
+
                 # Average of CATE predictions in group
-                g_cate[i] = np.mean(self.cate_preds_val_[ind, k])
-                se_g_cate[i] = np.std(self.cate_preds_val_[ind, k]) / np.sqrt(np.sum(ind))
+                g_cate[i] = np.average(self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
+                se_g_cate[i] = weighted_se(values=self.cate_preds_val_[ind, k], weights=sampleweightval[ind])
 
             # Calculate group calibration score
             cal_score_g = np.sum(abs(gate - g_cate) * probs)
@@ -447,8 +566,9 @@ class DRTester:
 
     def evaluate_blp(
         self,
-        Xval: np.array = None,
-        Xtrain: np.array = None
+        Xval: np.ndarray = None,
+        Xtrain: np.ndarray = None,
+        sampleweightval: np.ndarray = None,
     ) -> BLPEvaluationResults:
         """
         Implement the best linear predictor (BLP) test as in [Chernozhukov2022].
@@ -464,6 +584,8 @@ class DRTester:
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
             to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance` method (and
             vice-versa)
+        sampleweightval: np.ndarray = None,
+            Sample weights for validation sample
 
         Returns
         -------
@@ -478,20 +600,21 @@ class DRTester:
                 raise Exception('CATE predictions not yet calculated - must provide Xval')
             self.get_cate_preds(Xval, Xtrain)
 
-        if self.n_treat == 1:  # binary treatment
-            reg = OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
-            params = [reg.params[1]]
-            errs = [reg.bse[1]]
-            pvals = [reg.pvalues[1]]
-        else:  # categorical treatment
-            params = []
-            errs = []
-            pvals = []
-            for k in range(self.n_treat):  # run a separate regression for each
-                reg = OLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k])).fit(cov_type='HC1')
-                params.append(reg.params[1])
-                errs.append(reg.bse[1])
-                pvals.append(reg.pvalues[1])
+        # Default to equal weights if none provided
+        if sampleweightval is None:
+            sampleweightval = np.ones(self.cate_preds_val_.shape[0])
+
+        params = []
+        errs = []
+        pvals = []
+
+        # run a separate regression for each treatment
+        for k in range(self.n_treat):
+            reg = WLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k]),
+                        weights=sampleweightval).fit(cov_type='HC1')
+            params.append(reg.params[1])
+            errs.append(reg.bse[1])
+            pvals.append(reg.pvalues[1])
 
         self.blp_res = BLPEvaluationResults(
             params=params,
@@ -504,11 +627,13 @@ class DRTester:
 
     def evaluate_uplift(
         self,
-        Xval: np.array = None,
-        Xtrain: np.array = None,
-        percentiles: np.array = np.linspace(5, 95, 50),
+        Xval: np.ndarray = None,
+        Xtrain: np.ndarray = None,
+        percentiles: np.ndarray = np.linspace(5, 95, 50),
         metric: str = 'qini',
-        n_bootstrap: int = 1000
+        n_bootstrap: int = 1000,
+        sampleweightval: np.ndarray = None,
+        sampleweighttrain: np.ndarray = None
     ) -> UpliftEvaluationResults:
         """
         Calculate uplift curves and coefficients for the given model.
@@ -536,6 +661,10 @@ class DRTester:
             Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
         n_bootstrap: integer, default 1000
             Number of bootstrap samples to run when calculating uniform confidence bands.
+        sampleweightval: np.ndarray = None,
+            Sample weights for validation sample
+        sampleweighttrain: np.ndarray = None,
+            Sample weights for training sample
 
         Returns
         -------
@@ -549,36 +678,48 @@ class DRTester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
-        curve_data_dict = dict()
-        if self.n_treat == 1:
-            coeff, err, curve_df = calc_uplift(
-                self.cate_preds_train_,
-                self.cate_preds_val_,
-                self.dr_val_,
-                percentiles,
-                metric,
-                n_bootstrap
-            )
-            coeffs = [coeff]
-            errs = [err]
-            curve_data_dict[self.treatments[1]] = curve_df
-        else:
-            coeffs = []
-            errs = []
-            for k in range(self.n_treat):
-                coeff, err, curve_df = calc_uplift(
-                    self.cate_preds_train_[:, k],
-                    self.cate_preds_val_[:, k],
-                    self.dr_val_[:, k],
-                    percentiles,
-                    metric,
-                    n_bootstrap
-                )
-                coeffs.append(coeff)
-                errs.append(err)
-                curve_data_dict[self.treatments[k + 1]] = curve_df
+        # Default to equal weights if none provided
+        if sampleweightval is None:
+            sampleweightval = np.ones(self.cate_preds_val_.shape[0])
+        if sampleweighttrain is None:
+            sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
 
-        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
+        assert np.min(sampleweightval) > 0, "Sample weights must be positive"
+        assert np.min(sampleweighttrain) > 0, "Sample weights must be positive"
+
+        # cast sample weights to float
+        sampleweightval = sampleweightval.astype(np.float64)
+        sampleweighttrain = sampleweighttrain.astype(np.float64)
+
+        # Convert weights to minimum value of 1
+        sampleweightval /= sampleweightval.min()
+        sampleweighttrain /= sampleweighttrain.min()
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be >= 1"
+
+        curve_data_dict = dict()
+        coeffs = []
+        errs = []
+
+        # run a separate regression for each treatment
+        for k in range(self.n_treat):
+            coeff, err, curve_df = calc_uplift(
+                cate_preds_train=self.cate_preds_train_[:, k],
+                cate_preds_val=self.cate_preds_val_[:, k],
+                dr_val=self.dr_val_[:, k],
+                percentiles=percentiles,
+                metric=metric,
+                n_bootstrap=n_bootstrap,
+                sample_weight_train=sampleweighttrain,
+                sample_weight_val=sampleweightval,
+            )
+            coeffs.append(coeff)
+            errs.append(err)
+            curve_data_dict[self.treatments[k + 1]] = curve_df
+
+        pvals = [2*st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
         self.uplift_res = UpliftEvaluationResults(
             params=coeffs,
@@ -592,10 +733,12 @@ class DRTester:
 
     def evaluate_all(
         self,
-        Xval: np.array = None,
-        Xtrain: np.array = None,
+        Xval: np.ndarray = None,
+        Xtrain: np.ndarray = None,
         n_groups: int = 4,
-        n_bootstrap: int = 1000
+        n_bootstrap: int = 1000,
+        sampleweightval: np.ndarray = None,
+        sampleweighttrain: np.ndarray = None,
     ) -> EvaluationResults:
         """
         Combine the best linear prediction, calibration, and uplift curve methods into a single summary.
@@ -612,6 +755,10 @@ class DRTester:
             Number of quantile-based groups used to calculate calibration score.
         n_bootstrap: integer, default 1000
             Number of bootstrap samples to run when calculating uniform confidence bands for uplift curves.
+        sampleweightval: np.ndarray = None,
+            Sample weights for validation sample
+        sampleweighttrain: np.ndarray = None,
+            Sample weights for training sample
 
         Returns
         -------
@@ -622,10 +769,40 @@ class DRTester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
-        blp_res = self.evaluate_blp()
-        cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap)
-        toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap)
+        # Default to equal weights if none provided
+        if sampleweightval is None:
+            sampleweightval = np.ones(self.cate_preds_val_.shape[0])
+        if sampleweighttrain is None:
+            sampleweighttrain = np.ones(self.cate_preds_train_.shape[0])
+
+        # Convert weights to integer values
+        sampleweightval = sampleweightval.astype(int)
+        sampleweighttrain = sampleweighttrain.astype(int)
+
+        # Check weights are valid
+        assert (np.all(sampleweightval >= 1)), "Sample weights must be integer and >= 1"
+        assert (np.all(sampleweighttrain >= 1)), "Sample weights must be integer and >= 1"
+
+        blp_res = self.evaluate_blp(Xtrain=Xtrain,
+                                    Xval=Xval,
+                                    sampleweightval=sampleweightval)
+        cal_res = self.evaluate_cal(Xtrain=Xtrain,
+                                    Xval=Xval,
+                                    sampleweightval=sampleweightval,
+                                    sampleweighttrain=sampleweighttrain,
+                                    n_groups=n_groups)
+        qini_res = self.evaluate_uplift(Xtrain=Xtrain,
+                                    Xval=Xval,
+                                    sampleweightval=sampleweightval,
+                                    sampleweighttrain=sampleweighttrain,
+                                    metric='qini',
+                                    n_bootstrap=n_bootstrap)
+        toc_res = self.evaluate_uplift(Xtrain=Xtrain,
+                                    Xval=Xval,
+                                    sampleweightval=sampleweightval,
+                                    sampleweighttrain=sampleweighttrain,
+                                    metric='toc',
+                                    n_bootstrap=n_bootstrap)
 
         self.res = EvaluationResults(
             blp_res=blp_res,
