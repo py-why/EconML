@@ -8,7 +8,7 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
-from econml.utilities import deprecated
+from econml.utilities import check_input_arrays, deprecated
 
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
@@ -221,15 +221,8 @@ class DRTester:
         If training data is provided, also adds attributes for the doubly robust outcomes for the training
         set (dr_train) and the training treatments (Dtrain)
         """
-        Xval = np.asarray(Xval)
-        Dval = np.asarray(Dval)
-        yval = np.asarray(yval)
-        if Xtrain is not None:
-            Xtrain = np.asarray(Xtrain)
-        if Dtrain is not None:
-            Dtrain = np.asarray(Dtrain)
-        if ytrain is not None:
-            ytrain = np.asarray(ytrain)
+        Xval, Dval, yval = check_input_arrays(Xval, Dval, yval)
+        Xtrain, Dtrain, ytrain = check_input_arrays(Xtrain, Dtrain, ytrain)
 
         self.Dval = Dval
 
