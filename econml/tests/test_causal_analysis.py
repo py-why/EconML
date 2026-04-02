@@ -722,7 +722,7 @@ class TestCausalAnalysis(unittest.TestCase):
         ca.fit(X, y)
         eff = ca.global_causal_effect()
         values = eff.loc['d'].index.values
-        np.testing.assert_equal(values, ['cvb', 'avb'])
+        np.testing.assert_equal(np.asarray(values, dtype=object), ['cvb', 'avb'])
 
     def test_policy_with_index(self):
         inds = np.arange(1000)

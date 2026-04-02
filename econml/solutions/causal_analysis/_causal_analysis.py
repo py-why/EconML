@@ -1704,6 +1704,7 @@ class CausalAnalysis:
             current_treatment = orig_df['Current treatment'].values
             if isinstance(current_treatment, pd.core.arrays.categorical.Categorical):
                 current_treatment = current_treatment.to_numpy()
+            current_treatment = np.asarray(current_treatment, dtype=object)
             if np.ndim(treatment_costs) >= 2:
                 # remove third dimenions potentially added
                 if multi_y:  # y was an array, not a vector
