@@ -54,8 +54,18 @@ class Test2SLS(unittest.TestCase):
             m = LinearRegression()
             m.fit(hf.fit_transform(x[:n // 2, :]), y[:n // 2])
             return ((y[n // 2:] - m.predict(hf.fit_transform(x[n // 2:, :]))) ** 2).mean()
-        # TODO: test something rather than just print...
-        print([(k, j, err(k, j)) for k in range(2, 15) for j in [False, True]])
+        # Verify approximation quality improves with degree and achieves low error
+        for joint in [False, True]:
+            errors = {k: err(k, joint) for k in range(2, 15)}
+            # Higher degree should generally achieve lower error than degree=2
+            assert errors[10] < errors[2], (
+                f"Expected error to decrease with degree (joint={joint}): "
+                f"err(10)={errors[10]:.6f} >= err(2)={errors[2]:.6f}"
+            )
+            # At high degree, error should be small
+            assert errors[10] < 0.1, (
+                f"Expected low error at degree 10 (joint={joint}): {errors[10]:.6f}"
+            )
 
     def test_2sls_shape(self):
         n = 100

@@ -111,7 +111,6 @@ class TestUtilities(unittest.TestCase):
         T_inv = inverse_onehot(T_oh)
         np.testing.assert_array_equal(T, T_inv)
 
-    # TODO: set up proper flag for this
     @pytest.mark.slow
     def test_einsum_random(self):
         for _ in range(10):  # do 10 random tests

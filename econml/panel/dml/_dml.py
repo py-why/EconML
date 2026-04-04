@@ -170,20 +170,21 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
 class _DynamicModelFinal:
     """
-    Final model at fit time.
+    Final model for dynamic DML estimation across multiple time periods.
 
-    Fits a residual on residual regression with a heterogeneous coefficient
-    that depends on X, i.e.
+    Fits a sequence of residual-on-residual regressions, one per time period,
+    with heterogeneous coefficients that depend on X:
 
         .. math ::
-            Y - E[Y | X, W] = \\theta(X) \\cdot (T - E[T | X, W]) + \\epsilon
+            Y_t - E[Y_t | X, W] = \\theta_t(X) \\cdot (T_t - E[T_t | X, W]) + \\epsilon_t
 
-    and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
-    residual on residual regression.
-    Assumes model final is parametric with no intercept.
+    for each period t. Periods are fit in reverse order, with later-period
+    predictions subtracted from the outcome residuals of earlier periods.
+
+    At predict time, returns the stacked coefficients :math:`[\\theta_0(X), ..., \\theta_{T-1}(X)]`.
+    The score method returns the per-period MSE of the residual-on-residual regression.
+    Assumes the final model is parametric with no intercept.
     """
-
-    # TODO: update docs
 
     def __init__(self, model_final, n_periods):
         self._model_final = model_final

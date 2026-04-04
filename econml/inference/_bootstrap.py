@@ -65,7 +65,8 @@ class BootstrapEstimator:
         self._bootstrap_type = bootstrap_type
         self._wrapped = wrapped
 
-    # TODO: Add a __dir__ implementation?
+    def __dir__(self):
+        return list(set(super().__dir__()) | set(dir(self._instances[0])))
 
     @staticmethod
     def __stratified_indices(arr):

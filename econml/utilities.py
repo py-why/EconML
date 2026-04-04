@@ -160,9 +160,8 @@ def todense(X):
     elif isinstance(X, sp.SparseArray):
         return X.todense()
     else:
-        # TODO: any way to avoid creating a copy if the array was already dense?
-        #       the call is necessary if the input was something like a list, though
-        return np.array(X)
+        # np.asarray avoids a copy when X is already a dense ndarray
+        return np.asarray(X)
 
 
 def size(X):

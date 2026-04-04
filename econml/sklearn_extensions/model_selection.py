@@ -22,7 +22,7 @@ from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, Mult
 from sklearn.model_selection import (GridSearchCV, GroupKFold, KFold,
                                      RandomizedSearchCV, StratifiedKFold,
                                      check_cv)
-# TODO: conisder working around relying on sklearn implementation details
+# TODO: consider working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
 from sklearn.neural_network import MLPClassifier, MLPRegressor

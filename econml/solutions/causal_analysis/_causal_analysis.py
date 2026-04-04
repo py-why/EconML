@@ -223,10 +223,6 @@ class _ColumnTransformer(TransformerMixin):
         else:
             return rest
 
-    # TODO: remove once older sklearn support is no longer needed
-    def get_feature_names(self, names=None):
-        return self.get_feature_names_out(names)
-
     def get_feature_names_out(self, names=None):
         if names is None:
             names = [f"x{i}" for i in range(self.d_x)]
