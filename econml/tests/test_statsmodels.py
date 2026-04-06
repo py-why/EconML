@@ -1130,7 +1130,8 @@ class TestStatsModels(unittest.TestCase):
 
                             def true_effect(x, i):
                                 return np.hstack([x[:, [0]] + 10 * t + i for t in range(p)])
-                            y = np.sum((true_effect(X, i) * T[:, [i]] for i in range(q)), axis=0) + X[:, [0] * p]
+                            y = np.sum(np.array([true_effect(X, i) * T[:, [i]] for i in range(q)]),
+                                       axis=0) + X[:, [0] * p]
                             if p == 1:
                                 y = y.flatten()
                             est = LinearDML(model_y=LinearRegression(),
