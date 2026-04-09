@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
         fetch-depth: 2
@@ -96,11 +96,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.9'
     - name: Ensure latest pip and setuptools
@@ -132,11 +132,11 @@ jobs:
       id_string: ${{ matrix.kind }}-${{ matrix.version }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.version }}
     - name: Install uv
@@ -155,7 +155,7 @@ jobs:
     - name: Save installed packages
       run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: requirements-${{ env.id_string }}
         path: notebooks-${{ env.id_string }}-requirements.txt
@@ -173,7 +173,7 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage-${{ env.id_string }}
@@ -185,13 +185,13 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
     - name: Upload notebook outputs
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: notebooks-${{ env.id_string }}
@@ -242,11 +242,11 @@ jobs:
       id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install libomp
@@ -265,7 +265,7 @@ jobs:
     - name: Save installed packages
       run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: requirements-${{ env.id_string }}
         path: tests-${{ env.id_string }}-requirements.txt
@@ -282,7 +282,7 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage-${{ env.id_string }}
@@ -294,7 +294,7 @@ jobs:
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests-${{ env.id_string }}
@@ -330,11 +330,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install uv
@@ -349,7 +349,7 @@ jobs:
     - name: Save installed packages
       run: pip freeze --exclude-editable > lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
     - name: Upload installed packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}
         path: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
@@ -361,17 +361,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Get coverage reports
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         pattern: coverage-*
         path: coverage
         merge-multiple: true
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
     - name: Install coverage
@@ -383,7 +383,7 @@ jobs:
     - name: Generate coverage html --fail-under=86
       run: coverage html
     - name: Upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: coverage-report
         path: htmlcov
@@ -398,7 +398,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: "Merge artifacts"
-      uses: actions/upload-artifact/merge@v4
+      uses: actions/upload-artifact/merge@v6
       with:
         name: ${{ matrix.artifact }}
         pattern: "${{ matrix.artifact }}-*"
@@ -425,20 +425,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         ref: ${{ env.ref }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
     - name: Download files
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: lkg-${{ matrix.kind }}
         path: requirements
     - name: "Generate last known good versions"
       run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.pattern }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
     - name: "Upload last known good versions"
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: ${{ matrix.output-name }}
         path: ${{ matrix.output-name }}.txt
@@ -450,7 +450,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: "Merge last known good versions"
-      uses: actions/upload-artifact/merge@v4
+      uses: actions/upload-artifact/merge@v6
       with:
         # can't use just "lkg" for the name since that artifact already exists and merge won't overwrite it even when delete-merged is true
         name: lkg-files
