@@ -204,7 +204,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
@@ -213,8 +213,8 @@ jobs:
           # Ray tests run out of memory on Windows
           - os: windows-latest
             kind: ray
-          # Ray doesn't currently support Python 3.13
-          - python-version: '3.13'
+          # Ray doesn't currently support Python 3.14
+          - python-version: '3.14'
             kind: ray
         # Assign the correct package and testing options for each kind of test
         include:
@@ -307,14 +307,17 @@ jobs:
       matrix:
         kind: [tests]
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         include:
           # assign extras to all combinations
           - extras: "[plt,dowhy,ray]"
-          # overwrite extras for python 3.13 only
+          # overwrite extras for python 3.14, and 3.13 under Windows, because ray is unsupported there
+          - extras: "[plt,dowhy]"
+            python-version: '3.14'
           - extras: "[plt,dowhy]"
             python-version: '3.13'
-          # explicitly add the two notebook extras
+            os: 'windows-latest'
+            # explicitly add the two notebook extras
           - kind: notebooks-other
             os: ubuntu-latest
             python-version: '3.12'
