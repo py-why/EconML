@@ -286,3 +286,34 @@ class TestDRTester(unittest.TestCase):
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
         self.assertLess(autoc_res.pvals[0], 0.05)
+
+    def test_dataframe_input(self):
+        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
+
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y,
+            discrete_treatment=True
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+
+        # Fit with numpy arrays as baseline
+        dr_numpy = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(Xval, Dval, Yval, Xtrain, Dtrain, Ytrain)
+
+        # Fit with DataFrames/Series
+        dr_pandas = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            pd.DataFrame(Xval), pd.Series(Dval), pd.Series(Yval),
+            pd.DataFrame(Xtrain), pd.Series(Dtrain), pd.Series(Ytrain)
+        )
+        np.testing.assert_array_equal(dr_pandas.dr_val_, dr_numpy.dr_val_)
