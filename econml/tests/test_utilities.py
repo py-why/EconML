@@ -11,7 +11,7 @@ import scipy.sparse
 import pytest
 from econml.utilities import (check_high_dimensional, einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
-                              strata_from_discrete_arrays, MultiModelWrapper, SeparateModel)
+                              strata_from_discrete_arrays, add_constant, MultiModelWrapper, SeparateModel)
 from sklearn.preprocessing import OneHotEncoder, SplineTransformer
 from sklearn.linear_model import LinearRegression, LogisticRegressionCV, LassoCV
 
@@ -199,6 +199,62 @@ class TestUtilities(unittest.TestCase):
         assert set(strata_from_discrete_arrays([T, Z])) == set(np.arange(6))
         assert set(strata_from_discrete_arrays([T])) == set(np.arange(3))
         assert strata_from_discrete_arrays([]) is None
+
+    def test_add_constant(self):
+        import pandas as pd
+        from statsmodels.tools.tools import add_constant as sm_add_constant
+
+        rng = np.random.default_rng(0)
+        X = rng.standard_normal((6, 3))
+
+        # Matches statsmodels for ndarray inputs.
+        np.testing.assert_allclose(add_constant(X), sm_add_constant(X))
+        np.testing.assert_allclose(add_constant(X, prepend=False),
+                                   sm_add_constant(X, prepend=False))
+
+        # 1D input is promoted to 2D and a constant column is added.
+        v = np.array([1.0, 2.0, 3.0])
+        np.testing.assert_array_equal(add_constant(v),
+                                      np.array([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]))
+
+        # 3D+ inputs are rejected.
+        with self.assertRaises(ValueError):
+            add_constant(np.zeros((2, 2, 2)))
+
+        # has_constant policies on a column that is already constant.
+        Xc = np.column_stack([np.ones(5), rng.standard_normal(5)])
+        np.testing.assert_array_equal(add_constant(Xc, has_constant='skip'), Xc)
+        with self.assertRaises(ValueError):
+            add_constant(Xc, has_constant='raise')
+        # 'add' should always prepend another ones column.
+        out_add = add_constant(Xc, has_constant='add')
+        assert out_add.shape == (5, 3)
+        np.testing.assert_array_equal(out_add[:, 0], np.ones(5))
+
+        # List input behaves like ndarray.
+        np.testing.assert_array_equal(add_constant([[1.0, 2.0], [3.0, 4.0]]),
+                                      np.array([[1.0, 1.0, 2.0], [1.0, 3.0, 4.0]]))
+
+        # pandas DataFrame and Series inputs are accepted and produce
+        # ndarrays (this differs from statsmodels, which preserves the
+        # pandas type — see the docstring Notes section).
+        df = pd.DataFrame({'a': [1.0, 2.0, 3.0], 'b': [4.0, 5.0, 6.0]})
+        out_df = add_constant(df)
+        assert isinstance(out_df, np.ndarray)
+        np.testing.assert_array_equal(out_df, np.array([[1.0, 1.0, 4.0],
+                                                        [1.0, 2.0, 5.0],
+                                                        [1.0, 3.0, 6.0]]))
+
+        # Non-default index should not reorder the underlying values
+        # (statsmodels behaves the same way).
+        df_idx = pd.DataFrame({'a': [10.0, 20.0, 30.0]}, index=[7, 2, 5])
+        np.testing.assert_array_equal(add_constant(df_idx),
+                                      np.array([[1.0, 10.0], [1.0, 20.0], [1.0, 30.0]]))
+
+        s = pd.Series([1.0, 2.0, 3.0], name='x')
+        out_s = add_constant(s)
+        assert isinstance(out_s, np.ndarray)
+        np.testing.assert_array_equal(out_s, np.array([[1.0, 1.0], [1.0, 2.0], [1.0, 3.0]]))
 
 
 class TestMultiModelWrapper(unittest.TestCase):
