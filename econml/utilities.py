@@ -30,6 +30,58 @@ _statsmodels_summary = _LazyModule("statsmodels.iolib.summary")  # lazy: only ne
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
 
+def add_constant(data, prepend=True, has_constant='skip'):
+    """Add a column of ones to an array.
+
+    Parameters
+    ----------
+    data : array_like
+        A column-ordered design matrix. Any input accepted by
+        :func:`numpy.asarray` is allowed, including pandas
+        ``DataFrame`` and ``Series`` objects.
+    prepend : bool, default True
+        If True the constant is in the first column, else appended.
+    has_constant : {'skip', 'add', 'raise'}, default 'skip'
+        Behavior when *data* already contains a constant column.
+        ``'skip'`` returns *data* unchanged, ``'raise'`` raises
+        ``ValueError``, ``'add'`` adds another column of ones anyway.
+
+    Returns
+    -------
+    ndarray
+        The array with a ones column prepended (or appended).
+
+    Notes
+    -----
+    This differs from :func:`statsmodels.tools.add_constant` in that the
+    return value is always a NumPy ``ndarray``. ``statsmodels`` preserves
+    pandas input types (``DataFrame`` in → ``DataFrame`` out with a
+    ``'const'`` column; ``Series`` in → ``DataFrame`` out). Here, pandas
+    inputs are converted via :func:`numpy.asarray`, which takes the
+    underlying values in row-storage order — the same data ordering
+    ``statsmodels`` operates on — but column names and the row index are
+    not carried through to the result. Callers that need to preserve
+    pandas metadata should reattach it after the call.
+    """
+    x = np.asarray(data)
+    if x.ndim == 1:
+        x = x[:, None]
+    elif x.ndim > 2:
+        raise ValueError('Only implemented for 2-dimensional arrays')
+
+    if has_constant != 'add':
+        is_const = (np.ptp(x, axis=0) == 0) & np.all(x != 0.0, axis=0)
+        if is_const.any():
+            if has_constant == 'skip':
+                return x
+            cols = ",".join(str(c) for c in np.where(is_const)[0])
+            raise ValueError(f"Column(s) {cols} are constant.")
+
+    ones = np.ones(x.shape[0])
+    parts = [ones, x] if prepend else [x, ones]
+    return np.column_stack(parts)
+
+
 class IdentityFeatures(TransformerMixin):
     """Featurizer that just returns the input data."""
 
