@@ -17,8 +17,11 @@ from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
 from .._ortho_learner import _OrthoLearner
+from .._lazy import _LazyModule
 from ..validate.sensitivity_analysis import (sensitivity_interval, RV, dml_sensitivity_values,
                                              sensitivity_summary)
+
+_score = _LazyModule("econml.score")  # lazy: avoid circular import
 
 
 class _CausalForestFinalWrapper:
@@ -757,7 +760,7 @@ class CausalForestDML(_BaseDML):
             The tuned causal forest object. This is the same object (not a copy) as the original one, but where
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
-        from ..score import RScorer  # import here to avoid circular import issue
+        RScorer = _score.RScorer
         Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
         W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True,
                                 ensure_2d=True)
