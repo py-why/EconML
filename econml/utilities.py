@@ -12,7 +12,7 @@ import sparse as sp
 import inspect
 from collections import defaultdict, Counter
 from sklearn import clone
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
@@ -543,7 +543,7 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
     return Y, T, X, W
 
 
-def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=None):
+def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=None, ensure_2d=False):
     """Cast input sequences into numpy arrays.
 
     Only inputs that are sequence-like will be converted, all other inputs will be left as is.
@@ -569,6 +569,9 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
         If dtype is a list of types, conversion on the first type is only
         performed if the dtype of the input is not in the list.
 
+    ensure_2d : bool, default False
+        Whether to raise an error if an input array is not 2D.
+
     Returns
     -------
     args: array_like
@@ -579,7 +582,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
     args = list(args)
     for i, arg in enumerate(args):
         if np.ndim(arg) > 0:
-            new_arg = check_array(arg, dtype=dtype, ensure_2d=False, accept_sparse=True,
+            new_arg = check_array(arg, dtype=dtype, ensure_2d=ensure_2d, accept_sparse=True,
                                   **_get_ensure_finite_arg(force_all_finite))
             if not force_all_finite:
                 # For when checking input values is disabled
@@ -1394,7 +1397,7 @@ def reshape_arrays_2dim(length, *args):
     return new_args
 
 
-class _RegressionWrapper:
+class _RegressionWrapper(RegressorMixin, BaseEstimator):
     """
     A simple wrapper that makes a binary classifier behave like a regressor.
 
@@ -1408,7 +1411,16 @@ class _RegressionWrapper:
     """
 
     def __init__(self, clf):
-        self._clf = clf
+        self.clf = clf
+
+    def __sklearn_is_fitted__(self):
+        """Check if the wrapped classifier has been fitted."""
+        from sklearn.utils.validation import check_is_fitted as _check
+        try:
+            _check(self.clf)
+            return True
+        except Exception:
+            return False
 
     def fit(self, X, y, **kwargs):
         """
@@ -1421,7 +1433,7 @@ class _RegressionWrapper:
         """
         if len(y.shape) > 1 and y.shape[1] > 1:
             y = y @ np.arange(1, y.shape[1] + 1)
-        self._clf.fit(X, y, **kwargs)
+        self.clf.fit(X, y, **kwargs)
         return self
 
     def predict(self, X):
@@ -1432,7 +1444,7 @@ class _RegressionWrapper:
         ----------
         X : features
         """
-        return self._clf.predict_proba(X)[:, 1:]
+        return self.clf.predict_proba(X)[:, 1:]
 
 
 class _TransformerWrapper:

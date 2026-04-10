@@ -65,11 +65,11 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Ensure latest pip and setuptools
@@ -79,9 +79,9 @@ jobs:
       - name: Install graphviz
         run: sudo apt-get -yq install graphviz
       - name: Build documentation
-        run: pip install "sphinx~=7.0" "sphinx_rtd_theme~=2.0.0" && sphinx-build ./doc/ ./build/sphinx/html/ -W
+        run: pip install "sphinx~=7.0" "sphinx_rtd_theme~=2.0.0" scipy-doctest && sphinx-build ./doc/ ./build/sphinx/html/ -W
       - name: Upload docs as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: docs
           path: build/sphinx/html/
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download docs artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: docs
           path: html

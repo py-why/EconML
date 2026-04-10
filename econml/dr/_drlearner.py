@@ -56,6 +56,56 @@ from ..validate.sensitivity_analysis import (sensitivity_interval, RV,
                                              sensitivity_summary, dr_sensitivity_values)
 
 
+def _calculate_crump_threshold(propensities):
+    """
+    Calculate the optimal trimming threshold following Crump et al. (2009).
+
+    The optimal threshold alpha minimizes the asymptotic variance of the treatment
+    effect estimator. For binary treatment, this is found by solving:
+    alpha = 1/2 - sqrt(1/4 - gamma) where gamma is determined by the
+    propensity score distribution.
+
+    Parameters
+    ----------
+    propensities : ndarray of shape (n_samples, n_treatments + 1)
+        Propensity scores for each sample and treatment.
+
+    Returns
+    -------
+    alpha : float
+        The optimal trimming threshold. Observations with any propensity score
+        below alpha or above 1-alpha should be trimmed.
+
+    References
+    ----------
+    [Crump2009]_
+    """
+    n_samples = propensities.shape[0]
+
+    # compute the product of the propensities across treatments (e.g. p(1-p) for binary treatment), then sort
+    sorted_props = np.sort(np.prod(propensities, axis=1))[::-1]
+    # Set any zeros to 1 when inverting to avoid division by zero; we won't use these values anyway
+    sorted_inv = 1 / (sorted_props + (sorted_props == 0))
+    cum_avg = np.cumsum(sorted_inv) / np.arange(1, n_samples + 1)
+    # We want to find the first index where sorted_inv = 2*cum_avg
+    for i in range(n_samples):
+        if sorted_props[i] == 0:
+            # at this point, all remaining are zero,
+            # so the average of the inverse will become infinite and we don't need to continue
+            threshold_index = n_samples - 1
+            break
+        if sorted_inv[i] >= 2*cum_avg[i]:
+            threshold_index = i
+            break
+    else:
+        threshold_index = n_samples - 1
+
+    gamma = sorted_props[threshold_index]
+    alpha = 1/2 - np.sqrt(1/4 - gamma)
+    # Subtract small tolerance in case precision was lost in sqrt
+    return max(0, alpha - 1e-10)
+
+
 class _ModelNuisance(ModelSelector):
     def __init__(self,
                  model_propensity: SingleModelSelector,
@@ -97,7 +147,19 @@ class _ModelNuisance(ModelSelector):
 
     def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
-        propensities = np.clip(self._model_propensity.predict_proba(XW), self._min_propensity, 1-self._min_propensity)
+        if hasattr(self._model_propensity, 'predict_proba'):
+            raw_propensities = self._model_propensity.predict_proba(XW)
+        else:
+            warn("A regressor was passed to model_propensity. "
+                 "Using a classifier is recommended.", UserWarning)
+            # NOTE: we assume binary treatment here since there's no way to recover more than one
+            #       propensity with a regressor
+            raw_propensities = self._model_propensity.predict(XW).reshape(-1)
+            raw_propensities = np.stack([1 - raw_propensities, raw_propensities], axis=1)
+            # Ensure raw propensities are valid probabilities before further clipping and trimming
+            raw_propensities = np.clip(raw_propensities, 0, 1)
+        propensities = np.clip(raw_propensities, self._min_propensity, 1-self._min_propensity)
+
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
@@ -111,6 +173,9 @@ class _ModelNuisance(ModelSelector):
                 warn("A regressor was passed to model_regression when discrete_outcome=True. "
                      "Using a classifier is recommended.", UserWarning)
             Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+        # NOTE: We compute pseudo-outcomes using clipped propensities regardless of trimming
+        #       This is okay because these samples will be discarded in the final model if trimming is used and
+        #       the raw probability is below the trimming threshold.
         Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):
             T_counter = np.zeros(T.shape)
@@ -120,7 +185,8 @@ class _ModelNuisance(ModelSelector):
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities
+        # Return both clipped propensities (for DR adjustment) and raw propensities (for trimming)
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities, raw_propensities
 
 
 def _make_first_stage_selector(model, is_discrete, random_state):
@@ -135,15 +201,73 @@ class _ModelFinal:
     # to allow even for model_final objects whose fit(X, y) can accept X=None
     # (e.g. the StatsModelsLinearRegression), we cannot take that route, because the MultiOutputRegressor
     # checks that X is 2D array.
-    def __init__(self, model_final, featurizer, multitask_model_final):
+    def __init__(self, model_final, featurizer, multitask_model_final, trimming_threshold=None):
         self._model_final = clone(model_final, safe=False)
         self._featurizer = clone(featurizer, safe=False)
         self._multitask_model_final = multitask_model_final
+        self._trimming_threshold = trimming_threshold
         return
+
+    def _compute_trim_mask(self, T_pred):
+        """
+        Compute the trim mask based on propensity scores following Crump et al. (2009).
+
+        Parameters
+        ----------
+        T_pred : ndarray of shape (n_samples, n_treatments + 1)
+            Propensity scores for each sample and treatment.
+
+        Returns
+        -------
+        trim_mask : ndarray of shape (n_samples,), dtype bool
+            True for samples to keep, False for samples to trim.
+        """
+        # If no trimming threshold specified, keep all samples
+        if self._trimming_threshold is None:
+            return np.ones(T_pred.shape[0], dtype=bool)
+
+        # Check for multiple treatments with trimming and bail early
+        if T_pred.shape[1] > 2:
+            warn("Sample trimming is currently only supported for binary treatment "
+                 "(single treatment plus control).", UserWarning)
+            return np.ones(T_pred.shape[0], dtype=bool)
+
+        if self._trimming_threshold == 'auto':
+            # Calculate optimal threshold using Crump et al. criterion
+            threshold = _calculate_crump_threshold(T_pred)
+        else:
+            threshold = self._trimming_threshold
+
+        # Create mask for samples to keep (not trimmed)
+        # Trim if any propensity is below threshold or above 1-threshold
+        trim_mask = np.all((T_pred >= threshold) & (T_pred <= 1 - threshold), axis=1)
+        return trim_mask
 
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
-        Y_pred, T_pred = nuisances
+        Y_pred, T_pred, T_pred_raw = nuisances
+
+        # Apply sample trimming based on Crump et al. (2009) if enabled
+        # Use raw (unclipped) propensities for trimming decisions
+        trim_mask = self._compute_trim_mask(T_pred_raw)
+        self.n_samples_original_ = len(trim_mask)
+        self.n_samples_trimmed_ = int(np.sum(~trim_mask))
+
+        if self.n_samples_trimmed_ > 0:
+            # Filter all inputs based on trim_mask
+            Y = Y[trim_mask]
+            T = T[trim_mask]
+            Y_pred = Y_pred[trim_mask]
+            T_pred = T_pred[trim_mask]
+            if X is not None:
+                X = X[trim_mask]
+            if sample_weight is not None:
+                sample_weight = sample_weight[trim_mask]
+            if freq_weight is not None:
+                freq_weight = freq_weight[trim_mask]
+            if sample_var is not None:
+                sample_var = sample_var[trim_mask]
+
         self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
 
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
@@ -188,7 +312,16 @@ class _ModelFinal:
     def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None):
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
-        Y_pred, _ = nuisances
+        Y_pred, T_pred, T_pred_raw = nuisances
+
+        # Apply sample trimming if enabled (use raw propensities for trimming)
+        trim_mask = self._compute_trim_mask(T_pred_raw)
+        if np.sum(~trim_mask) > 0:
+            Y_pred = Y_pred[trim_mask]
+            if X is not None:
+                X = X[trim_mask]
+            if sample_weight is not None:
+                sample_weight = sample_weight[trim_mask]
 
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
@@ -294,6 +427,29 @@ class DRLearner(_OrthoLearner):
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+        This clipping is applied after trimming, so it only affects samples that remain after
+        any trimming is performed. See `trimming_threshold` for the interaction between these settings.
+
+    trimming_threshold : float, 'auto', or None, default None
+        Threshold for sample trimming based on propensity scores, following [Crump2009]_.
+        Observations with propensity scores below `trimming_threshold` or above `1 - trimming_threshold`
+        for any treatment arm will be excluded from the final stage estimation.
+
+        - If None (default), no trimming is performed.
+        - If 'auto', the optimal threshold is calculated following [Crump2009]_,
+          which minimizes the asymptotic variance of the treatment effect estimator.
+        - If a float between 0 and 0.5, observations are trimmed if any propensity score
+          falls outside the interval [trimming_threshold, 1-trimming_threshold].
+
+        Trimming can improve estimation when there is limited overlap between treatment groups
+        by focusing on the subpopulation where causal effects can be estimated reliably.
+        Note that after trimming, the estimated treatment effects are only valid for the
+        subpopulation that was not trimmed.
+
+        When using trimming, the `trimming_threshold` should typically be set at least as large as
+        `min_propensity`. If `trimming_threshold < min_propensity`, samples with propensities between
+        these values will be kept but have their propensities clipped, which may not be desirable.
+        A warning is emitted in this case.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -436,6 +592,7 @@ class DRLearner(_OrthoLearner):
                  multitask_model_final=False,
                  featurizer=None,
                  min_propensity=1e-6,
+                 trimming_threshold=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -451,6 +608,7 @@ class DRLearner(_OrthoLearner):
         self.multitask_model_final = multitask_model_final
         self.featurizer = clone(featurizer, safe=False)
         self.min_propensity = min_propensity
+        self.trimming_threshold = trimming_threshold
         super().__init__(cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -532,7 +690,8 @@ class DRLearner(_OrthoLearner):
         return clone(self.model_final, safe=False)
 
     def _gen_ortho_learner_model_final(self):
-        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final)
+        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final,
+                           self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
@@ -572,6 +731,18 @@ class DRLearner(_OrthoLearner):
         -------
         self: DRLearner instance
         """
+        # Check for potentially problematic combination of min_propensity and trimming_threshold
+        if (self.trimming_threshold is not None
+                and self.trimming_threshold != 'auto'
+                and self.trimming_threshold < self.min_propensity):
+            warn(f"trimming_threshold ({self.trimming_threshold}) is less than min_propensity "
+                 f"({self.min_propensity}). This may lead to unexpected behavior, as samples with propensities between "
+                 "these values will be kept but have their propensities clipped. Consider setting "
+                 "trimming_threshold >= min_propensity.", UserWarning)
+        if (self.trimming_threshold is not None
+                and self.trimming_threshold != 'auto'
+                and (self.trimming_threshold <= 0 or self.trimming_threshold >= 0.5)):
+            raise ValueError("trimming_threshold must be None, 'auto', or a float in the interval (0, 0.5).")
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
@@ -688,6 +859,38 @@ class DRLearner(_OrthoLearner):
     def nuisance_scores_regression(self):
         """Get the score for the regression model on out-of-sample training data."""
         return self.nuisance_scores_[1]
+
+    @property
+    def n_samples_trimmed_(self):
+        """
+        Get the number of samples that were trimmed due to extreme propensity scores.
+
+        Returns
+        -------
+        n_trimmed : int
+            The number of samples that were trimmed. Returns 0 if trimming was not enabled.
+
+        See Also
+        --------
+        n_samples_used_ : Number of samples used after trimming.
+        """
+        return getattr(self.ortho_learner_model_final_, 'n_samples_trimmed_', 0)
+
+    @property
+    def n_samples_used_(self):
+        """
+        Get the number of samples used in the final stage estimation after trimming.
+
+        Returns
+        -------
+        n_used : int
+            The number of samples used in the final stage estimation.
+        """
+        original = getattr(self.ortho_learner_model_final_, 'n_samples_original_', None)
+        trimmed = getattr(self.ortho_learner_model_final_, 'n_samples_trimmed_', 0)
+        if original is not None:
+            return original - trimmed
+        return None
 
     @property
     def featurizer_(self):
@@ -943,6 +1146,33 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+        This clipping is applied after trimming, so it only affects samples that remain after
+        any trimming is performed. See `trimming_threshold` for the interaction between these settings.
+
+    trimming_threshold : float, 'auto', or None, default None
+        Threshold for sample trimming based on propensity scores, following [Crump2009]_.
+        Observations with propensity scores below `trimming_threshold` or above `1 - trimming_threshold`
+        for any treatment arm will be excluded from the final stage estimation.
+
+        - If None (default), no trimming is performed.
+        - If 'auto', the optimal threshold is calculated following [Crump2009]_,
+          which minimizes the asymptotic variance of the treatment effect estimator.
+        - If a float between 0 and 0.5, observations are trimmed if any propensity score
+          falls outside the interval [trimming_threshold, 1-trimming_threshold].
+
+        Trimming can improve estimation when there is limited overlap between treatment groups
+        by focusing on the subpopulation where causal effects can be estimated reliably.
+        Note that after trimming, the estimated treatment effects are only valid for the
+        subpopulation that was not trimmed.
+
+        When using trimming, the `trimming_threshold` should typically be set at least as large as
+        `min_propensity`. If `trimming_threshold < min_propensity`, samples with propensities between
+        these values will be kept but have their propensities clipped, which may not be desirable.
+        A warning is emitted in this case.
+
+        .. note::
+            Trimming is currently only supported for binary treatment (single treatment plus control).
+            Using trimming with multiple treatments will emit a warning and the setting will be ignored.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -1050,6 +1280,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  fit_cate_intercept=True,
                  discrete_outcome=False,
                  min_propensity=1e-6,
+                 trimming_threshold=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1069,6 +1300,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         trimming_threshold=trimming_threshold,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1087,7 +1319,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                                            enable_federation=self.enable_federation)
 
     def _gen_ortho_learner_model_final(self):
-        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
+        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
@@ -1255,6 +1487,33 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+        This clipping is applied after trimming, so it only affects samples that remain after
+        any trimming is performed. See `trimming_threshold` for the interaction between these settings.
+
+    trimming_threshold : float, 'auto', or None, default None
+        Threshold for sample trimming based on propensity scores, following [Crump2009]_.
+        Observations with propensity scores below `trimming_threshold` or above `1 - trimming_threshold`
+        for any treatment arm will be excluded from the final stage estimation.
+
+        - If None (default), no trimming is performed.
+        - If 'auto', the optimal threshold is calculated following [Crump2009]_,
+          which minimizes the asymptotic variance of the treatment effect estimator.
+        - If a float between 0 and 0.5, observations are trimmed if any propensity score
+          falls outside the interval [trimming_threshold, 1-trimming_threshold].
+
+        Trimming can improve estimation when there is limited overlap between treatment groups
+        by focusing on the subpopulation where causal effects can be estimated reliably.
+        Note that after trimming, the estimated treatment effects are only valid for the
+        subpopulation that was not trimmed.
+
+        When using trimming, the `trimming_threshold` should typically be set at least as large as
+        `min_propensity`. If `trimming_threshold < min_propensity`, samples with propensities between
+        these values will be kept but have their propensities clipped, which may not be desirable.
+        A warning is emitted in this case.
+
+        .. note::
+            Trimming is currently only supported for binary treatment (single treatment plus control).
+            Using trimming with multiple treatments will emit a warning and the setting will be ignored.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -1363,6 +1622,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  tol=1e-4,
                  n_jobs=None,
                  min_propensity=1e-6,
+                 trimming_threshold=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1387,6 +1647,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         trimming_threshold=trimming_threshold,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1411,7 +1672,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                              random_state=self.random_state)
 
     def _gen_ortho_learner_model_final(self):
-        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
+        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
@@ -1506,6 +1767,33 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+        This clipping is applied after trimming, so it only affects samples that remain after
+        any trimming is performed. See `trimming_threshold` for the interaction between these settings.
+
+    trimming_threshold : float, 'auto', or None, default None
+        Threshold for sample trimming based on propensity scores, following [Crump2009]_.
+        Observations with propensity scores below `trimming_threshold` or above `1 - trimming_threshold`
+        for any treatment arm will be excluded from the final stage estimation.
+
+        - If None (default), no trimming is performed.
+        - If 'auto', the optimal threshold is calculated following [Crump2009]_,
+          which minimizes the asymptotic variance of the treatment effect estimator.
+        - If a float between 0 and 0.5, observations are trimmed if any propensity score
+          falls outside the interval [trimming_threshold, 1-trimming_threshold].
+
+        Trimming can improve estimation when there is limited overlap between treatment groups
+        by focusing on the subpopulation where causal effects can be estimated reliably.
+        Note that after trimming, the estimated treatment effects are only valid for the
+        subpopulation that was not trimmed.
+
+        When using trimming, the `trimming_threshold` should typically be set at least as large as
+        `min_propensity`. If `trimming_threshold < min_propensity`, samples with propensities between
+        these values will be kept but have their propensities clipped, which may not be desirable.
+        A warning is emitted in this case.
+
+        .. note::
+            Trimming is currently only supported for binary treatment (single treatment plus control).
+            Using trimming with multiple treatments will emit a warning and the setting will be ignored.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -1667,6 +1955,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  discrete_outcome=False,
                  featurizer=None,
                  min_propensity=1e-6,
+                 trimming_threshold=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1708,6 +1997,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         trimming_threshold=trimming_threshold,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1739,7 +2029,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                                 warm_start=False)
 
     def _gen_ortho_learner_model_final(self):
-        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
+        return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):

@@ -52,7 +52,7 @@ def linear_approximation(start, end, e_val):
 
 # coefs
 def generate_coefs(index, columns):
-    simulated_coefs_df = pd.DataFrame(0, index=index, columns=columns)
+    simulated_coefs_df = pd.DataFrame(0.0, index=index, columns=columns)
     # get the indices of each group of features
     ind_demo = [columns.index(col) for col in columns if "demo" in col]
     ind_proxy = [columns.index(col) for col in columns if "proxy" in col]
@@ -135,7 +135,7 @@ def simulate_residuals(ind):
 
 
 def simulate_residuals_all(res_df):
-    res_df_new = res_df.astype(dtype='float64', copy=True, errors='raise')
+    res_df_new = res_df.astype(dtype='float64', errors='raise')
     for i in range(res_df.shape[1]):
         res_df_new.iloc[:, i] = simulate_residuals(i)
     # demean the new residual again

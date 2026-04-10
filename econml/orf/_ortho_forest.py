@@ -878,8 +878,7 @@ class DROrthoForest(BaseOrthoForest):
         the local intercept, only to the coefficient of the linear component.
 
     propensity_model : estimator, default sklearn.linear_model.LogisticRegression(penalty='l1', \
-                                                                                  solver='saga', \
-                                                                                  multi_class='auto')
+                                                                                  solver='saga')
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
@@ -936,8 +935,7 @@ class DROrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 propensity_model=LogisticRegression(penalty='l1', solver='saga',
-                                                     multi_class='auto'),  # saga solver supports l1
+                 propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
                  model_Y=WeightedLassoCVWrapper(cv=3),
                  propensity_model_final=None,
                  model_Y_final=None,

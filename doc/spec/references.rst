@@ -135,3 +135,8 @@ References
     Syrgkanis, V., Lei, V., Oprescu, M., Hei, M., Battocchi, K., Lewis, G. (2019)
     Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments
     URL https://arxiv.org/abs/1905.10176
+
+.. [Crump2009]
+    Crump, R. K., Hotz, V. J., Imbens, G. W., & Mitnik, O. A. (2009).
+    Dealing with limited overlap in estimation of average treatment effects.
+    Biometrika, 96(1), 187-199.

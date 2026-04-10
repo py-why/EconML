@@ -1,83 +1,101 @@
-Cython==0.29.37
+Cython==3.2.4
 Jinja2==3.1.6
-MarkupSafe==3.0.2
-PyYAML==6.0.2; python_version<'3.13'
-argcomplete==3.6.2; platform_system=='Windows' and python_version<'3.10'
-attrs==25.3.0; python_version<'3.13'
-causal-learn==0.1.4.3
-certifi==2025.8.3; (platform_system=='Darwin') or (platform_system=='Linux' and python_version<'3.13') or (platform_system=='Windows' and python_version<'3.13')
-cffi==1.17.1
-charset-normalizer==3.4.3; python_version<'3.13'
+MarkupSafe==3.0.3
+PyYAML==6.0.3; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
+argcomplete==3.6.3; platform_system=='Windows' and python_version=='3.12'
+attrs==26.1.0; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
+causal-learn==0.1.4.5
+certifi==2026.2.25; (platform_system=='Darwin') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
+cffi==2.0.0
+charset-normalizer==3.4.7; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
 clarabel==0.11.1
 click==8.1.8; python_version<'3.10'
-click==8.2.1; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
-cloudpickle==3.1.1
+click==8.3.2; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+cloudpickle==3.1.2
 colorama==0.4.6; platform_system=='Windows'
 contourpy==1.3.0; python_version<'3.10'
 contourpy==1.3.2; python_version=='3.10'
 contourpy==1.3.3; python_version>='3.11'
-cvxpy==1.7.2
+cvxpy==1.7.5; python_version<'3.11'
+cvxpy==1.8.2; python_version>='3.11'
 cycler==0.12.1
-dowhy==0.12
-filelock==3.19.1; python_version<'3.13'
-fonttools==4.59.2
+dowhy==0.14
+filelock==3.19.1; python_version<'3.10'
+filelock==3.25.2; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+fonttools==4.60.2; python_version<'3.10'
+fonttools==4.62.1; python_version>='3.10'
 graphviz==0.21
-idna==3.10; python_version<'3.13'
+highspy==1.14.0; python_version>='3.11'
+idna==3.11; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
 importlib_resources==6.5.2; python_version<'3.10'
-joblib==1.5.2
-jsonschema==4.25.1; python_version<'3.13'
-jsonschema-specifications==2025.9.1; python_version<'3.13'
+joblib==1.5.3
+jsonschema==4.25.1; python_version<'3.10'
+jsonschema==4.26.0; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+jsonschema-specifications==2025.9.1; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
 kiwisolver==1.4.7; python_version<'3.10'
-kiwisolver==1.4.9; python_version>='3.10'
+kiwisolver==1.5.0; python_version>='3.10'
 lightgbm==4.6.0
 llvmlite==0.43.0; python_version<'3.10'
-llvmlite==0.44.0; python_version>='3.10'
+llvmlite==0.47.0; python_version>='3.10'
 matplotlib==3.9.4; python_version<'3.10'
-matplotlib==3.10.6; python_version>='3.10'
+matplotlib==3.10.8; python_version>='3.10'
 momentchi2==0.1.8
 mpmath==1.3.0
-msgpack==1.1.1; python_version<'3.13'
+msgpack==1.1.2; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
 networkx==3.2.1; python_version<'3.10'
-networkx==3.4.2; python_version>='3.10'
+networkx==3.4.2; python_version=='3.10'
+networkx==3.6.1; python_version>='3.11'
 numba==0.60.0; python_version<'3.10'
-numba==0.61.2; python_version>='3.10'
+numba==0.65.0; python_version>='3.10'
 numpy==2.0.2; python_version<'3.10'
-numpy==2.2.6; python_version>='3.10'
-osqp==1.0.4
-packaging==25.0
-pandas==2.3.2
-patsy==1.0.1
-pillow==11.3.0
-pipx==1.7.1; platform_system=='Windows' and python_version<'3.10'
-platformdirs==4.4.0; platform_system=='Windows' and python_version<'3.10'
-protobuf==6.32.0; python_version<'3.13'
-pycparser==2.22
+numpy==2.2.6; python_version=='3.10'
+numpy==2.4.4; python_version>='3.11'
+osqp==1.1.1
+packaging==26.0
+pandas==2.3.3; python_version<'3.11'
+pandas==3.0.2; python_version>='3.11'
+patsy==1.0.2
+pillow==11.3.0; python_version<'3.10'
+pillow==12.2.0; python_version>='3.10'
+pipx==1.11.1; platform_system=='Windows' and python_version=='3.12'
+platformdirs==4.9.4; platform_system=='Windows' and python_version=='3.12'
+protobuf==6.33.6; python_version<'3.10'
+protobuf==7.34.1; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+pycparser==2.23; python_version<'3.10'
+pycparser==3.0; python_version>='3.10'
 pydot==4.0.1
-pyparsing==3.2.3
+pyparsing==3.3.2
 python-dateutil==2.9.0.post0
-pytz==2025.2
-ray==2.49.1; python_version<'3.13'
-referencing==0.36.2; python_version<'3.13'
-requests==2.32.5; python_version<'3.13'
-rpds-py==0.27.1; python_version<'3.13'
-scikit-learn==1.6.1
+pytz==2026.1.post1; python_version<'3.11'
+ray==2.51.2; python_version<'3.10'
+ray==2.54.1; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+referencing==0.36.2; python_version<'3.10'
+referencing==0.37.0; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+requests==2.32.5; python_version<'3.10'
+requests==2.33.1; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+rpds-py==0.27.1; python_version<'3.10'
+rpds-py==0.30.0; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12' or python_version=='3.13')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+scikit-learn==1.6.1; python_version<'3.10'
+scikit-learn==1.7.2; python_version=='3.10'
+scikit-learn==1.8.0; python_version>='3.11'
 scipy==1.13.1; python_version<'3.10'
-scipy==1.15.3; python_version=='3.10'
-scipy==1.16.1; python_version>='3.11'
-scs==3.2.8
-setuptools==80.9.0; python_version>='3.12'
-shap==0.48.0
+scipy==1.15.3; (platform_system=='Darwin' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12')) or (platform_system=='Linux' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12')) or (platform_system=='Windows' and (python_version=='3.10' or python_version=='3.11' or python_version=='3.12'))
+scipy==1.17.1; python_version>='3.13'
+scs==3.2.11
+setuptools==82.0.1; python_version>='3.12'
+shap==0.49.1; python_version<'3.11'
+shap==0.51.0; python_version>='3.11'
 six==1.17.0
 slicer==0.0.8
 sparse==0.15.5; python_version<'3.10'
-sparse==0.17.0; python_version>='3.10'
-statsmodels==0.14.5
+sparse==0.17.0; python_version=='3.10'
+sparse==0.18.0; python_version>='3.11'
+statsmodels==0.14.6
 sympy==1.14.0
 threadpoolctl==3.6.0
-tomli==2.2.1; platform_system=='Windows' and python_version<'3.10'
-tqdm==4.67.1
+tqdm==4.67.3
 typing_extensions==4.15.0
-tzdata==2025.2
-urllib3==2.5.0; python_version<'3.13'
-userpath==1.9.2; platform_system=='Windows' and python_version<'3.10'
+tzdata==2026.1; (platform_system=='Darwin' and python_version<'3.11') or (platform_system=='Linux' and python_version<'3.11') or (platform_system=='Windows')
+urllib3==2.6.3; (platform_system=='Darwin' and python_version<'3.14') or (platform_system=='Linux' and python_version<'3.14') or (platform_system=='Windows' and python_version<'3.13')
+userpath==1.9.2; platform_system=='Windows' and python_version=='3.12'
 zipp==3.23.0; python_version<'3.10'

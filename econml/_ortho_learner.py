@@ -744,9 +744,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
                 Y, T, Z, sample_weight, freq_weight, sample_var, groups)
             X, = check_input_arrays(
-                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
+                ensure_2d=True)
             W, = check_input_arrays(
-                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True,
+                ensure_2d=True)
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
@@ -994,7 +996,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         self._check_fitted_dims(X)
         if X is None:
             return self._ortho_learner_model_final.predict()
@@ -1008,7 +1010,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
@@ -1019,7 +1021,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = 'allow-nan'
         else:
             force_all_finite = False
-        X, = check_input_arrays(X, force_all_finite=force_all_finite)
+        X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
 

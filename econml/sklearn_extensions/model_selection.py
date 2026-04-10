@@ -436,9 +436,13 @@ def _to_logisticRegression(model: LogisticRegressionCV):
     lr = _convert_linear_model(model, LogisticRegression)
     _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
                          "class_weight",
-                         "solver", "multi_class",
+                         "solver",
                          "verbose", "n_jobs",
                          "tol", "max_iter", "random_state", "n_iter_"])
+    # if sklearn version < 1.8, copy multi_class as well
+    from packaging import version
+    if version.parse(sklearn.__version__) < version.parse("1.8"):
+        _copy_to(model, lr, ["multi_class"])
     _copy_to(model, lr, ["classes_"])
 
     _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next

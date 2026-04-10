@@ -59,22 +59,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: 3.9
+          python-version: 3.11
       - name: Ensure latest pip and setuptools
         run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       - name: Build wheels
-        run: pip install 'cibuildwheel < 3' && python -m cibuildwheel --output-dir dist
+        run: pip install 'cibuildwheel < 4' && python -m cibuildwheel --output-dir dist
         env:
-          CIBW_BUILD: ${{ inputs.use_lkg && 'cp3{9,10,11,12,13}-*' || 'cp3*' }}
+          CIBW_BUILD: ${{ inputs.use_lkg && 'cp3{9,10,11,12,13,14}{,t}-*' || 'cp3*' }}
           CIBW_SKIP: "*musl* *win32 *i686"
       - name: Upload wheels as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-${{ matrix.os }}
           path: dist/
@@ -83,11 +83,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Ensure latest pip and setuptools
@@ -97,7 +97,7 @@ jobs:
       - name: Build sdist
         run: python setup.py sdist
       - name: Upload sdist as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-sdist
           path: dist/
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Merge artifacts"
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v6
         with:
           name: dist
           pattern: dist-*
@@ -124,7 +124,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download wheels and sdist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
