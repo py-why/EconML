@@ -33,11 +33,13 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator
-from statsmodels.tools.tools import add_constant
-from statsmodels.api import RLM
-import statsmodels
+from .._lazy import _LazyModule
 from joblib import Parallel, delayed
 from typing import List
+
+_statsmodels_tools = _LazyModule("statsmodels.tools.tools")  # lazy: only needed in fit/predict methods
+_statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for RLM
+_statsmodels = _LazyModule("statsmodels")  # lazy: only needed for RLM robust norms
 
 
 class _WeightedCVIterableWrapper(_CVIterableWrapper):
@@ -1539,7 +1541,7 @@ class _StatsModelsWrapper(BaseEstimator):
         if X is None:
             X = np.empty((1, 0))
         if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
+            X = _statsmodels_tools.add_constant(X, has_constant='add')
         return np.matmul(X, self._param)
 
     @property
@@ -1634,7 +1636,7 @@ class _StatsModelsWrapper(BaseEstimator):
         if X is None:
             X = np.empty((1, 0))
         if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
+            X = _statsmodels_tools.add_constant(X, has_constant='add')
         if self._n_out == 0:
             return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
         else:
@@ -1735,7 +1737,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         if X is None:
             X = np.empty((y.shape[0], 0))
         if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
+            X = _statsmodels_tools.add_constant(X, has_constant='add')
 
         # set default values for None
         if sample_weight is None:
@@ -2036,14 +2038,14 @@ class StatsModelsRLM(_StatsModelsWrapper):
         """
         X, y = self._check_input(X, y)
         if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
+            X = _statsmodels_tools.add_constant(X, has_constant='add')
 
         self._n_out = 0 if len(y.shape) == 1 else (y.shape[1],)
 
         def model_gen(y):
-            return RLM(endog=y,
+            return _statsmodels_api.RLM(endog=y,
                        exog=X,
-                       M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
+                       M=_statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
                                                                         maxiter=self.maxiter,
                                                                         tol=self.tol)
         if y.ndim < 2:
