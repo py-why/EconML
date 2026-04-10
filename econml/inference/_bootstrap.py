@@ -6,6 +6,9 @@ import numpy as np
 from joblib import Parallel, delayed
 from sklearn.base import clone
 from scipy.stats import norm
+from .._lazy import _LazyModule
+
+_cate_estimator = _LazyModule("econml._cate_estimator")  # lazy: avoid circular import
 
 
 class BootstrapEstimator:
@@ -83,10 +86,8 @@ class BootstrapEstimator:
 
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
-        from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
-
         index_chunks = None
-        if isinstance(self._instances[0], BaseCateEstimator):
+        if isinstance(self._instances[0], _cate_estimator.BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
             if index_chunks is not None:
                 index_chunks = self.__stratified_indices(index_chunks)

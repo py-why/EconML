@@ -20,7 +20,7 @@ import numpy as np
 import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
-from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
+from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays, add_constant
 import sklearn
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
@@ -33,11 +33,13 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator
-from statsmodels.tools.tools import add_constant
-from statsmodels.api import RLM
-import statsmodels
+from .._lazy import _LazyModule
 from joblib import Parallel, delayed
 from typing import List
+
+_statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for RLM
+_statsmodels = _LazyModule("statsmodels")  # lazy: only needed for RLM robust norms
+_model_selection = _LazyModule("econml.sklearn_extensions.model_selection")  # lazy: avoid circular import
 
 
 class _WeightedCVIterableWrapper(_CVIterableWrapper):
@@ -56,15 +58,13 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
-    # local import to avoid circular imports
-    from .model_selection import WeightedKFold, WeightedStratifiedKFold
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
-            return WeightedStratifiedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedStratifiedKFold(cv, random_state=random_state)
         else:
-            return WeightedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedKFold(cv, random_state=random_state)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
@@ -2041,9 +2041,9 @@ class StatsModelsRLM(_StatsModelsWrapper):
         self._n_out = 0 if len(y.shape) == 1 else (y.shape[1],)
 
         def model_gen(y):
-            return RLM(endog=y,
+            return _statsmodels_api.RLM(endog=y,
                        exog=X,
-                       M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
+                       M=_statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
                                                                         maxiter=self.maxiter,
                                                                         tol=self.tol)
         if y.ndim < 2:

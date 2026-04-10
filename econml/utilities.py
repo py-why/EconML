@@ -19,13 +19,58 @@ from sklearn.utils.validation import assert_all_finite
 from sklearn.preprocessing import OneHotEncoder, PolynomialFeatures, LabelEncoder
 import warnings
 from warnings import warn
-from statsmodels.iolib.table import SimpleTable
-from statsmodels.iolib.summary import summary_return
+from ._lazy import _LazyModule
 from inspect import signature
 from packaging.version import parse
 
+_statsmodels_table = _LazyModule("statsmodels.iolib.table")  # lazy: only needed for Summary output
+_statsmodels_summary = _LazyModule("statsmodels.iolib.summary")  # lazy: only needed for Summary output
+
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
+
+
+def add_constant(data, prepend=True, has_constant='skip'):
+    """Add a column of ones to a numpy array.
+
+    Parameters
+    ----------
+    data : array_like
+        A column-ordered design matrix.
+    prepend : bool, default True
+        If True the constant is in the first column, else appended.
+    has_constant : {'skip', 'add', 'raise'}, default 'skip'
+        Behavior when *data* already contains a constant column.
+        ``'skip'`` returns *data* unchanged, ``'raise'`` raises
+        ``ValueError``, ``'add'`` adds another column of ones anyway.
+
+    Returns
+    -------
+    ndarray
+        The array with a ones column prepended (or appended).
+    """
+    x = np.asarray(data)
+    if isinstance(data, pd.DataFrame):
+        raise TypeError(
+            "add_constant does not support pandas DataFrames; "
+            "pass a numpy array instead"
+        )
+    if x.ndim == 1:
+        x = x[:, None]
+    elif x.ndim > 2:
+        raise ValueError('Only implemented for 2-dimensional arrays')
+
+    if has_constant != 'add':
+        is_const = (np.ptp(x, axis=0) == 0) & np.all(x != 0.0, axis=0)
+        if is_const.any():
+            if has_constant == 'skip':
+                return x
+            cols = ",".join(str(c) for c in np.where(is_const)[0])
+            raise ValueError(f"Column(s) {cols} are constant.")
+
+    ones = np.ones(x.shape[0])
+    parts = [ones, x] if prepend else [x, ones]
+    return np.column_stack(parts)
 
 
 class IdentityFeatures(TransformerMixin):
@@ -1147,7 +1192,7 @@ class Summary:
         return self.as_html()
 
     def add_table(self, res, header, index, title):
-        table = SimpleTable(res, header, index, title)
+        table = _statsmodels_table.SimpleTable(res, header, index, title)
         self.tables.append(table)
 
     def add_extra_txt(self, etext):
@@ -1170,7 +1215,7 @@ class Summary:
             summary tables and extra text as one string
 
         """
-        txt = summary_return(self.tables, return_fmt='text')
+        txt = _statsmodels_summary.summary_return(self.tables, return_fmt='text')
         if self.extra_txt is not None:
             txt = txt + '\n\n' + self.extra_txt
         return txt
@@ -1190,7 +1235,7 @@ class Summary:
         tables.
 
         """
-        latex = summary_return(self.tables, return_fmt='latex')
+        latex = _statsmodels_summary.summary_return(self.tables, return_fmt='latex')
         if self.extra_txt is not None:
             latex = latex + '\n\n' + self.extra_txt.replace('\n', ' \\newline\n ')
         return latex
@@ -1204,7 +1249,7 @@ class Summary:
             concatenated summary tables in comma delimited format
 
         """
-        csv = summary_return(self.tables, return_fmt='csv')
+        csv = _statsmodels_summary.summary_return(self.tables, return_fmt='csv')
         if self.extra_txt is not None:
             csv = csv + '\n\n' + self.extra_txt
         return csv
@@ -1218,7 +1263,7 @@ class Summary:
             concatenated summary tables in HTML format
 
         """
-        html = summary_return(self.tables, return_fmt='html')
+        html = _statsmodels_summary.summary_return(self.tables, return_fmt='html')
         if self.extra_txt is not None:
             html = html + '<br/><br/>' + self.extra_txt.replace('\n', '<br/>')
         return html

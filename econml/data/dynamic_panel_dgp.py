@@ -1,6 +1,5 @@
 import numpy as np
-from econml.utilities import cross_product
-from statsmodels.tools.tools import add_constant
+from econml.utilities import cross_product, add_constant
 import pandas as pd
 import scipy as sp
 from scipy.stats import expon
