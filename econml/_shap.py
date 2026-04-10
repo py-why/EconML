@@ -13,10 +13,12 @@ Scott Lundberg, Su-In Lee (2017)
 """
 
 import inspect
-import shap
 from collections import defaultdict
 import numpy as np
+from ._lazy import _LazyModule
 from .utilities import broadcast_unit_treatments, cross_product, get_feature_names_or_default
+
+shap = _LazyModule("shap")  # lazy: heavy dependency only needed when shap_values() is called
 
 
 def _shap_explain_cme(cme_model, X, d_t, d_y,
