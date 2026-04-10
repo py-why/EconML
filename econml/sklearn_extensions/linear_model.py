@@ -39,6 +39,7 @@ from typing import List
 
 _statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for RLM
 _statsmodels = _LazyModule("statsmodels")  # lazy: only needed for RLM robust norms
+_model_selection = _LazyModule("econml.sklearn_extensions.model_selection")  # lazy: avoid circular import
 
 
 class _WeightedCVIterableWrapper(_CVIterableWrapper):
@@ -57,15 +58,13 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
-    # local import to avoid circular imports
-    from .model_selection import WeightedKFold, WeightedStratifiedKFold
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
-            return WeightedStratifiedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedStratifiedKFold(cv, random_state=random_state)
         else:
-            return WeightedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedKFold(cv, random_state=random_state)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):

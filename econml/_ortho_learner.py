@@ -41,6 +41,9 @@ from .utilities import (check_input_arrays,
                         filter_none_kwargs, one_hot_encoder, strata_from_discrete_arrays,
                         jacify_featurizer, reshape, shape)
 from .sklearn_extensions.model_selection import ModelSelector
+from ._lazy import _LazyModule
+
+_rlearner = _LazyModule("econml.dml._rlearner")  # lazy: avoid circular import
 
 try:
     import ray
@@ -1149,9 +1152,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         }
         # If using an _rlearner, the scoring parameter can be passed along, if provided
         if scoring is not None:
-            # Cannot import in header, or circular imports
-            from .dml._rlearner import _ModelFinal
-            if isinstance(self._ortho_learner_model_final, _ModelFinal):
+            if isinstance(self._ortho_learner_model_final, _rlearner._ModelFinal):
                 score_kwargs['scoring'] = scoring
             else:
                 raise NotImplementedError("scoring parameter only implemented for "
