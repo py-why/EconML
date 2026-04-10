@@ -1,6 +1,5 @@
 import numpy as np
-from econml.utilities import cross_product
-from econml._lazy import _LazyModule
+from econml.utilities import cross_product, add_constant
 import pandas as pd
 import scipy as sp
 from scipy.stats import expon
@@ -8,8 +7,6 @@ from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 import joblib
 import os
-
-_statsmodels_tools = _LazyModule("statsmodels.tools.tools")  # lazy: only needed in create_instance()
 
 
 dir = os.path.dirname(__file__)
@@ -306,7 +303,6 @@ class DynamicPanelDGP(AbstracDynamicPanelDGP):
             self.true_effect[t, :] = (self.zeta.reshape(
                 1, -1) @ np.linalg.matrix_power(self.Beta, t - 1) @ self.Alpha)
 
-        add_constant = _statsmodels_tools.add_constant
         self.true_hetero_effect = np.zeros(
             (self.n_periods, (self.n_x + 1) * self.n_treatments))
         self.true_hetero_effect[0, :] = cross_product(add_constant(self.y_hetero_effect.reshape(1, -1),

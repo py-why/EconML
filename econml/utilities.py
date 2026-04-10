@@ -30,6 +30,49 @@ _statsmodels_summary = _LazyModule("statsmodels.iolib.summary")  # lazy: only ne
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
 
+def add_constant(data, prepend=True, has_constant='skip'):
+    """Add a column of ones to a numpy array.
+
+    Parameters
+    ----------
+    data : array_like
+        A column-ordered design matrix.
+    prepend : bool, default True
+        If True the constant is in the first column, else appended.
+    has_constant : {'skip', 'add', 'raise'}, default 'skip'
+        Behavior when *data* already contains a constant column.
+        ``'skip'`` returns *data* unchanged, ``'raise'`` raises
+        ``ValueError``, ``'add'`` adds another column of ones anyway.
+
+    Returns
+    -------
+    ndarray
+        The array with a ones column prepended (or appended).
+    """
+    x = np.asarray(data)
+    if isinstance(data, pd.DataFrame):
+        raise TypeError(
+            "add_constant does not support pandas DataFrames; "
+            "pass a numpy array instead"
+        )
+    if x.ndim == 1:
+        x = x[:, None]
+    elif x.ndim > 2:
+        raise ValueError('Only implemented for 2-dimensional arrays')
+
+    if has_constant != 'add':
+        is_const = (np.ptp(x, axis=0) == 0) & np.all(x != 0.0, axis=0)
+        if is_const.any():
+            if has_constant == 'skip':
+                return x
+            cols = ",".join(str(c) for c in np.where(is_const)[0])
+            raise ValueError(f"Column(s) {cols} are constant.")
+
+    ones = np.ones(x.shape[0])
+    parts = [ones, x] if prepend else [x, ones]
+    return np.column_stack(parts)
+
+
 class IdentityFeatures(TransformerMixin):
     """Featurizer that just returns the input data."""
 

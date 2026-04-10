@@ -6,12 +6,11 @@ import scipy.stats as st
 from sklearn.model_selection import check_cv
 from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from econml._lazy import _LazyModule
-from econml.utilities import deprecated
+from econml.utilities import deprecated, add_constant
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
 
 _statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for evaluate_blp()
-_statsmodels_tools = _LazyModule("statsmodels.tools")  # lazy: only needed for evaluate_blp()
 
 
 class DRTester:
@@ -479,7 +478,7 @@ class DRTester:
             self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:  # binary treatment
-            reg = _statsmodels_api.OLS(self.dr_val_, _statsmodels_tools.add_constant(self.cate_preds_val_)).fit()
+            reg = _statsmodels_api.OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
             params = [reg.params[1]]
             errs = [reg.bse[1]]
             pvals = [reg.pvalues[1]]
@@ -490,7 +489,7 @@ class DRTester:
             for k in range(self.n_treat):  # run a separate regression for each
                 reg = _statsmodels_api.OLS(
                     self.dr_val_[:, k],
-                    _statsmodels_tools.add_constant(self.cate_preds_val_[:, k])
+                    add_constant(self.cate_preds_val_[:, k])
                 ).fit(cov_type='HC1')
                 params.append(reg.params[1])
                 errs.append(reg.bse[1])
