@@ -19,7 +19,6 @@ from econml.censor._transformations import (
     _cumulative_integral,
     _interpolate_to_tau,
     _build_indicators,
-    _ipcw_weight_matrix,
     _extract_at_time,
     # RMST
     ipcw_cut_rmst,

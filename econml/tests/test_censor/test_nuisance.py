@@ -19,10 +19,8 @@ from econml.censor._nuisance import (
     fit_nuisance_survival,
     fit_nuisance_survival_crossfit,
     fit_nuisance_competing_crossfit,
-    NuisanceResult,
     CrossFitNuisanceResult,
     _make_sksurv_y,
-    _eval_on_grid,
 )
 from .dgp import make_survival_data, make_competing_data
 

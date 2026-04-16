@@ -10,7 +10,6 @@ Generates a single-failure survival dataset with:
 """
 
 import numpy as np
-from scipy.stats import norm
 
 
 # ---------------------------------------------------------------------------

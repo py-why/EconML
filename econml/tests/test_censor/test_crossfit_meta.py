@@ -35,7 +35,6 @@ from econml.metalearners._censor_metalearners import (
     SeparableIndirectAstar1SLearner,
 )
 from econml.censor import fit_nuisance_survival, aipcw_cut_rmst, uif_diff_rmst
-from ._helpers import gbr, lr, ridge
 from .dgp import make_survival_data, make_competing_data
 
 

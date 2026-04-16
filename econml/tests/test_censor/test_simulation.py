@@ -45,7 +45,7 @@ from econml.metalearners._censor_metalearners import (
     IFLearner,
 )
 
-from ._helpers import gbr, lr, ridge
+from ._helpers import gbr, lr
 from .dgp import make_survival_data, make_competing_data
 
 
