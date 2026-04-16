@@ -13,10 +13,18 @@ References
 
 from ._criterion import LinearMomentGRFCriterion, LinearMomentGRFCriterionMSE
 from .classes import CausalForest, CausalIVForest, RegressionForest, MultiOutputGRF
+from ._causal_survival_forest import CausalSurvivalForest
+from ._survival_forest import SurvivalForest, survival_forest
+from ._translated_causal_forest import GRFCausalForest, causal_forest
 
 __all__ = ["CausalForest",
            "CausalIVForest",
            "RegressionForest",
+           "SurvivalForest",
+           "survival_forest",
            "MultiOutputGRF",
+           "CausalSurvivalForest",
+           "GRFCausalForest",
+           "causal_forest",
            "LinearMomentGRFCriterion",
            "LinearMomentGRFCriterionMSE"]
