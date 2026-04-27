@@ -157,7 +157,7 @@ class _OrthoIVModelFinal:
         XT_res = self._combine(X, T_res)
         XZ_res = self._combine(X, Z_res)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
-                                             freq_weight=freq_weight, sample_var=sample_var)
+                                             freq_weight=freq_weight, sample_var=sample_var, groups=groups)
 
         self._model_final.fit(XZ_res, XT_res, Y_res, **filtered_kwargs)
 
@@ -376,7 +376,9 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 cov_type="HC0",
+                 cov_options=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -384,6 +386,8 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.projection = projection
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
+        self.cov_type = cov_type
+        self.cov_options = cov_options if cov_options is not None else {}
 
         super().__init__(discrete_outcome=discrete_outcome,
                          discrete_instrument=discrete_instrument,
@@ -403,7 +407,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_final(self):
-        return StatsModels2SLS(cov_type="HC0")
+        return StatsModels2SLS(cov_type=self.cov_type, cov_options=self.cov_options)
 
     def _gen_ortho_learner_model_final(self):
         return _OrthoIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept)
