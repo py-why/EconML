@@ -23,7 +23,49 @@ _notebooks = [
 _notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 
 
-@pytest.mark.parametrize("file", _notebooks)
+def _openml_is_down():
+    """Quick liveness probe for ``sklearn.datasets.fetch_openml``.
+
+    The Ames Housing notebook (and only that one) calls ``fetch_openml``,
+    which depends on OpenML's API endpoints. Those endpoints go down
+    periodically, which is not something this repo can fix; when they're down
+    we don't want the notebook test to register as a real failure.
+
+    We drive the probe through ``fetch_openml`` itself rather than poking a
+    hardcoded URL, so this tracks whatever endpoints the installed sklearn
+    actually uses (e.g. if sklearn migrates to an OpenML v2 API in the
+    future). We point at a small dataset (``iris``) so the metadata round-trip
+    is cheap; on success we ignore the returned bunch entirely.
+    """
+    import urllib.error
+    from sklearn.datasets import fetch_openml
+
+    try:
+        fetch_openml(data_id=61, as_frame=False, parser="liac-arff")  # iris
+        return False
+    except urllib.error.HTTPError as e:
+        # 5xx = OpenML's servers are unhappy; treat as "down".
+        # 4xx would indicate a real bug (bad request, removed dataset, ...).
+        return e.code >= 500
+    except (urllib.error.URLError, TimeoutError):
+        return True
+
+
+def _notebook_params():
+    openml_down = None  # probe lazily, only if needed
+    for nb in _notebooks:
+        if "Ames Housing" in nb:
+            if openml_down is None:
+                openml_down = _openml_is_down()
+            marks = [pytest.mark.xfail(openml_down,
+                                       reason="OpenML appears to be unavailable",
+                                       strict=False)] if openml_down else []
+            yield pytest.param(nb, marks=marks)
+        else:
+            yield nb
+
+
+@pytest.mark.parametrize("file", list(_notebook_params()))
 @pytest.mark.notebook
 def test_notebook(file):
     import nbformat
