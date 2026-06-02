@@ -437,12 +437,13 @@ def _to_logisticRegression(model: LogisticRegressionCV):
     _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
                          "class_weight",
                          "solver",
-                         "verbose", "n_jobs",
+                         "verbose",
                          "tol", "max_iter", "random_state", "n_iter_"])
-    # if sklearn version < 1.8, copy multi_class as well
+    # if sklearn version < 1.8, copy multi_class and n_jobs as well
+    # (sklearn 1.8 deprecated n_jobs on LogisticRegression; it has no effect post-fit)
     from packaging import version
     if version.parse(sklearn.__version__) < version.parse("1.8"):
-        _copy_to(model, lr, ["multi_class"])
+        _copy_to(model, lr, ["multi_class", "n_jobs"])
     _copy_to(model, lr, ["classes_"])
 
     _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next
@@ -616,23 +617,24 @@ class ListSelector(SingleModelSelector):
         return self._best_score
 
 
-def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV, needs_scoring=False):
+def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV, needs_scoring=False,
+                 n_jobs=None):
     named_models = {
-        'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
+        'linear': (LogisticRegressionCV(random_state=random_state, cv=cv, n_jobs=n_jobs) if is_discrete
+                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv, n_jobs=n_jobs)),
         'poly': ([make_pipeline(PolynomialFeatures(d),
-                                (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv)))
+                                (LogisticRegressionCV(random_state=random_state, cv=cv, n_jobs=n_jobs) if is_discrete
+                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv, n_jobs=n_jobs)))
                   for d in range(1, 4)]),
-        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
-                                else RandomForestRegressor(random_state=random_state),
-                                param_grid={}, cv=cv)),
+        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state, n_jobs=n_jobs) if is_discrete
+                                else RandomForestRegressor(random_state=random_state, n_jobs=n_jobs),
+                                param_grid={}, cv=cv, n_jobs=n_jobs)),
         'gbf': (GridSearchCV(GradientBoostingClassifier(random_state=random_state) if is_discrete
                              else GradientBoostingRegressor(random_state=random_state),
-                             param_grid={}, cv=cv)),
+                             param_grid={}, cv=cv, n_jobs=n_jobs)),
         'nnet': (GridSearchCV(MLPClassifier(random_state=random_state) if is_discrete
                               else MLPRegressor(random_state=random_state),
-                              param_grid={}, cv=cv)),
+                              param_grid={}, cv=cv, n_jobs=n_jobs)),
         'automl': ["poly", "forest", "gbf", "nnet"],
     }
     if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
@@ -640,14 +642,14 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
     elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
         models = [get_selector(model, is_discrete,
                                random_state=random_state, cv=cv, wrapper=wrapper,
-                               needs_scoring=True)  # we need to score to compare outputs to each other
+                               needs_scoring=True, n_jobs=n_jobs)  # we need to score to compare outputs to each other
                   for model in input]
         return ListSelector(models)
     elif isinstance(input, str):  # we've got a string; look it up
         if input in named_models:
             return get_selector(named_models[input], is_discrete,
                                 random_state=random_state, cv=cv, wrapper=wrapper,
-                                needs_scoring=needs_scoring)
+                                needs_scoring=needs_scoring, n_jobs=n_jobs)
         else:
             raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
     elif SklearnCVSelector.can_wrap(input):

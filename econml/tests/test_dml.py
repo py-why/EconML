@@ -819,6 +819,55 @@ class TestDML(unittest.TestCase):
         sn6 = est.score_nuisances(Y=y, T=T, X=X, W=W, t_scoring='log_loss')
         np.testing.assert_allclose(sn6['T_log_loss'], [17.4,17.4], rtol=0, atol=0.1)
 
+    def test_n_jobs_propagates_to_first_stage_auto_selector(self):
+        # Regression test for #1009: SparseLinearDML / CausalForestDML accept
+        # n_jobs but previously only threaded it into the second-stage Lasso /
+        # final forest. The 'auto' first-stage selector built RandomForest +
+        # GridSearchCV + LogisticRegressionCV + WeightedLassoCVWrapper without
+        # n_jobs, so first-stage fits ran single-core.
+        def collect_n_jobs(obj, seen=None):
+            if seen is None:
+                seen = set()
+            oid = id(obj)
+            if oid in seen:
+                return []
+            seen.add(oid)
+            out = []
+            if hasattr(obj, "n_jobs"):
+                out.append((type(obj).__name__, obj.n_jobs))
+            for attr in ("_model", "models", "searcher", "estimator", "_best_model"):
+                v = getattr(obj, attr, None)
+                if v is None:
+                    continue
+                children = v if isinstance(v, (list, tuple)) else [v]
+                for c in children:
+                    out.extend(collect_n_jobs(c, seen))
+            return out
+
+        sentinel = 3  # any non-default int; -1 also works but is harder to assert against
+        propagating_types = {
+            'GridSearchCV', 'RandomForestRegressor', 'RandomForestClassifier',
+            'LogisticRegressionCV', 'WeightedLassoCVWrapper',
+        }
+
+        for est in (
+            SparseLinearDML(model_y='auto', model_t='auto', n_jobs=sentinel,
+                            random_state=0),
+            SparseLinearDML(model_y='auto', model_t='auto', n_jobs=sentinel,
+                            discrete_treatment=True, random_state=0),
+            CausalForestDML(model_y='auto', model_t='auto', n_jobs=sentinel,
+                            random_state=0),
+        ):
+            for selector in (est._gen_model_y(), est._gen_model_t()):
+                seen_any = False
+                for name, n_jobs in collect_n_jobs(selector):
+                    if name in propagating_types:
+                        seen_any = True
+                        assert n_jobs == sentinel, \
+                            f"{type(est).__name__} -> {name}.n_jobs = {n_jobs}, expected {sentinel}"
+                assert seen_any, \
+                    f"selector tree for {type(est).__name__} had no n_jobs-bearing leaves"
+
     def test_aaforest_pandas(self):
         """Test that we can use CausalForest with pandas inputs."""
         df = pd.DataFrame({'a': np.random.normal(size=500),

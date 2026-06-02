@@ -189,10 +189,10 @@ class _ModelNuisance(ModelSelector):
         return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities, raw_propensities
 
 
-def _make_first_stage_selector(model, is_discrete, random_state):
+def _make_first_stage_selector(model, is_discrete, random_state, n_jobs=None):
     if model == "auto":
         model = ['linear', 'forest']
-    return get_selector(model, is_discrete=is_discrete, random_state=random_state)
+    return get_selector(model, is_discrete=is_discrete, random_state=random_state, n_jobs=n_jobs)
 
 
 class _ModelFinal:
