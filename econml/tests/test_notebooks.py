@@ -48,7 +48,11 @@ def _openml_is_down():
         # all are transient "OpenML can't serve this right now" conditions.
         # Other 4xx (e.g. 404) indicate a real bug we shouldn't paper over.
         return e.code >= 500 or e.code in (408, 429)
-    except (urllib.error.URLError, TimeoutError):
+    except OSError:
+        # Any other network/transport-level failure: URLError, socket.timeout /
+        # TimeoutError, http.client.RemoteDisconnected, ConnectionResetError,
+        # ConnectionRefusedError, BrokenPipeError, ... All of these inherit
+        # from OSError and all mean "we couldn't talk to OpenML right now."
         return True
 
 
