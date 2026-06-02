@@ -41,35 +41,31 @@ def _openml_is_down():
     from sklearn.datasets import fetch_openml
 
     try:
-        fetch_openml(data_id=61, as_frame=False, parser="liac-arff")  # iris
+        fetch_openml(data_id=61, as_frame=False)  # iris
         return False
     except urllib.error.HTTPError as e:
-        # 5xx = OpenML's servers are unhappy; treat as "down".
-        # 4xx would indicate a real bug (bad request, removed dataset, ...).
-        return e.code >= 500
+        # 5xx = server-side problem, 408 = request timeout, 429 = rate-limited:
+        # all are transient "OpenML can't serve this right now" conditions.
+        # Other 4xx (e.g. 404) indicate a real bug we shouldn't paper over.
+        return e.code >= 500 or e.code in (408, 429)
     except (urllib.error.URLError, TimeoutError):
         return True
 
 
-def _notebook_params():
-    openml_down = None  # probe lazily, only if needed
-    for nb in _notebooks:
-        if "Ames Housing" in nb:
-            if openml_down is None:
-                openml_down = _openml_is_down()
-            marks = [pytest.mark.xfail(openml_down,
-                                       reason="OpenML appears to be unavailable",
-                                       strict=False)] if openml_down else []
-            yield pytest.param(nb, marks=marks)
-        else:
-            yield nb
-
-
-@pytest.mark.parametrize("file", list(_notebook_params()))
+@pytest.mark.parametrize("file", _notebooks)
 @pytest.mark.notebook
 def test_notebook(file):
     import nbformat
     import nbconvert
+
+    # The Ames Housing notebook is the only one that depends on OpenML. When
+    # OpenML's API is down the notebook is doomed to fail, so probe first and
+    # xfail before paying the cost of running every cell. There's a small
+    # window where OpenML could recover between this probe and the test
+    # actually running, but the time savings from skipping the full notebook
+    # execution are worth it.
+    if "Ames Housing" in file and _openml_is_down():
+        pytest.xfail("OpenML appears to be unavailable")
 
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
 
