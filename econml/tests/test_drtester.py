@@ -12,7 +12,7 @@ from econml.dml import DML
 class TestDRTester(unittest.TestCase):
 
     @staticmethod
-    def _get_data(num_treatments=1):
+    def _get_data(num_treatments=1, use_sample_weights=False):
         np.random.seed(576)
 
         N = 20000  # number of units
@@ -50,10 +50,21 @@ class TestDRTester(unittest.TestCase):
         train_ind = np.random.choice(N, int(train_N), replace=False)
         val_ind = ind[~np.isin(ind, train_ind)]
 
+        # sample weights
+        if use_sample_weights:
+            sample_weights = np.random.randint(1, 1000, size=N)
+
         Xtrain, Dtrain, Ytrain = X[train_ind], D[train_ind], Y[train_ind]
         Xval, Dval, Yval = X[val_ind], D[val_ind], Y[val_ind]
 
-        return Xtrain, Dtrain, Ytrain, Xval, Dval, Yval
+        if use_sample_weights:
+            sampleweightstrain = sample_weights[train_ind]
+            sampleweightsval = sample_weights[val_ind]
+
+        if use_sample_weights:
+            return Xtrain, Dtrain, Ytrain, Xval, Dval, Yval, sampleweightstrain, sampleweightsval
+        else:
+            return Xtrain, Dtrain, Ytrain, Xval, Dval, Yval
 
     def test_multi(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=2)
@@ -286,3 +297,192 @@ class TestDRTester(unittest.TestCase):
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
         self.assertLess(autoc_res.pvals[0], 0.05)
+
+    def test_multi_with_weights(self):
+        (Xtrain,
+         Dtrain,
+         Ytrain,
+         Xval,
+         Dval,
+         Yval,
+         sampleweightstrain,
+         sampleweightsval) = self._get_data(num_treatments=2, use_sample_weights=True)
+
+        # Simple classifier and regressor for propensity, outcome, and cate
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y,
+            discrete_treatment=True
+        ).fit(Y=Ytrain,
+              T=Dtrain,
+              X=Xtrain,
+              sample_weight=sampleweightstrain)
+
+        # test the DR outcome difference
+        my_dr_tester = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval,
+            Dval,
+            Yval,
+            Xtrain,
+            Dtrain,
+            Ytrain,
+            sampleweightval=sampleweightsval,
+            sampleweighttrain=sampleweightstrain
+        )
+        dr_outcomes = my_dr_tester.dr_val_
+
+        ates = np.average(dr_outcomes, axis=0, weights=sampleweightsval)
+        for k in range(dr_outcomes.shape[1]):
+            ate_errs = np.sqrt(((dr_outcomes[:, k] - ates[k]) ** 2).sum() /
+                               (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+
+            self.assertLess(abs(ates[k] - (k + 1)), 2 * ate_errs)
+
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        res_df = res.summary()
+
+        for k in range(4):
+            if k in [0, 3]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatments, k = 1 or 2
+                self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k) is not None)
+                self.assertTrue(res.plot_toc(k) is not None)
+
+        self.assertGreater(res_df.blp_pval.values[0], 0.1)  # no heterogeneity
+        self.assertLess(res_df.blp_pval.values[1], 0.05)  # heterogeneity
+
+        self.assertLess(res_df.cal_r_squared.values[0], 0)  # poor R2
+        self.assertGreater(res_df.cal_r_squared.values[1], 0)  # good R2
+
+        self.assertLess(res_df.qini_pval.values[1], res_df.qini_pval.values[0])
+        self.assertLess(res_df.autoc_pval.values[1], res_df.autoc_pval.values[0])
+
+    def test_binary_with_weights(self):
+        (Xtrain,
+         Dtrain,
+         Ytrain,
+         Xval,
+         Dval,
+         Yval,
+         sampleweightstrain,
+         sampleweightsval) = self._get_data(num_treatments=1, use_sample_weights=True)
+
+        # Simple classifier and regressor for propensity, outcome, and cate
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y,
+            discrete_treatment=True
+        ).fit(Y=Ytrain,
+              T=Dtrain,
+              X=Xtrain,
+              sample_weight=sampleweightstrain)
+
+        # test the DR outcome difference
+        my_dr_tester = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval,
+            Dval,
+            Yval,
+            Xtrain,
+            Dtrain,
+            Ytrain,
+            sampleweightval=sampleweightsval,
+            sampleweighttrain=sampleweightstrain
+        )
+        dr_outcomes = my_dr_tester.dr_val_
+
+        ate = np.average(dr_outcomes, axis=0, weights=sampleweightsval)
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
+                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        truth = 1
+        self.assertLess(abs(ate - truth), 2 * ate_err)
+
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        res_df = res.summary()
+
+        for k in range(3):
+            if k in [0, 2]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatment, k = 1
+                self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k, 'ucb2') is not None)
+                self.assertTrue(res.plot_toc(k, 'ucb1') is not None)
+
+        self.assertLess(res_df.blp_pval.values[0], 0.05)  # heterogeneity
+        self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
+        self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
+        self.assertLess(res_df.autoc_pval.values[0], 0.05)  # heterogeneity
+
+    def test_nuisance_val_fit_with_weights(self):
+        (Xtrain,
+         Dtrain,
+         Ytrain,
+         Xval,
+         Dval,
+         Yval,
+         sampleweightstrain,
+         sampleweightsval) = self._get_data(num_treatments=1, use_sample_weights=True)
+
+        # Simple classifier and regressor for propensity, outcome, and cate
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y,
+            discrete_treatment=True
+        ).fit(Y=Ytrain,
+              T=Dtrain,
+              X=Xtrain,
+              sample_weight=sampleweightstrain)
+
+        # test the DR outcome difference
+        my_dr_tester = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(Xval,
+                       Dval,
+                       Yval,
+                       sampleweightval=sampleweightsval)
+
+        dr_outcomes = my_dr_tester.dr_val_
+
+        ate = np.average(dr_outcomes, axis=0, weights=sampleweightsval)
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
+                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        truth = 1
+        self.assertLess(abs(ate - truth), 2 * ate_err)
+
+        # use evaluate_blp to fit on validation only
+        blp_res = my_dr_tester.evaluate_blp(Xval)
+
+        self.assertLess(blp_res.pvals[0], 0.05)  # heterogeneity
+
+        for kwargs in [{}, {'Xval': Xval}]:
+            with self.assertRaises(Exception) as exc:
+                my_dr_tester.evaluate_cal(kwargs)
+            self.assertEqual(
+                str(exc.exception), "Must fit nuisance models on training sample data to use calibration test"
+            )

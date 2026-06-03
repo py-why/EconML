@@ -3,13 +3,15 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from .weighted_utils import weighted_stat, weighted_se
 
 def calculate_dr_outcomes(
-    D: np.array,
-    y: np.array,
-    reg_preds: np.array,
-    prop_preds: np.array
-) -> np.array:
+    D: np.ndarray,
+    y: np.ndarray,
+    reg_preds: np.ndarray,
+    prop_preds: np.ndarray,
+    treatments: np.ndarray = None
+) -> np.ndarray:
     """
     Calculate doubly-robust (DR) outcomes using predictions from nuisance models.
 
@@ -25,6 +27,9 @@ def calculate_dr_outcomes(
         Outcome predictions for each potential treatment
     prop_preds: (n x n_treat) matrix
         Propensity score predictions for each treatment
+    treatments: vector of length n_treat, default None
+        Unique treatment values. If None, will be inferred from D.
+        Should be sorted in increasing order and include control.
 
     Returns
     -------
@@ -33,28 +38,35 @@ def calculate_dr_outcomes(
     # treat each treatment as a separate regression
     # here, prop_preds should be a matrix
     # with rows corresponding to units and columns corresponding to treatment statuses
+
+    if treatments is None:
+        treatments = np.sort(np.unique(D))
+
     dr_vec = []
     d0_mask = np.where(D == 0, 1, 0)
     y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], .01, np.inf)) * (y - reg_preds[:, 0])
-    for k in np.sort(np.unique(D)):  # pick a treatment status
-        if k > 0:  # make sure it is not control
-            dk_mask = np.where(D == k, 1, 0)
-            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], .01, np.inf)) * (y - reg_preds[:, k])
-            dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
-            dr_vec.append(dr_k)
-    dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
+
+    for ind, k in enumerate(treatments[1:]):  # pick a treatment status
+        dk_mask = np.where(D == k, 1, 0)
+        y_dr_k = reg_preds[:, ind + 1] + \
+            (dk_mask / np.clip(prop_preds[:, ind + 1], .01, np.inf)) * (y - reg_preds[:, ind + 1])
+        dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
+        dr_vec.append(dr_k)
+
+    dr = np.column_stack(dr_vec)  # this is an n x n_treatment-1 matrix
 
     return dr
 
-
 def calc_uplift(
-    cate_preds_train: np.array,
-    cate_preds_val: np.array,
-    dr_val: np.array,
-    percentiles: np.array,
+    cate_preds_train: np.ndarray,
+    cate_preds_val: np.ndarray,
+    dr_val: np.ndarray,
+    percentiles: np.ndarray,
     metric: str,
-    n_bootstrap: int = 1000
-) -> Tuple[float, float, pd.DataFrame]:
+    n_bootstrap: int = 1000,
+    sample_weight_train: np.ndarray = None,
+    sample_weight_val: np.ndarray = None
+    ) -> Tuple[float, float, pd.DataFrame]:
     """
     Calculate uplift curve points, integral, and errors on both points and integral.
 
@@ -76,34 +88,83 @@ def calc_uplift(
         String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
     n_bootstrap: integer, default 1000
         Number of bootstrap samples to run when calculating uniform confidence bands.
+    sample_weight_train: vector of length n_train, default None
+        Sample weights for the training sample.
+    sample_weight_val: vector of length n_val, default None
+        Sample weights for the validation sample.
 
     Returns
     -------
     Uplift coefficient and associated standard error, as well as associated curve.
     """
-    qs = np.percentile(cate_preds_train, percentiles)
+    # Default to equal weights if none provided
+    if sample_weight_train is None:
+        sample_weight_train = np.ones(cate_preds_train.shape)
+    if sample_weight_val is None:
+        sample_weight_val = np.ones(cate_preds_val.shape)
+
+    # Broadcast weights if needed to match cate_preds shape
+    if sample_weight_train.shape != cate_preds_train.shape:
+        if sample_weight_train.ndim == 1:
+            sample_weight_train = sample_weight_train[:, np.newaxis]
+        sample_weight_train = np.broadcast_to(sample_weight_train, cate_preds_train.shape)
+    if sample_weight_val.shape != cate_preds_val.shape:
+        if sample_weight_val.ndim == 1:
+            sample_weight_val = sample_weight_val[:, np.newaxis]
+        sample_weight_val = np.broadcast_to(sample_weight_val, cate_preds_val.shape)
+
+    # calculate weighted quantiles of CATE predictions in training set
+    qs = weighted_stat(values=cate_preds_train,
+                       q=percentiles,
+                       sample_weight=sample_weight_train,
+                       mode="percentile")
+
+    # initialize arrays
     toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
     toc_psi = np.zeros((len(qs), dr_val.shape[0]))
-    n = len(dr_val)
-    ate = np.mean(dr_val)
+
+    # total sample size (weighted). if sample weights are all 1's, this is just n
+    w_tot = np.sum(sample_weight_val)
+
+    # ATE estimate in validation set. If sample weights are all 1's, this is just the average
+    # of the DR outcomes - E[Y(1) - Y(0)]
+    ate = np.average(dr_val, weights=sample_weight_val)
+
+    # calculate point estimates and influence functions for each quantile
     for it in range(len(qs)):
-        inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
-        group_prob = np.sum(inds) / n  # fraction of population in this group
+
+        # group with larger CATE prediction than the q-th quantile
+        inds = (qs[it] <= cate_preds_val)
+        w_tot_inds = np.sum(sample_weight_val[inds])
+
+        # fraction of population in this group
+        group_prob = w_tot_inds / w_tot
+
+        # calculate point estimate and influence function for tau(q)
         if metric == 'qini':
+            # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc[it] = group_prob * (
-                np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+                np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate)
+            # influence function for the tau(q)
             toc_psi[it, :] = np.squeeze(
-                (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+                (dr_val - ate) * (inds - group_prob) - toc[it])
         elif metric == 'toc':
-            toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            toc[it] = np.average(dr_val[inds], weights=sample_weight_val[inds]) - ate
             toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
         else:
             raise ValueError(f"Unsupported metric {metric!r} - must be one of ['toc', 'qini']")
 
-        toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
+        # standard error of tau(q)
+        if sample_weight_val.ndim > 1:
+            toc_std[it] = weighted_se(values=toc_psi[it], weights=sample_weight_val[:, 0])
+        else:
+            toc_std[it] = weighted_se(values=toc_psi[it], weights=sample_weight_val)
 
-    w = np.random.normal(0, 1, size=(n, n_bootstrap))
-    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
+    # calculate critical values for uniform confidence bands via multiplier bootstrap
+    n_size_bootstrap = sample_weight_val.shape[0]
+    w = np.random.normal(0, 1, size=(n_size_bootstrap, n_bootstrap))
+    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / w_tot
 
     max_mboot = np.max(np.abs(mboot), axis=0)
     uniform_critical_value = np.percentile(max_mboot, 95)
@@ -111,9 +172,15 @@ def calc_uplift(
     min_mboot = np.min(mboot, axis=0)
     uniform_one_side_critical_value = np.abs(np.percentile(min_mboot, 5))
 
+    # calculate coefficient and standard error of the coefficient
     coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
     coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
-    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n)
+
+    # standard error of the coefficient
+    if sample_weight_val.ndim > 1:
+        coeff_stderr = weighted_se(values=coeff_psi, weights=sample_weight_val[:, 0])
+    else:
+        coeff_stderr = weighted_se(values=coeff_psi, weights=sample_weight_val)
 
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,

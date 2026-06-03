@@ -23,9 +23,9 @@ class CalibrationEvaluationResults:
 
     def __init__(
         self,
-        cal_r_squared: np.array,
+        cal_r_squared: np.ndarray,
         plot_data_dict: Dict[Any, pd.DataFrame],
-        treatments: np.array
+        treatments: np.ndarray
     ):
         self.cal_r_squared = cal_r_squared
         self.plot_data_dict = plot_data_dict
@@ -105,7 +105,7 @@ class BLPEvaluationResults:
         params: List[float],
         errs: List[float],
         pvals: List[float],
-        treatments: np.array
+        treatments: np.ndarray
     ):
         self.params = params
         self.errs = errs
@@ -161,7 +161,7 @@ class UpliftEvaluationResults:
         params: List[float],
         errs: List[float],
         pvals: List[float],
-        treatments: np.array,
+        treatments: np.ndarray,
         curve_data_dict: Dict[Any, pd.DataFrame]
     ):
         self.params = params
