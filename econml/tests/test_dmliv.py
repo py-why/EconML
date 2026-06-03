@@ -213,7 +213,11 @@ class TestDMLIV(unittest.TestCase):
         groups = [i // 4 for i in range(n)]
         y = groups
         n_copies = {i: 4 for i in range(125)}
-        ct_lims = (62, 63)  # floor(n_groups / 2), ceil(n_groups / 2)
+        n_groups = len(n_copies)
+
+        # Because we're using a StratifiedGroupKFold, we aren't guaranteed to get as close to n_groups/cv
+        # copies of each group as possible; in practice we can see +/-1 extra compared to the ceiling/floor
+        ct_lims = (n_groups // 2 - 1, n_groups - n_groups // 2 + 1)
 
         est_list = [
             OrthoIV(
