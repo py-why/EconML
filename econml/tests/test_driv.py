@@ -354,11 +354,15 @@ class TestDRIV(unittest.TestCase):
         groups = [i // 4 for i in range(n)]
         y = groups
         n_copies = {i: 4 for i in range(125)}
+        n_groups = len(n_copies)
 
         def ceil(a, b):  # ceiling analog of //
             return -(a // -b)
-        ct_lims_2 = (125 // 2, ceil(125, 2))
-        ct_lims_3 = (125 - ceil(125, 3), 125 - 125 // 3)
+
+        # Because we're using a StratifiedGroupKFold, we aren't guaranteed to get as close to n_groups/cv
+        # copies of each group as possible; in practice we can see +/-1 extra compared to the ceiling/floor
+        ct_lims_2 = (n_groups // 2 - 1, ceil(n_groups, 2) + 1)
+        ct_lims_3 = (n_groups - ceil(n_groups, 3) - 1, n_groups - n_groups // 3 + 1)
 
         est_list = [
             DRIV(
