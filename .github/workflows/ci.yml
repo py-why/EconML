@@ -277,6 +277,14 @@ jobs:
       env:
         PYTEST_ADDOPTS: ${{ matrix.opts }}
         COVERAGE_PROCESS_START: 'pyproject.toml'
+        # Force matplotlib's non-interactive backend to avoid the intermittent
+        # `_tkinter.TclError: Can't find a usable init.tcl` failure that the
+        # hosted Windows runners hit when matplotlib auto-selects TkAgg.
+        # See https://github.com/actions/setup-python/issues/1102. Setting this
+        # unconditionally (not just on Windows) keeps behavior consistent
+        # across the matrix and matches what other projects affected by the
+        # same flake have done.
+        MPLBACKEND: Agg
     - name: Make coverage filename unique
       run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all

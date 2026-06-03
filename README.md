@@ -649,6 +649,8 @@ This project uses [pytest](https://docs.pytest.org/) to run tests for continuous
 
 Because running all tests can be very time-consuming, we recommend running only the relevant subset of tests when developing locally.  The easiest way to do this is to rely on `pytest`'s compatibility with `unittest`, so you can just run `python -m unittest econml.tests.test_module` to run all tests in a given module, or `python -m unittest econml.tests.test_module.TestClass` to run all tests in a given class.  You can also run `python -m unittest econml.tests.test_module.TestClass.test_method` to run a single test method.
 
+Some of our tests exercise plotting code that imports `matplotlib`.  Our CI sets `MPLBACKEND=Agg` so that matplotlib selects a non-interactive backend; if you run these tests locally (particularly on Windows, where matplotlib's default Tk backend can fail to initialize), you may want to do the same, e.g. `$env:MPLBACKEND = "Agg"` in PowerShell or `export MPLBACKEND=Agg` in bash before invoking `pytest`/`unittest`.
+
 ## Generating the documentation
 
 This project's documentation is generated via [Sphinx](https://www.sphinx-doc.org/en/main/index.html).  Note that we use [graphviz](https://graphviz.org/)'s 
