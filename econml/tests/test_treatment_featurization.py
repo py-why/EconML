@@ -599,3 +599,30 @@ class TestTreatmentFeaturization(unittest.TestCase):
         from .test_dml import TestDML
         treatment_featurizations = [FunctionTransformer()]
         TestDML()._test_cate_api(treatment_featurizations)
+
+    def test_score_nuisances_applies_treatment_featurizer(self):
+        # Regression test for #1006 / #1029: when a treatment_featurizer is
+        # used, the nuisance model_t is trained on featurized T, so
+        # score_nuisances must also featurize T at score time. Previously
+        # it passed raw T, producing a shape mismatch against the trained
+        # multi-output regressor.
+        rng = np.random.default_rng(0)
+        n = 1000
+        X = rng.normal(size=(n, 3))
+        T = rng.normal(size=n)
+        Y = 2 * T + T**2 + X[:, 0] + rng.normal(size=n)
+
+        est = LinearDML(
+            model_y=LinearRegression(),
+            model_t=LinearRegression(),
+            treatment_featurizer=polynomial_treatment_featurizer,
+            cv=2,
+            random_state=0,
+        )
+        est.fit(Y, T, X=X, cache_values=True)
+
+        scores = est.score_nuisances(Y, T, X=X)
+        t_key = next(k for k in scores if k.startswith("T_"))
+        for s in scores[t_key]:
+            assert np.isfinite(s), \
+                f"score_nuisances T score {s} is not finite (#1006/#1029)"

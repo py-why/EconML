@@ -34,7 +34,7 @@ from sklearn.metrics import (
 )
 from typing import Callable, Union
 from ..sklearn_extensions.model_selection import ModelSelector
-from ..utilities import (filter_none_kwargs)
+from ..utilities import (filter_none_kwargs, reshape)
 from .._ortho_learner import _OrthoLearner
 
 class _ModelNuisance(ModelSelector):
@@ -628,9 +628,13 @@ class _RLearner(_OrthoLearner):
             T_Key : []
         }
 
-        # For discrete treatments, these will have to be one hot encoded
         Y_2_score = pd.get_dummies(Y) if self.discrete_outcome and (len(Y.shape) == 1 or Y.shape[1] == 1) else Y
-        T_2_score = pd.get_dummies(T) if self.discrete_treatment and (len(T.shape) == 1 or T.shape[1] == 1) else T
+        if self.transformer:
+            if self.discrete_treatment:
+                T = reshape(T, (-1, 1))
+            T_2_score = self.transformer.transform(T)
+        else:
+            T_2_score = T
 
         for m in self._models_nuisance[0]:
             Y_score, T_score = m.score(Y_2_score, T_2_score, X=X, W=W, Z=Z, sample_weight=sample_weight,
