@@ -426,12 +426,25 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  positive=False, random_state=None, selection='cyclic'):
 
-        super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept,
-            precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
-            cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
-            random_state=random_state, selection=selection)
+        from packaging.version import parse
+        import sklearn
+
+        if parse(sklearn.__version__) >= parse("1.7"):
+            super().__init__(
+                eps=eps, alphas=alphas if alphas is not None else n_alphas,
+                fit_intercept=fit_intercept,
+                precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
+                cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
+                random_state=random_state, selection=selection)
+            self.n_alphas = n_alphas
+            self.alphas = alphas
+        else:
+            super().__init__(
+                eps=eps, n_alphas=n_alphas, alphas=alphas,
+                fit_intercept=fit_intercept,
+                precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
+                cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
+                random_state=random_state, selection=selection)
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -537,12 +550,25 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  random_state=None, selection='cyclic'):
 
-        super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept,
-            max_iter=max_iter, tol=tol, copy_X=copy_X,
-            cv=cv, verbose=verbose, n_jobs=n_jobs,
-            random_state=random_state, selection=selection)
+        from packaging.version import parse
+        import sklearn
+
+        if parse(sklearn.__version__) >= parse("1.7"):
+            super().__init__(
+                eps=eps, alphas=alphas if alphas is not None else n_alphas,
+                fit_intercept=fit_intercept,
+                max_iter=max_iter, tol=tol, copy_X=copy_X,
+                cv=cv, verbose=verbose, n_jobs=n_jobs,
+                random_state=random_state, selection=selection)
+            self.n_alphas = n_alphas
+            self.alphas = alphas
+        else:
+            super().__init__(
+                eps=eps, n_alphas=n_alphas, alphas=alphas,
+                fit_intercept=fit_intercept,
+                max_iter=max_iter, tol=tol, copy_X=copy_X,
+                cv=cv, verbose=verbose, n_jobs=n_jobs,
+                random_state=random_state, selection=selection)
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
