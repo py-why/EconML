@@ -11,8 +11,9 @@ import abc
 
 import numpy as np
 import scipy.sparse as sp
-import sklearn
 from joblib import Parallel, delayed
+
+from .._sklearn_compat import SKLEARN_GE_14, SKLEARN_GE_18
 from sklearn.base import BaseEstimator, clone, is_classifier
 from sklearn.ensemble import (GradientBoostingClassifier, GradientBoostingRegressor,
                               RandomForestClassifier, RandomForestRegressor)
@@ -440,8 +441,7 @@ def _to_logisticRegression(model: LogisticRegressionCV):
                          "verbose", "n_jobs",
                          "tol", "max_iter", "random_state", "n_iter_"])
     # if sklearn version < 1.8, copy multi_class as well
-    from packaging import version
-    if version.parse(sklearn.__version__) < version.parse("1.8"):
+    if not SKLEARN_GE_18:
         _copy_to(model, lr, ["multi_class"])
     _copy_to(model, lr, ["classes_"])
 
@@ -832,9 +832,8 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
 
-    from packaging.version import parse
     # verbose was removed from sklearn's non-public _fit_and_predict method in 1.4
-    if parse(sklearn.__version__) < parse("1.4"):
+    if not SKLEARN_GE_14:
         predictions = parallel(delayed(_fit_and_predict)(
             clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
             for train, test in splits)
