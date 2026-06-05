@@ -14,12 +14,8 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 from sklearn.base import BaseEstimator, clone
 from joblib import effective_n_jobs
-from packaging.version import parse
-import sklearn
-if parse(sklearn.__version__) < parse("1.5"):
-    from sklearn.utils import _print_elapsed_time
-else:
-    from sklearn.utils._user_interface import _print_elapsed_time
+
+from .._sklearn_compat import print_elapsed_time as _print_elapsed_time
 
 
 def _fit_single_estimator(estimator, X, y, sample_weight=None,

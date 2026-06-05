@@ -21,7 +21,7 @@ import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
 from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays, add_constant
-import sklearn
+from .._sklearn_compat import SKLEARN_GE_18
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
@@ -115,10 +115,8 @@ class WeightedModelMixin:
                 copy=self.copy_X, check_input=check_input if check_input is not None else True,
                 sample_weight=normalized_weights)
 
-            from packaging.version import parse
-
             # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
-            if parse(sklearn.__version__) >= parse("1.8"):
+            if SKLEARN_GE_18:
                 X_weighted, y_weighted, X_offset, y_offset, X_scale, sqrt_weights = preprocessed_data
             else:
                 X, y, X_offset, y_offset, X_scale = preprocessed_data
@@ -771,8 +769,7 @@ class DebiasedLasso(WeightedLasso):
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
         # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
-        from packaging.version import parse
-        if parse(sklearn.__version__) >= parse("1.8"):
+        if SKLEARN_GE_18:
             X, y, X_offset, y_offset, X_scale, sqrt_weights = _preprocess_data(
                 X, y, fit_intercept=self.fit_intercept,
                 copy=self.copy_X, check_input=check_input, sample_weight=sample_weight,
