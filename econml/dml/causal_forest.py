@@ -535,6 +535,17 @@ class CausalForestDML(_BaseDML):
         Options to pass to the remote function when using Ray.
         See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
 
+    Notes
+    -----
+    **Reproducibility.** To obtain deterministic ``effect``,
+    ``effect_interval``, and related prediction outputs across runs, pass an
+    integer ``random_state`` at construction. Setting only
+    ``numpy.random.seed`` is not sufficient: the estimator uses its own
+    seeded random number generator, independent of the global numpy seed,
+    for cross-fitting splits and forest subsampling. Once fit with an
+    integer ``random_state``, predictions and confidence intervals are
+    stable across repeated calls and survive pickle round-trips.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
