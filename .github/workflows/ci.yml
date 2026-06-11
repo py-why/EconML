@@ -308,6 +308,117 @@ jobs:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
+  push-lkg:
+    name: "Push per-cell LKG files to lkg branch"
+    needs: [tests, notebooks, build, docs]
+    # Only push freezes when we're generating fresh ones from main, never from a
+    # feature branch. We push on:
+    #   * the nightly schedule (which only runs on the default branch), or
+    #   * workflow_dispatch with use_lkg=false AND dispatched from main AND
+    #     without an inputs.ref override (so users can manually test against a
+    #     future dep version on a feature branch without enshrining it in LKG
+    #     before the breaking change is reviewed).
+    # The github.repository check stops the job from firing on forks. GitHub
+    # runs the scheduled workflow on every fork's default branch by default
+    # (until the fork goes 60 days without activity), and lets fork owners
+    # workflow_dispatch on their own main, so without this gate every active
+    # fork would run push-lkg nightly. That would:
+    #   * burn the fork owner's Actions minutes for no benefit (the fork's
+    #     GITHUB_TOKEN can only push to the fork, not upstream, so the
+    #     upstream lkg branch is never at risk regardless);
+    #   * pollute the fork's lkg branch (or create one if it doesn't exist)
+    #     with auto-generated commits the fork owner didn't ask for;
+    #   * force every fork owner who wants to host a personal lkg copy for
+    #     pinned installs on their own CI to add branch protection on it to
+    #     keep the bot from clobbering it.
+    # Gating here keeps the redesign drop-in for forks: no fork-side setup
+    # needed, no per-fork branch protection, no surprise commits.
+    # !cancelled() (rather than success()) lets a single failing tests/notebooks
+    # cell still update the other cells' freezes — the freeze is uploaded before
+    # pytest runs, so it captures install state, not test state.
+    if: |
+      !cancelled()
+      && github.repository == 'py-why/EconML'
+      && (github.event_name == 'schedule'
+          || (github.event_name == 'workflow_dispatch'
+              && !inputs.use_lkg
+              && github.ref == 'refs/heads/main'
+              && (inputs.ref == '' || inputs.ref == 'main' || inputs.ref == 'refs/heads/main')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Serialize across concurrent workflow runs so we don't race on push.
+    # cancel-in-progress: false so a later run waits rather than discarding an in-flight push.
+    concurrency:
+      group: lkg-push
+      cancel-in-progress: false
+    steps:
+    - name: Checkout lkg branch
+      uses: actions/checkout@v6
+      with:
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+    - name: Download requirements artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: requirements-*
+        path: reqs
+    - name: Commit and push per-cell LKG files
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Stage all per-cell freezes into a temp dir so we can re-apply them after
+        # a fetch/reset if a concurrent push races us.
+        STAGE=$(mktemp -d)
+        for dir in ./reqs/requirements-*/; do
+          for f in "$dir"*-requirements.txt; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            # base is "tests-<id>-requirements.txt" or "notebooks-<id>-requirements.txt"
+            stem="${base%-requirements.txt}"
+            cp "$f" "$STAGE/lkg-${stem}.txt"
+          done
+        done
+        copied=$(ls "$STAGE" | wc -l)
+        echo "Staged $copied per-cell LKG files."
+        if [ "$copied" -eq 0 ]; then
+          echo "::error::No per-cell LKG files were staged; aborting before commit."
+          exit 1
+        fi
+
+        cd lkg-cache
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        msg="Update LKG from CI run ${{ github.run_id }} attempt ${{ github.run_attempt }}"
+        for attempt in 1 2 3 4 5; do
+          # Resync with remote on every attempt (cheap on attempt 1, essential on retries).
+          git fetch origin lkg
+          git reset --hard origin/lkg
+
+          # Overlay the staged files on top of the latest remote HEAD.
+          cp -f "$STAGE"/*.txt ./
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No drift; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "$msg"
+
+          if git push origin HEAD:lkg; then
+            echo "Push succeeded on attempt $attempt."
+            exit 0
+          fi
+          echo "Push failed on attempt $attempt; retrying after rebase..."
+          sleep 5
+        done
+        echo "::error::Push to lkg branch failed after 5 attempts."
+        exit 1
+
   store-reqs-per-env:
     name: Store requirements for LKG updates
     if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
