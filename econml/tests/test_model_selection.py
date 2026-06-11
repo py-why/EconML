@@ -12,7 +12,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.preprocessing import PolynomialFeatures
 from econml.dml import LinearDML
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from econml.utilities import SeparateModel
+from econml.utilities import MultiModelWrapper
 from econml.dr import LinearDRLearner
 
 
@@ -139,13 +139,13 @@ class TestModelSelection(unittest.TestCase):
     def test_fixed_model_scoring(self):
         Y, T, X, W = self._simple_dgp(500, 2, 3, True)
 
-        # SeparatedModel doesn't support scoring; that should be fine when not compared to other models
-        mdl = LinearDRLearner(model_regression=SeparateModel(LassoCV(), LassoCV()),
+        # MultiModelWrapper doesn't support scoring; that should be fine when not compared to other models
+        mdl = LinearDRLearner(model_regression=MultiModelWrapper(LassoCV(), LassoCV()),
                               model_propensity=LogisticRegressionCV())
         mdl.fit(Y, T, X=X, W=W)
 
         # on the other hand, when we need to compare the score to other models, it should raise an error
         with self.assertRaises(Exception):
-            mdl = LinearDRLearner(model_regression=[SeparateModel(LassoCV(), LassoCV()), Lasso()],
+            mdl = LinearDRLearner(model_regression=[MultiModelWrapper(LassoCV(), LassoCV()), Lasso()],
                                   model_propensity=LogisticRegressionCV())
             mdl.fit(Y, T, X=X, W=W)
