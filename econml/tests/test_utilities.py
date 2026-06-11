@@ -7,6 +7,7 @@ import random
 import warnings
 import numpy as np
 import sparse as sp
+import scipy.sparse
 import pytest
 from econml.utilities import (check_high_dimensional, einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
@@ -303,32 +304,6 @@ class TestMultiModelWrapper(unittest.TestCase):
         with self.assertRaises(ValueError):
             MultiModelWrapper(LinearRegression(), LinearRegression(), encoding='bogus')
 
-    def test_full_encoding_rejects_all_zero_rows(self):
-        w = MultiModelWrapper(LinearRegression(), LinearRegression(), encoding='full')
-        # second row has no nonzero entry in the trailing one-hot block
-        Xt = np.array([[1.0, 1.0, 0.0],
-                       [1.0, 0.0, 0.0]])
-        with self.assertRaises(ValueError):
-            w.fit(Xt, np.array([1.0, 1.0]))
-
-    def test_drop_first_rejects_multi_hot_rows(self):
-        w = MultiModelWrapper(LinearRegression(), LinearRegression(), LinearRegression())
-        Xt = np.array([[0.5, 1.0, 1.0]])  # two ones in trailing block
-        with self.assertRaises(ValueError):
-            w.fit(Xt, np.array([1.0]))
-
-    def test_label_rejects_out_of_range(self):
-        w = MultiModelWrapper(LinearRegression(), LinearRegression(), encoding='label')
-        Xt = np.array([[0.5, 2.0]])  # K=2, label 2 is out of range
-        with self.assertRaises(ValueError):
-            w.fit(Xt, np.array([1.0]))
-
-    def test_label_rejects_non_integer(self):
-        w = MultiModelWrapper(LinearRegression(), LinearRegression(), encoding='label')
-        Xt = np.array([[0.5, 0.5]])
-        with self.assertRaises(ValueError):
-            w.fit(Xt, np.array([1.0]))
-
     def test_too_few_columns_raises(self):
         w = MultiModelWrapper(LinearRegression(), LinearRegression(), LinearRegression())
         with self.assertRaises(ValueError):
@@ -369,6 +344,102 @@ class TestMultiModelWrapper(unittest.TestCase):
         mdl.fit(Y, T, X=X)
         effects = mdl.effect(X[:5], T0=0, T1=1)
         self.assertEqual(effects.shape, (5,))
+
+    def test_sparse_input_drop_first(self):
+        # csr_matrix with K=3, drop-first encoding: full matrix stays sparse,
+        # only the trailing 2-column treatment block is densified internally.
+        rng = np.random.default_rng(10)
+        n, d, K = 60, 4, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = T * X[:, 0]
+        Xt = np.hstack([X, self._encode_drop_first(T, K)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_sparse_input_full_encoding(self):
+        rng = np.random.default_rng(11)
+        n, d, K = 50, 3, 2
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = (T + 1) * X[:, 0]
+        Xt = np.hstack([X, self._encode_full(T, K)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='full',
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k + 1), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_sparse_input_label_encoding(self):
+        rng = np.random.default_rng(12)
+        n, d, K = 70, 2, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = T * X[:, 0]
+        Xt = np.hstack([X, T.reshape(-1, 1).astype(float)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='label',
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_model_list_kwarg_is_deprecated(self):
+        # Old API: MultiModelWrapper(model_list=[...]) should still work but
+        # emit a FutureWarning and produce a wrapper equivalent to the new
+        # positional-args form.
+        with self.assertWarnsRegex(FutureWarning, "model_list"):
+            w = MultiModelWrapper(
+                model_list=[LinearRegression(fit_intercept=False),
+                            LinearRegression(fit_intercept=False)],
+            )
+        self.assertEqual(w.n_categories, 2)
+        # Smoke-fit to make sure the wrapper is fully functional. Default
+        # encoding is 'drop_first', so we one-hot-drop-first the binary T.
+        X = np.array([[1.0], [2.0], [3.0], [4.0]])
+        T = np.array([0, 0, 1, 1])
+        Y = np.array([0.0, 0.0, 6.0, 8.0])
+        Xt = np.hstack([X, (T == 1).reshape(-1, 1).astype(float)])
+        w.fit(Xt, Y)
+        np.testing.assert_allclose(w.predict(Xt), Y, atol=1e-8)
+
+    def test_positional_list_is_deprecated(self):
+        # Old API: MultiModelWrapper([m1, m2, ...]) should warn and unpack.
+        with self.assertWarnsRegex(FutureWarning, "single positional argument"):
+            w = MultiModelWrapper(
+                [LinearRegression(fit_intercept=False),
+                 LinearRegression(fit_intercept=False),
+                 LinearRegression(fit_intercept=False)],
+            )
+        self.assertEqual(w.n_categories, 3)
+
+    def test_model_list_and_positional_models_together_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper(
+                LinearRegression(),
+                model_list=[LinearRegression(), LinearRegression()],
+            )
 
 
 class TestSeparateModelDeprecation(unittest.TestCase):

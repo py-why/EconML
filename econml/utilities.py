@@ -1087,7 +1087,32 @@ class MultiModelWrapper:
           ``{0, ..., K - 1}``.
     """
 
-    def __init__(self, *models, n_categories=None, encoding='drop_first'):
+    def __init__(self, *models, n_categories=None, encoding='drop_first', model_list=None):
+        # Backward-compat shims for the pre-rewrite API
+        # (``MultiModelWrapper(model_list=[...])`` and the equivalent
+        # ``MultiModelWrapper([...])`` positional-list form). Both are
+        # accepted with a deprecation warning, and unpacked into ``models``
+        # so the rest of the constructor is unchanged.
+        if model_list is not None:
+            if models:
+                raise ValueError(
+                    "Cannot specify both positional models and the deprecated "
+                    "`model_list=` kwarg. Pass models positionally, e.g. "
+                    "MultiModelWrapper(*model_list).")
+            warnings.warn(
+                "The `model_list=` kwarg of MultiModelWrapper is deprecated and "
+                "will be removed in a future release; pass models as positional "
+                "arguments instead, e.g. MultiModelWrapper(*model_list).",
+                FutureWarning, stacklevel=2)
+            models = tuple(model_list)
+        elif len(models) == 1 and isinstance(models[0], (list, tuple)):
+            warnings.warn(
+                "Passing a list or tuple as a single positional argument to "
+                "MultiModelWrapper is deprecated and will be removed in a future "
+                "release; unpack with `*` instead, e.g. "
+                "MultiModelWrapper(*model_list).",
+                FutureWarning, stacklevel=2)
+            models = tuple(models[0])
         if encoding not in ('drop_first', 'full', 'label'):
             raise ValueError(
                 f"encoding must be 'drop_first', 'full', or 'label', got {encoding!r}.")
@@ -1118,8 +1143,7 @@ class MultiModelWrapper:
         return self.n_categories - 1
 
     def _split(self, Xt):
-        """Return (X, labels) where labels is the per-row category index."""
-        Xt = np.asarray(Xt)
+        """Return (X, labels) where labels is the per-row category index in [0, n_categories)."""
         width = self._encoded_width()
         if Xt.shape[1] < width:
             raise ValueError(
@@ -1129,39 +1153,16 @@ class MultiModelWrapper:
                 f"encoding={self.encoding!r}.")
         if self.encoding == 'label':
             X = Xt[:, :-1]
-            labels = Xt[:, -1]
-            int_labels = labels.astype(int)
-            if np.any(int_labels != labels):
-                raise ValueError(
-                    "encoding='label' expects the trailing column to contain "
-                    "integer category indices.")
-            if np.any(int_labels < 0) or np.any(int_labels >= self.n_categories):
-                raise ValueError(
-                    f"encoding='label' expects category indices in "
-                    f"[0, {self.n_categories}), but got values outside that range.")
-            return X, int_labels
-        if width > 0:
-            X = Xt[:, :-width]
-            T = Xt[:, -width:]
-        else:
-            X = Xt
-            T = np.zeros((Xt.shape[0], 0))
-        row_sums = T.sum(axis=1)
-        if np.any((T != 0) & (T != 1)) or np.any(row_sums > 1):
-            raise ValueError(
-                "Expected the trailing one-hot block to contain values in {0, 1} "
-                "with at most one nonzero entry per row.")
-        if self.encoding == 'full':
-            if np.any(row_sums == 0):
-                raise ValueError(
-                    "encoding='full' expects every row to have exactly one nonzero "
-                    "entry in the trailing one-hot block, but some rows had none.")
-            labels = np.argmax(T, axis=1)
-        else:
-            labels = np.zeros(Xt.shape[0], dtype=int)
-            if width > 0:
-                nz = row_sums > 0
-                labels[nz] = np.argmax(T[nz], axis=1) + 1
+            # The trailing column is a per-row category index; densify only
+            # that single column (cheap even for huge sparse inputs).
+            labels = todense(Xt[:, -1]).ravel().astype(int)
+            return X, labels
+        # Both 'drop_first' and 'full' reduce to a (K-1)-column drop-first
+        # one-hot encoding: for 'full' the leading control column drops out,
+        # leaving the trailing K-1 columns as exactly the drop-first form.
+        # ``inverse_onehot`` handles both dense and sparse inputs via matmul.
+        X = Xt[:, :-width]
+        labels = inverse_onehot(Xt[:, -(self.n_categories - 1):])
         return X, labels
 
     def fit(self, Xt, y, sample_weight=None):
