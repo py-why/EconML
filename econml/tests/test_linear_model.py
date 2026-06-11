@@ -9,6 +9,7 @@ from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLasso
                                                     WeightedLassoCVWrapper, DebiasedLasso, MultiOutputDebiasedLasso,
                                                     SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
+from econml.tests._sklearn_compat_helpers import assert_sklearn_roundtrip
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
 from sklearn.base import clone
 
@@ -49,9 +50,26 @@ class TestLassoExtensions(unittest.TestCase):
                                               TestLassoExtensions.y2_full.reshape(-1, 1)), axis=1)
 
     def test_can_clone(self):
+        # Verify get_params/clone round-trips faithfully for default-constructed
+        # estimators. Note: this is the weaker "instance" form of the helper
+        # which only catches clone-equivalence drift, not constructor-kwarg
+        # drift. The stronger kwargs-form check (which would catch e.g. PR
+        # #1031's n_alphas="deprecated" sentinel overwrite) lives in
+        # test_clone_preserves_explicit_kwargs below.
         for model in [WeightedLasso(), WeightedLassoCV(), WeightedMultiTaskLassoCV(),
                       WeightedLassoCVWrapper(), DebiasedLasso(), MultiOutputDebiasedLasso()]:
-            clone(model)
+            with self.subTest(estimator=type(model).__name__):
+                assert_sklearn_roundtrip(model)
+
+    def test_clone_preserves_explicit_kwargs(self):
+        # Stronger check: when constructed with explicit kwargs, get_params
+        # must report exactly those kwargs. This is the check that would have
+        # caught PR #1031 (n_alphas getting overwritten with "deprecated" by
+        # the sklearn>=1.7 parent __init__).
+        assert_sklearn_roundtrip(WeightedLasso, alpha=0.5, fit_intercept=False)
+        assert_sklearn_roundtrip(WeightedLassoCV, n_alphas=5, cv=3, fit_intercept=False)
+        assert_sklearn_roundtrip(WeightedMultiTaskLassoCV, n_alphas=5, cv=3)
+        assert_sklearn_roundtrip(DebiasedLasso, alpha=0.5, fit_intercept=False)
 
     #################
     # WeightedLasso #
