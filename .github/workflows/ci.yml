@@ -107,6 +107,13 @@ jobs:
       run: python -m pip install --upgrade pip && pip install --upgrade setuptools
     - name: Run Ruff
       run: 'pip install ruff && ruff check'
+    - name: Test workflow helper scripts
+      # Covers .github/workflows/seed_lkg_branch.py (and any future workflow helpers).
+      # Lives in the lint job because these scripts are workflow infrastructure, not
+      # part of the package, and need a basic Python env that this job already provides.
+      # `-o addopts=""` neutralizes the package-wide pytest addopts in pyproject.toml
+      # (which require pytest-xdist, pytest-cov, and the econml package itself).
+      run: 'pip install pytest && pytest .github/workflows/tests/ -q -o addopts=""'
 
   notebooks:
     name: Run notebooks
