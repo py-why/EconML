@@ -775,7 +775,9 @@ git worktree add /tmp/lkg-worktree lkg
 python .github/workflows/seed_lkg_branch.py /tmp/lkg-seed \
     --branch-worktree /tmp/lkg-worktree
 cd /tmp/lkg-worktree
-git add -A && git commit -s -m "Seed lkg branch from run <NIGHTLY_RUN_ID>"
+# --no-verify skips the repo's pre-commit hook, which would otherwise abort
+# because the orphan lkg branch has no .pre-commit-config.yaml.
+git add -A && git commit --no-verify -m "Seed lkg branch from run <NIGHTLY_RUN_ID>"
 git push origin lkg
 ```
 
