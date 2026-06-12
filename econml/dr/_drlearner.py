@@ -120,7 +120,7 @@ class _ModelNuisance(ModelSelector):
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, *, sample_weight=None, groups=None, propensity=None):
         if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
             raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
                              "instead got {1}.".format(len(X), Y.shape))
@@ -132,22 +132,33 @@ class _ModelNuisance(ModelSelector):
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        self._model_propensity.train(is_selecting, folds, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
+        self._uses_user_propensity = propensity is not None
+        if propensity is None:
+            self._model_propensity.train(is_selecting, folds, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
         self._model_regression.train(is_selecting, folds, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
         return self
 
-    def score(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def score(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None, propensity=None):
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
+        if getattr(self, '_uses_user_propensity', False):
+            # no propensity model was fitted, so there is nothing to score
+            propensity_score = None
+        else:
+            propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
         regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
 
         return propensity_score, regression_score
 
-    def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def predict(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None, propensity=None):
+        if getattr(self, '_uses_user_propensity', False) and propensity is None:
+            raise ValueError("This model was trained with user-supplied propensities, "
+                             "so propensities must also be supplied at predict time.")
         XW = self._combine(X, W)
-        if hasattr(self._model_propensity, 'predict_proba'):
+        if propensity is not None:
+            raw_propensities = propensity
+        elif hasattr(self._model_propensity, 'predict_proba'):
             raw_propensities = self._model_propensity.predict_proba(XW)
         else:
             warn("A regressor was passed to model_propensity. "
@@ -693,8 +704,14 @@ class DRLearner(_OrthoLearner):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final,
                            self.trimming_threshold)
 
+    @property
+    def _supports_user_propensity(self):
+        # the treatment is always discrete for DR learners, so known propensities can always be
+        # used in place of the propensity model
+        return True
+
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -721,6 +738,20 @@ class DRLearner(_OrthoLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the propensity model is not fitted and these values are used in its place in the
+            doubly robust correction (they remain subject to `min_propensity` clipping and
+            `trimming_threshold` trimming). If a single column is passed, the treatment must be
+            binary and the values are interpreted as the probability of the non-control treatment;
+            otherwise there must be one column per treatment category (including control as the
+            first column), ordered to match the fitted categories (the sorted unique values of T,
+            or the `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -746,13 +777,14 @@ class DRLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     def refit_final(self, *, inference='auto'):
         return super().refit_final(inference=inference)
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, propensity=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -775,6 +807,10 @@ class DRLearner(_OrthoLearner):
             Controls for each sample
         sample_weight:(n,) vector, optional
             Weights for each samples
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment probabilities for each sample, in the same format as the
+            `propensity` argument to `fit`. Required if the estimator was fit with user-supplied
+            propensities.
 
         Returns
         -------
@@ -782,7 +818,7 @@ class DRLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, propensity=propensity)
 
     @property
     def multitask_model_cate(self):
@@ -834,6 +870,9 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
+        if getattr(self, '_fit_with_user_propensity', False):
+            raise AttributeError("No propensity model was fitted because user-supplied propensities "
+                                 "were provided at fit time.")
         return [[mdl._model_propensity.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
@@ -1322,7 +1361,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1349,6 +1388,20 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the propensity model is not fitted and these values are used in its place in the
+            doubly robust correction (they remain subject to `min_propensity` clipping and
+            `trimming_threshold` trimming). If a single column is passed, the treatment must be
+            binary and the values are interpreted as the probability of the non-control treatment;
+            otherwise there must be one column per treatment category (including control as the
+            first column), ordered to match the fitted categories (the sorted unique values of T,
+            or the `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -1363,6 +1416,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         # Replacing fit from DRLearner, to add statsmodels inference in docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -1675,7 +1729,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1695,6 +1749,20 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the propensity model is not fitted and these values are used in its place in the
+            doubly robust correction (they remain subject to `min_propensity` clipping and
+            `trimming_threshold` trimming). If a single column is passed, the treatment must be
+            binary and the values are interpreted as the probability of the non-control treatment;
+            otherwise there must be one column per treatment category (including control as the
+            first column), ordered to match the fitted categories (the sorted unique values of T,
+            or the `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -1714,6 +1782,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                                    "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -2032,7 +2101,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False, self.trimming_threshold)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -2052,6 +2121,20 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the propensity model is not fitted and these values are used in its place in the
+            doubly robust correction (they remain subject to `min_propensity` clipping and
+            `trimming_threshold` trimming). If a single column is passed, the treatment must be
+            binary and the values are interpreted as the probability of the non-control treatment;
+            otherwise there must be one column per treatment category (including control as the
+            first column), ordered to match the fitted categories (the sorted unique values of T,
+            or the `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, `Inference` instance, or None
@@ -2068,6 +2151,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     def multitask_model_cate(self):
