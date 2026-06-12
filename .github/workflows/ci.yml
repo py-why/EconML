@@ -451,60 +451,6 @@ jobs:
         echo "::error::Push to lkg branch failed after 5 attempts."
         exit 1
 
-  store-reqs-per-env:
-    name: Store requirements for LKG updates
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
-    strategy:
-      matrix:
-        kind: [tests]
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
-        include:
-          # assign extras to all combinations
-          - extras: "[plt,dowhy,ray]"
-          # overwrite extras for python 3.14, and 3.13 under Windows, because ray is unsupported there
-          - extras: "[plt,dowhy]"
-            python-version: '3.14'
-          - extras: "[plt,dowhy]"
-            python-version: '3.13'
-            os: 'windows-latest'
-            # explicitly add the two notebook extras
-          - kind: notebooks-other
-            os: ubuntu-latest
-            python-version: '3.12'
-            extras: "[plt,ray]"
-          - kind: notebooks-customer
-            os: ubuntu-latest
-            python-version: '3.12'
-            extras: "[plt,dowhy]"
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        ref: ${{ env.ref }}
-    - name: Setup Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      # check if we're running on windows
-      run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
-    - name: Install econml
-      # add all extras used by any of the individual tests, which is a superset of what's actually used anywhere
-      run: uv pip install --system -e .${{ matrix.extras }}
-    - name: Install notebook requirements
-      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      if: startswith(matrix.kind, 'notebooks-')
-    - name: Save installed packages
-      run: pip freeze --exclude-editable > lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
-    - name: Upload installed packages
-      uses: actions/upload-artifact@v6
-      with:
-        name: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}
-        path: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
-
   coverage-report:
     name: "Coverage report"
     needs: [tests, notebooks]
@@ -541,11 +487,11 @@ jobs:
       
   merge-artifacts:
     name: "Merge artifacts"
-    needs: [coverage-report, tests, notebooks, store-reqs-per-env]
+    needs: [coverage-report, tests, notebooks, build, docs]
     if: success() || failure()
     strategy:
       matrix:
-        artifact: [requirements, tests, coverage, notebooks, lkg-tests, lkg-notebooks]
+        artifact: [requirements, tests, coverage, notebooks]
     runs-on: ubuntu-latest
     steps:
     - name: "Merge artifacts"
@@ -558,55 +504,6 @@ jobs:
       # Unlike with plain upload-artifact, there's no way to ignore the situation where no files are found when using the v4 merge action
       # (see https://github.com/actions/upload-artifact/issues/520), so just continue on error isntead
       continue-on-error: true
-
-  generate-lkg:
-    name: "Generate updated last known good files"
-    needs: [merge-artifacts]
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
-    strategy:
-      matrix:
-        kind: [tests, notebooks]
-        include:
-        - kind: tests
-          pattern: tests
-          output-name: lkg
-        - kind: notebooks
-          pattern: "notebooks-(?P<subset>[a-z]+)"
-          output-name: lkg-notebook
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        ref: ${{ env.ref }}
-    - name: Setup Python
-      uses: actions/setup-python@v6
-    - name: Download files
-      uses: actions/download-artifact@v8
-      with:
-        name: lkg-${{ matrix.kind }}
-        path: requirements
-    - name: "Generate last known good versions"
-      run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.pattern }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
-    - name: "Upload last known good versions"
-      uses: actions/upload-artifact@v6
-      with:
-        name: ${{ matrix.output-name }}
-        path: ${{ matrix.output-name }}.txt
-        
-  merge-lkg:
-    name: "Merge last known good versions"
-    needs: [generate-lkg]
-    if: success() || failure()
-    runs-on: ubuntu-latest
-    steps:
-    - name: "Merge last known good versions"
-      uses: actions/upload-artifact/merge@v6
-      with:
-        # can't use just "lkg" for the name since that artifact already exists and merge won't overwrite it even when delete-merged is true
-        name: lkg-files
-        pattern: "lkg*"
-        delete-merged: true
 
   build:
     name: Build package
