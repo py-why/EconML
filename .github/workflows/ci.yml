@@ -145,13 +145,28 @@ jobs:
     - name: Install graphviz
       run: sudo apt-get -yq install graphviz
       if: ${{ matrix.install_graphviz }}
+    - name: Checkout lkg branch
+      # Fetch the per-cell freeze files. continue-on-error so the bootstrap case
+      # (lkg branch doesn't exist yet, or this matrix cell has no entry) falls
+      # through to the floating-install branch below.
+      uses: actions/checkout@v6
+      with:
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+      continue-on-error: true
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
-    # Install notebook requirements (if not already done as part of lkg)
-    - name: Install notebook requirements
-      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      if: ${{ !env.use_lkg }}
+      shell: bash
+      run: |
+        LKG_FILE="lkg-cache/lkg-notebooks-${{ matrix.kind }}-${{ matrix.version }}.txt"
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        else
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
+          # Notebook-specific deps. When the LKG file is present these are already pinned in it.
+          uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+        fi
     - name: Save installed packages
       run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
@@ -259,9 +274,26 @@ jobs:
     - name: Install uv
       # check if we're running on windows
       run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
+    - name: Checkout lkg branch
+      # Fetch the per-cell freeze files. continue-on-error so the bootstrap case
+      # (lkg branch doesn't exist yet, or this matrix cell has no entry) falls
+      # through to the floating-install branch below.
+      uses: actions/checkout@v6
+      with:
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+      continue-on-error: true
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
+      shell: bash
+      run: |
+        LKG_FILE="lkg-cache/lkg-tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}.txt"
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        else
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
+        fi
     - name: Save installed packages
       run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
