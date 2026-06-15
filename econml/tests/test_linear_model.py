@@ -296,6 +296,35 @@ class TestLassoExtensions(unittest.TestCase):
         assert wrapper.max_iter == 100
         assert wrapper.tol == 0.01
 
+    def test_default_alphas_fits_on_strict_sklearn(self):
+        # Regression test for #1032. WeightedLassoCV.__init__ used to overwrite
+        # self.alphas = None after the version-dispatch correctly translated
+        # the default n_alphas=100 into alphas=100 on the super().__init__()
+        # call. sklearn 1.9's strict param validation rejected the resulting
+        # None and SparseLinearDML.fit / DebiasedLasso.fit raised
+        # InvalidParameterError. With default args, the dispatched alphas value
+        # must survive to fit time.
+        from packaging.version import parse
+        import sklearn
+        if parse(sklearn.__version__) < parse("1.7"):
+            self.skipTest("dispatch only active on sklearn 1.7+")
+
+        for cls in (WeightedLassoCV, WeightedMultiTaskLassoCV):
+            est = cls()
+            assert est.alphas is not None, \
+                f"{cls.__name__}.alphas was clobbered to None by __init__ (#1032)"
+            assert est.n_alphas == 100, \
+                f"{cls.__name__}.n_alphas should be preserved at 100 (#1032)"
+
+        rng = np.random.default_rng(0)
+        n = 300
+        X = rng.normal(size=(n, 3))
+        y_1d = rng.normal(size=n)
+        y_2d = rng.normal(size=(n, 2))
+        # neither call should raise sklearn.InvalidParameterError
+        WeightedLassoCV(cv=3).fit(X, y_1d)
+        WeightedMultiTaskLassoCV(cv=3).fit(X, y_2d)
+
     #################
     # DebiasedLasso #
     #################

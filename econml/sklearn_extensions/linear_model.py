@@ -437,7 +437,6 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
                 cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
                 random_state=random_state, selection=selection)
             self.n_alphas = n_alphas
-            self.alphas = alphas
         else:
             super().__init__(
                 eps=eps, n_alphas=n_alphas, alphas=alphas,
@@ -561,7 +560,6 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
                 cv=cv, verbose=verbose, n_jobs=n_jobs,
                 random_state=random_state, selection=selection)
             self.n_alphas = n_alphas
-            self.alphas = alphas
         else:
             super().__init__(
                 eps=eps, n_alphas=n_alphas, alphas=alphas,
