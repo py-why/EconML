@@ -1616,8 +1616,10 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  discrete_outcome=False,
                  alpha='auto',
                  n_alphas=100,
+                 alphas=None,
                  alpha_cov='auto',
                  n_alphas_cov=10,
+                 alphas_cov=None,
                  max_iter=1000,
                  tol=1e-4,
                  n_jobs=None,
@@ -1632,11 +1634,20 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  use_ray=False,
                  ray_remote_func_options=None):
 
+        import warnings
+        if n_alphas != 100:
+            warnings.warn("The n_alphas parameter is deprecated and will be removed in a future release. "
+                          "Use the alphas parameter instead.", FutureWarning)
+        if n_alphas_cov != 10:
+            warnings.warn("The n_alphas_cov parameter is deprecated and will be removed in a future release. "
+                          "Use the alphas_cov parameter instead.", FutureWarning)
         self.fit_cate_intercept = fit_cate_intercept
         self.alpha = alpha
         self.n_alphas = n_alphas
+        self.alphas = alphas
         self.alpha_cov = alpha_cov
         self.n_alphas_cov = n_alphas_cov
+        self.alphas_cov = alphas_cov
         self.max_iter = max_iter
         self.tol = tol
         self.n_jobs = n_jobs
@@ -1663,8 +1674,10 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
                              n_alphas=self.n_alphas,
+                             alphas=self.alphas,
                              alpha_cov=self.alpha_cov,
                              n_alphas_cov=self.n_alphas_cov,
+                             alphas_cov=self.alphas_cov,
                              fit_intercept=self.fit_cate_intercept,
                              max_iter=self.max_iter,
                              tol=self.tol,

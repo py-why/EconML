@@ -594,13 +594,14 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         return self
 
 
-def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, max_iter, tol, random_state):
+def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, max_iter, tol, random_state,
+                                alphas_cov=None):
     n_samples, n_features = X.shape
     y = X[:, i]
     X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
     # Call weighted lasso on reduced design matrix
     if alpha_cov == 'auto':
-        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
+        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov, alphas=alphas_cov,
                                        fit_intercept=False,
                                        max_iter=max_iter,
                                        tol=tol, n_jobs=1,
@@ -726,11 +727,20 @@ class DebiasedLasso(WeightedLasso):
     def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
                  fit_intercept=True, precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic', n_jobs=None):
+                 random_state=None, selection='cyclic', n_jobs=None, *, alphas=None, alphas_cov=None):
+        import warnings
+        if n_alphas != 100:
+            warnings.warn("The n_alphas parameter is deprecated and will be removed in a future release. "
+                          "Use the alphas parameter instead.", FutureWarning)
+        if n_alphas_cov != 10:
+            warnings.warn("The n_alphas_cov parameter is deprecated and will be removed in a future release. "
+                          "Use the alphas_cov parameter instead.", FutureWarning)
         self.n_jobs = n_jobs
         self.n_alphas = n_alphas
+        self.alphas = alphas
         self.alpha_cov = alpha_cov
         self.n_alphas_cov = n_alphas_cov
+        self.alphas_cov = alphas_cov
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
@@ -929,7 +939,8 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, fit_intercept=self.fit_intercept,
+        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, alphas=self.alphas,
+                                       fit_intercept=self.fit_intercept,
                                        precompute=self.precompute, copy_X=True,
                                        max_iter=self.max_iter, tol=self.tol,
                                        random_state=self.random_state,
@@ -950,7 +961,7 @@ class DebiasedLasso(WeightedLasso):
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight,
                                                  self.alpha_cov, self.n_alphas_cov,
-                                                 self.max_iter, self.tol, self.random_state)
+                                                 self.max_iter, self.tol, self.random_state, self.alphas_cov)
             for i in range(n_features))
         coefs, tausq = zip(*results)
         coefs = np.array(coefs)
@@ -1072,8 +1083,9 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
                  fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic', n_jobs=None):
-        self.estimator = DebiasedLasso(alpha=alpha, n_alphas=n_alphas, alpha_cov=alpha_cov, n_alphas_cov=n_alphas_cov,
+                 random_state=None, selection='cyclic', n_jobs=None, *, alphas=None, alphas_cov=None):
+        self.estimator = DebiasedLasso(alpha=alpha, n_alphas=n_alphas, alphas=alphas, alpha_cov=alpha_cov,
+                                       n_alphas_cov=n_alphas_cov, alphas_cov=alphas_cov,
                                        fit_intercept=fit_intercept,
                                        precompute=precompute, copy_X=copy_X, max_iter=max_iter,
                                        tol=tol, warm_start=warm_start,
