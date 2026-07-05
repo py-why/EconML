@@ -616,37 +616,38 @@ class ListSelector(SingleModelSelector):
         return self._best_score
 
 
-def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV, needs_scoring=False):
+def get_selector(input, is_discrete, *, random_state=None, cv=None, n_jobs=None,
+                 wrapper=GridSearchCV, needs_scoring=False):
     named_models = {
         'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
+                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv, n_jobs=n_jobs)),
         'poly': ([make_pipeline(PolynomialFeatures(d),
                                 (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
-                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv)))
+                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv, n_jobs=n_jobs)))
                   for d in range(1, 4)]),
-        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
-                                else RandomForestRegressor(random_state=random_state),
-                                param_grid={}, cv=cv)),
+        'forest': (GridSearchCV(RandomForestClassifier(n_jobs=n_jobs, random_state=random_state) if is_discrete
+                                else RandomForestRegressor(n_jobs=n_jobs, random_state=random_state),
+                                param_grid={}, cv=cv, n_jobs=n_jobs)),
         'gbf': (GridSearchCV(GradientBoostingClassifier(random_state=random_state) if is_discrete
                              else GradientBoostingRegressor(random_state=random_state),
-                             param_grid={}, cv=cv)),
+                             param_grid={}, cv=cv, n_jobs=n_jobs)),
         'nnet': (GridSearchCV(MLPClassifier(random_state=random_state) if is_discrete
                               else MLPRegressor(random_state=random_state),
-                              param_grid={}, cv=cv)),
+                              param_grid={}, cv=cv, n_jobs=n_jobs)),
         'automl': ["poly", "forest", "gbf", "nnet"],
     }
     if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
         return input
     elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
         models = [get_selector(model, is_discrete,
-                               random_state=random_state, cv=cv, wrapper=wrapper,
+                               random_state=random_state, cv=cv, n_jobs=n_jobs, wrapper=wrapper,
                                needs_scoring=True)  # we need to score to compare outputs to each other
                   for model in input]
         return ListSelector(models)
     elif isinstance(input, str):  # we've got a string; look it up
         if input in named_models:
             return get_selector(named_models[input], is_discrete,
-                                random_state=random_state, cv=cv, wrapper=wrapper,
+                                random_state=random_state, cv=cv, n_jobs=n_jobs, wrapper=wrapper,
                                 needs_scoring=needs_scoring)
         else:
             raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
