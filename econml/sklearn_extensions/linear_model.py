@@ -430,14 +430,17 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         import sklearn
 
         if parse(sklearn.__version__) >= parse("1.7"):
+            # In sklearn 1.7+, 'alphas' accepts an int (number of alphas) or
+            # array-like (explicit alpha values). 'n_alphas' is deprecated in
+            # 1.7 and removed in 1.9.
+            alphas_param = alphas if alphas is not None else n_alphas
             super().__init__(
-                eps=eps, alphas=alphas if alphas is not None else n_alphas,
+                eps=eps, alphas=alphas_param,
                 fit_intercept=fit_intercept,
                 precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
                 cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
                 random_state=random_state, selection=selection)
             self.n_alphas = n_alphas
-            self.alphas = alphas
         else:
             super().__init__(
                 eps=eps, n_alphas=n_alphas, alphas=alphas,
@@ -445,6 +448,15 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
                 precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
                 cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
                 random_state=random_state, selection=selection)
+
+    def get_params(self, deep=True):
+        """Get parameters, excluding deprecated n_alphas on sklearn >= 1.7."""
+        params = super().get_params(deep=deep)
+        from packaging.version import parse
+        import sklearn
+        if parse(sklearn.__version__) >= parse("1.7"):
+            params.pop('n_alphas', None)
+        return params
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -554,14 +566,17 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         import sklearn
 
         if parse(sklearn.__version__) >= parse("1.7"):
+            # In sklearn 1.7+, 'alphas' accepts an int (number of alphas) or
+            # array-like (explicit alpha values). 'n_alphas' is deprecated in
+            # 1.7 and removed in 1.9.
+            alphas_param = alphas if alphas is not None else n_alphas
             super().__init__(
-                eps=eps, alphas=alphas if alphas is not None else n_alphas,
+                eps=eps, alphas=alphas_param,
                 fit_intercept=fit_intercept,
                 max_iter=max_iter, tol=tol, copy_X=copy_X,
                 cv=cv, verbose=verbose, n_jobs=n_jobs,
                 random_state=random_state, selection=selection)
             self.n_alphas = n_alphas
-            self.alphas = alphas
         else:
             super().__init__(
                 eps=eps, n_alphas=n_alphas, alphas=alphas,
@@ -569,6 +584,15 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
                 max_iter=max_iter, tol=tol, copy_X=copy_X,
                 cv=cv, verbose=verbose, n_jobs=n_jobs,
                 random_state=random_state, selection=selection)
+
+    def get_params(self, deep=True):
+        """Get parameters, excluding deprecated n_alphas on sklearn >= 1.7."""
+        params = super().get_params(deep=deep)
+        from packaging.version import parse
+        import sklearn
+        if parse(sklearn.__version__) >= parse("1.7"):
+            params.pop('n_alphas', None)
+        return params
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
