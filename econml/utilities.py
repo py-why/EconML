@@ -1044,62 +1044,189 @@ class WeightedModelWrapper:
 
 
 class MultiModelWrapper:
-    """Helper class for training different models for each treatment.
+    """Train a separate underlying model for each treatment category.
+
+    Wraps a collection of base estimators, dispatching each row to the
+    estimator for its treatment category, based on a one-hot encoding of the
+    treatment that is concatenated onto the right of the feature matrix.
+
+    Most EconML estimators internally one-hot-encode discrete treatments using
+    :class:`sklearn.preprocessing.OneHotEncoder` with ``drop='first'`` (the
+    control category becomes a row of all zeros and is not represented by an
+    explicit column) and concatenate that encoding to the right of the feature
+    matrix before handing it to first-stage models. ``MultiModelWrapper``'s
+    default ``encoding='drop_first'`` matches this convention, making it
+    suitable as a wrapper for first-stage models passed to e.g.
+    :class:`~econml.dr.DRLearner` and its subclasses. The alternative
+    ``encoding='full'`` expects a full ``K``-column one-hot encoding instead
+    (no dropped category), which is the convention used internally by
+    :class:`~econml.orf.DROrthoForest`'s ``model_Y``.
 
     Parameters
     ----------
-    model_list : array_like, shape (n_T, )
-        List of models to be trained separately for each treatment group.
+    *models : estimators
+        Either ``K`` estimators (one per treatment category, the first one
+        used for the control category), or a single estimator that will be
+        cloned ``n_categories`` times.
+
+    n_categories : int, optional
+        The number of treatment categories ``K``. Required when exactly one
+        positional model is passed (so it can be cloned ``K`` times). When
+        multiple positional models are passed, this must be either ``None``
+        or equal to the number of models.
+
+    encoding : {'drop_first', 'full', 'label'}, default 'drop_first'
+        The expected encoding of the treatment block at the right of the
+        input matrix.
+
+        - ``'drop_first'``: the last ``K - 1`` columns are a drop-first
+          one-hot encoding (the all-zero row is the control category).
+        - ``'full'``: the last ``K`` columns are a full one-hot encoding
+          (column ``0`` is the control category).
+        - ``'label'``: the last column is an integer category index in
+          ``{0, ..., K - 1}``.
     """
 
-    def __init__(self, model_list=[]):
-        self.model_list = model_list
-        self.n_T = len(model_list)
+    def __init__(self, *models, n_categories=None, encoding='drop_first', model_list=None):
+        # Backward-compat shims for the pre-rewrite API
+        # (``MultiModelWrapper(model_list=[...])`` and the equivalent
+        # ``MultiModelWrapper([...])`` positional-list form). Both are
+        # accepted with a deprecation warning, and unpacked into ``models``
+        # so the rest of the constructor is unchanged.
+        if model_list is not None:
+            if models:
+                raise ValueError(
+                    "Cannot specify both positional models and the deprecated "
+                    "`model_list=` kwarg. Pass models positionally, e.g. "
+                    "MultiModelWrapper(*model_list).")
+            warnings.warn(
+                "The `model_list=` kwarg of MultiModelWrapper is deprecated and "
+                "will be removed in a future release; pass models as positional "
+                "arguments instead, e.g. MultiModelWrapper(*model_list).",
+                FutureWarning, stacklevel=2)
+            models = tuple(model_list)
+        elif len(models) == 1 and isinstance(models[0], (list, tuple)):
+            warnings.warn(
+                "Passing a list or tuple as a single positional argument to "
+                "MultiModelWrapper is deprecated and will be removed in a future "
+                "release; unpack with `*` instead, e.g. "
+                "MultiModelWrapper(*model_list).",
+                FutureWarning, stacklevel=2)
+            models = tuple(models[0])
+        if encoding not in ('drop_first', 'full', 'label'):
+            raise ValueError(
+                f"encoding must be 'drop_first', 'full', or 'label', got {encoding!r}.")
+        if len(models) == 0:
+            raise ValueError("MultiModelWrapper requires at least one model.")
+        if len(models) == 1:
+            if n_categories is None:
+                raise ValueError(
+                    "When a single model is passed, n_categories must be specified "
+                    "so the model can be cloned once per treatment category.")
+            if n_categories < 2:
+                raise ValueError("n_categories must be at least 2.")
+            self.models = [clone(models[0]) for _ in range(n_categories)]
+        else:
+            if n_categories is not None and n_categories != len(models):
+                raise ValueError(
+                    f"n_categories ({n_categories}) does not match the number of "
+                    f"positional models passed ({len(models)}).")
+            self.models = [clone(m) for m in models]
+        self.n_categories = len(self.models)
+        self.encoding = encoding
+
+    def _encoded_width(self):
+        if self.encoding == 'full':
+            return self.n_categories
+        if self.encoding == 'label':
+            return 1
+        return self.n_categories - 1
+
+    def _split(self, Xt):
+        """Return (X, labels) where labels is the per-row category index in [0, n_categories)."""
+        width = self._encoded_width()
+        if Xt.shape[1] < width:
+            raise ValueError(
+                f"Input has only {Xt.shape[1]} columns, but the trailing "
+                f"{width} columns are required to encode "
+                f"{self.n_categories} treatment categories with "
+                f"encoding={self.encoding!r}.")
+        if self.encoding == 'label':
+            X = Xt[:, :-1]
+            # The trailing column is a per-row category index; densify only
+            # that single column (cheap even for huge sparse inputs).
+            labels = todense(Xt[:, -1]).ravel().astype(int)
+            return X, labels
+        # Both 'drop_first' and 'full' reduce to a (K-1)-column drop-first
+        # one-hot encoding: for 'full' the leading control column drops out,
+        # leaving the trailing K-1 columns as exactly the drop-first form.
+        # ``inverse_onehot`` handles both dense and sparse inputs via matmul.
+        X = Xt[:, :-width]
+        labels = inverse_onehot(Xt[:, -(self.n_categories - 1):])
+        return X, labels
 
     def fit(self, Xt, y, sample_weight=None):
-        """Fit underlying list of models with weighted inputs.
+        """Fit each underlying model on its category's rows.
 
         Parameters
         ----------
-        X : array_like, shape (n_samples, n_features + n_treatments)
-            Training data. The last n_T columns should be a one-hot encoding of the treatment assignment.
+        Xt : array_like, shape (n_samples, n_features + width)
+            Training data. ``width`` depends on ``encoding``:
+            ``n_categories - 1`` for ``'drop_first'`` (the default),
+            ``n_categories`` for ``'full'``, or ``1`` for ``'label'``.
+            The trailing block must be a treatment encoding of the
+            corresponding form.
 
-        y : array_like, shape (n_samples, )
+        y : array_like
             Target values.
+
+        sample_weight : array_like, optional
+            Per-sample weights, forwarded to each underlying model.
 
         Returns
         -------
-        self: an instance of the class
+        self : MultiModelWrapper
         """
-        X = Xt[:, :-self.n_T]
-        t = Xt[:, -self.n_T:]
-        if sample_weight is None:
-            for i in range(self.n_T):
-                mask = (t[:, i] == 1)
-                self.model_list[i].fit(X[mask], y[mask])
-        else:
-            for i in range(self.n_T):
-                mask = (t[:, i] == 1)
-                self.model_list[i].fit(X[mask], y[mask], sample_weight[mask])
+        X, labels = self._split(Xt)
+        y = np.asarray(y)
+        if sample_weight is not None:
+            sample_weight = np.asarray(sample_weight)
+        for i, mdl in enumerate(self.models):
+            mask = labels == i
+            if sample_weight is None:
+                mdl.fit(X[mask], y[mask])
+            else:
+                mdl.fit(X[mask], y[mask], sample_weight=sample_weight[mask])
         return self
 
     def predict(self, Xt):
-        """Predict using the linear model.
+        """Predict by dispatching each row to its category's model.
 
         Parameters
         ----------
-        X : array_like, shape (n_samples, n_features + n_treatments)
-            Samples. The last n_T columns should be a one-hot encoding of the treatment assignment.
+        Xt : array_like, shape (n_samples, n_features + width)
+            Samples to predict for. See :meth:`fit` for the expected layout.
 
         Returns
         -------
-        C : array, shape (n_samples, )
-            Returns predicted values.
+        C : array, shape (n_samples, ...)
+            Predictions, with category-specific predictions reassembled in
+            the original row order.
         """
-        X = Xt[:, :-self.n_T]
-        t = Xt[:, -self.n_T:]
-        predictions = [self.model_list[np.nonzero(t[i])[0][0]].predict(X[[i]]) for i in range(len(X))]
-        return np.concatenate(predictions)
+        X, labels = self._split(Xt)
+        out = None
+        for i, mdl in enumerate(self.models):
+            mask = labels == i
+            if not np.any(mask):
+                continue
+            preds = mdl.predict(X[mask])
+            if out is None:
+                shape = (X.shape[0],) + np.shape(preds)[1:]
+                out = np.empty(shape, dtype=np.asarray(preds).dtype)
+            out[mask] = preds
+        if out is None:
+            return np.empty(0)
+        return out
 
 
 def _safe_norm_ppf(q, loc=0, scale=1):
@@ -1224,35 +1351,6 @@ class Summary:
         return html
 
 
-class SeparateModel:
-    """
-    Splits the data based on the last feature and trains a separate model for each subsample.
-
-    At predict time, it uses the last feature to choose which model to use to predict.
-    """
-
-    def __init__(self, *models):
-        self.models = [clone(model) for model in models]
-
-    def fit(self, XZ, T):
-        for (i, m) in enumerate(self.models):
-            inds = (XZ[:, -1] == i)
-            m.fit(XZ[inds, :-1], T[inds])
-        return self
-
-    def predict(self, XZ):
-        t_pred = np.zeros(XZ.shape[0])
-        for (i, m) in enumerate(self.models):
-            inds = (XZ[:, -1] == i)
-            if np.any(inds):
-                t_pred[inds] = m.predict(XZ[inds, :-1])
-        return t_pred
-
-    @property
-    def coef_(self):
-        return np.concatenate((model.coef_ for model in self.models))
-
-
 def deprecated(message, category=FutureWarning):
     """
     Enable decorating a method or class to providing a warning when it is used.
@@ -1317,6 +1415,47 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
             return to_wrap(*args, **kwargs)
         return m
     return decorator
+
+
+@deprecated(
+    "SeparateModel is deprecated and will be removed in a future release; "
+    "use MultiModelWrapper(..., encoding='label') instead, which provides "
+    "the same trailing-integer-column dispatch behavior."
+)
+class SeparateModel:
+    """
+    Splits the data based on the last feature and trains a separate model for each subsample.
+
+    At predict time, it uses the last feature to choose which model to use to predict.
+
+    .. deprecated::
+        Use :class:`MultiModelWrapper` with ``encoding='label'`` instead,
+        which has the same trailing-integer-column dispatch behavior.
+        ``MultiModelWrapper`` additionally supports the one-hot encodings
+        produced by EconML's discrete-treatment estimators (see its
+        ``encoding`` parameter).
+    """
+
+    def __init__(self, *models):
+        self.models = [clone(model) for model in models]
+
+    def fit(self, XZ, T):
+        for (i, m) in enumerate(self.models):
+            inds = (XZ[:, -1] == i)
+            m.fit(XZ[inds, :-1], T[inds])
+        return self
+
+    def predict(self, XZ):
+        t_pred = np.zeros(XZ.shape[0])
+        for (i, m) in enumerate(self.models):
+            inds = (XZ[:, -1] == i)
+            if np.any(inds):
+                t_pred[inds] = m.predict(XZ[inds, :-1])
+        return t_pred
+
+    @property
+    def coef_(self):
+        return np.concatenate((model.coef_ for model in self.models))
 
 
 class MissingModule:

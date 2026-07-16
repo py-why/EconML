@@ -7,11 +7,13 @@ import random
 import warnings
 import numpy as np
 import sparse as sp
+import scipy.sparse
 import pytest
 from econml.utilities import (check_high_dimensional, einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
-                              strata_from_discrete_arrays)
+                              strata_from_discrete_arrays, MultiModelWrapper, SeparateModel)
 from sklearn.preprocessing import OneHotEncoder, SplineTransformer
+from sklearn.linear_model import LinearRegression, LogisticRegressionCV, LassoCV
 
 
 class TestUtilities(unittest.TestCase):
@@ -197,3 +199,251 @@ class TestUtilities(unittest.TestCase):
         assert set(strata_from_discrete_arrays([T, Z])) == set(np.arange(6))
         assert set(strata_from_discrete_arrays([T])) == set(np.arange(3))
         assert strata_from_discrete_arrays([]) is None
+
+
+class TestMultiModelWrapper(unittest.TestCase):
+
+    @staticmethod
+    def _encode_drop_first(T, K):
+        out = np.zeros((T.shape[0], K - 1))
+        for i in range(1, K):
+            out[T == i, i - 1] = 1
+        return out
+
+    @staticmethod
+    def _encode_full(T, K):
+        out = np.zeros((T.shape[0], K))
+        for i in range(K):
+            out[T == i, i] = 1
+        return out
+
+    def test_drop_first_routes_rows_to_models(self):
+        rng = np.random.default_rng(0)
+        n, d, K = 90, 3, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        # ground truth: arm k has slope k on the first feature
+        Y = T * X[:, 0]
+        Xt = np.hstack([X, self._encode_drop_first(T, K)])
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+        )
+        w.fit(Xt, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k), places=6)
+        np.testing.assert_allclose(w.predict(Xt), Y, atol=1e-8)
+
+    def test_full_encoding_routes_rows_to_models(self):
+        rng = np.random.default_rng(1)
+        n, d, K = 60, 2, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = (T + 1) * X[:, 0]
+        Xt = np.hstack([X, self._encode_full(T, K)])
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='full',
+        )
+        w.fit(Xt, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k + 1), places=6)
+        np.testing.assert_allclose(w.predict(Xt), Y, atol=1e-8)
+
+    def test_label_encoding_matches_drop_first(self):
+        rng = np.random.default_rng(2)
+        n, d, K = 80, 2, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = T * X[:, 0]
+        Xt_lbl = np.hstack([X, T.reshape(-1, 1)])
+        Xt_df = np.hstack([X, self._encode_drop_first(T, K)])
+
+        w_lbl = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='label',
+        )
+        w_df = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+        )
+        w_lbl.fit(Xt_lbl, Y)
+        w_df.fit(Xt_df, Y)
+        for k in range(K):
+            np.testing.assert_allclose(w_lbl.models[k].coef_, w_df.models[k].coef_)
+        np.testing.assert_allclose(w_lbl.predict(Xt_lbl), w_df.predict(Xt_df))
+
+    def test_single_model_with_n_categories_clones(self):
+        w = MultiModelWrapper(LinearRegression(fit_intercept=False), n_categories=4)
+        self.assertEqual(w.n_categories, 4)
+        self.assertEqual(len(w.models), 4)
+        ids = {id(m) for m in w.models}
+        self.assertEqual(len(ids), 4)  # genuine clones, not the same instance
+
+    def test_single_model_without_n_categories_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper(LinearRegression())
+
+    def test_mismatched_n_categories_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper(LinearRegression(), LinearRegression(), n_categories=3)
+
+    def test_zero_models_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper()
+
+    def test_invalid_encoding_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper(LinearRegression(), LinearRegression(), encoding='bogus')
+
+    def test_too_few_columns_raises(self):
+        w = MultiModelWrapper(LinearRegression(), LinearRegression(), LinearRegression())
+        with self.assertRaises(ValueError):
+            # K=3 with default drop_first needs >= 2 trailing one-hot columns
+            w.fit(np.array([[1.0]]), np.array([0.0]))
+
+    def test_sample_weight_is_forwarded(self):
+        # With one heavily down-weighted point in arm 1, the fitted slope
+        # should be determined by the other arm-1 point alone.
+        X = np.array([[1.0], [2.0], [3.0], [4.0]])
+        T = np.array([0, 0, 1, 1])
+        Y = np.array([0.0, 0.0, 6.0, 100.0])  # (3, 6) -> slope 2; (4, 100) is noise
+        Xt = np.hstack([X, T.reshape(-1, 1).astype(float)])
+        sw = np.array([1.0, 1.0, 1.0, 1e-12])
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='label',
+        )
+        w.fit(Xt, Y, sample_weight=sw)
+        self.assertAlmostEqual(float(w.models[1].coef_[0]), 2.0, places=3)
+
+    def test_integration_with_linear_drlearner_multinary(self):
+        # End-to-end smoke test: drop-first MultiModelWrapper fed to LinearDRLearner
+        # with 3 treatment categories (the case the old MultiModelWrapper couldn't handle).
+        from econml.dr import LinearDRLearner
+        rng = np.random.default_rng(3)
+        n = 300
+        X = rng.normal(size=(n, 2))
+        T = rng.integers(0, 3, size=n)
+        Y = X[:, 0] + T * (1 + X[:, 1]) + rng.normal(size=n)
+
+        mdl = LinearDRLearner(
+            model_regression=MultiModelWrapper(LassoCV(), n_categories=3),
+            model_propensity=LogisticRegressionCV(max_iter=200),
+        )
+        mdl.fit(Y, T, X=X)
+        effects = mdl.effect(X[:5], T0=0, T1=1)
+        self.assertEqual(effects.shape, (5,))
+
+    def test_sparse_input_drop_first(self):
+        # csr_matrix with K=3, drop-first encoding: full matrix stays sparse,
+        # only the trailing 2-column treatment block is densified internally.
+        rng = np.random.default_rng(10)
+        n, d, K = 60, 4, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = T * X[:, 0]
+        Xt = np.hstack([X, self._encode_drop_first(T, K)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_sparse_input_full_encoding(self):
+        rng = np.random.default_rng(11)
+        n, d, K = 50, 3, 2
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = (T + 1) * X[:, 0]
+        Xt = np.hstack([X, self._encode_full(T, K)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='full',
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k + 1), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_sparse_input_label_encoding(self):
+        rng = np.random.default_rng(12)
+        n, d, K = 70, 2, 3
+        X = rng.normal(size=(n, d))
+        T = rng.integers(0, K, size=n)
+        Y = T * X[:, 0]
+        Xt = np.hstack([X, T.reshape(-1, 1).astype(float)])
+        Xt_sparse = scipy.sparse.csr_matrix(Xt)
+
+        w = MultiModelWrapper(
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            LinearRegression(fit_intercept=False),
+            encoding='label',
+        )
+        w.fit(Xt_sparse, Y)
+        for k in range(K):
+            self.assertAlmostEqual(float(w.models[k].coef_[0]), float(k), places=6)
+        np.testing.assert_allclose(w.predict(Xt_sparse), Y, atol=1e-8)
+
+    def test_model_list_kwarg_is_deprecated(self):
+        # Old API: MultiModelWrapper(model_list=[...]) should still work but
+        # emit a FutureWarning and produce a wrapper equivalent to the new
+        # positional-args form.
+        with self.assertWarnsRegex(FutureWarning, "model_list"):
+            w = MultiModelWrapper(
+                model_list=[LinearRegression(fit_intercept=False),
+                            LinearRegression(fit_intercept=False)],
+            )
+        self.assertEqual(w.n_categories, 2)
+        # Smoke-fit to make sure the wrapper is fully functional. Default
+        # encoding is 'drop_first', so we one-hot-drop-first the binary T.
+        X = np.array([[1.0], [2.0], [3.0], [4.0]])
+        T = np.array([0, 0, 1, 1])
+        Y = np.array([0.0, 0.0, 6.0, 8.0])
+        Xt = np.hstack([X, (T == 1).reshape(-1, 1).astype(float)])
+        w.fit(Xt, Y)
+        np.testing.assert_allclose(w.predict(Xt), Y, atol=1e-8)
+
+    def test_positional_list_is_deprecated(self):
+        # Old API: MultiModelWrapper([m1, m2, ...]) should warn and unpack.
+        with self.assertWarnsRegex(FutureWarning, "single positional argument"):
+            w = MultiModelWrapper(
+                [LinearRegression(fit_intercept=False),
+                 LinearRegression(fit_intercept=False),
+                 LinearRegression(fit_intercept=False)],
+            )
+        self.assertEqual(w.n_categories, 3)
+
+    def test_model_list_and_positional_models_together_raises(self):
+        with self.assertRaises(ValueError):
+            MultiModelWrapper(
+                LinearRegression(),
+                model_list=[LinearRegression(), LinearRegression()],
+            )
+
+
+class TestSeparateModelDeprecation(unittest.TestCase):
+
+    def test_separate_model_emits_future_warning(self):
+        with self.assertWarnsRegex(FutureWarning, "SeparateModel is deprecated"):
+            SeparateModel(LinearRegression(), LinearRegression())
