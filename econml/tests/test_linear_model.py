@@ -5,11 +5,13 @@
 
 import numpy as np
 import unittest
+import warnings
+from econml._sklearn_compat import SKLEARN_GE_17
 from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV,
                                                     WeightedLassoCVWrapper, DebiasedLasso, MultiOutputDebiasedLasso,
                                                     SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
-from econml.tests._sklearn_compat_helpers import assert_sklearn_roundtrip
+from econml.tests._sklearn_compat_helpers import assert_sklearn_roundtrip, no_sklearn_future_warnings
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
 from sklearn.base import clone
 
@@ -67,9 +69,110 @@ class TestLassoExtensions(unittest.TestCase):
         # caught PR #1031 (n_alphas getting overwritten with "deprecated" by
         # the sklearn>=1.7 parent __init__).
         assert_sklearn_roundtrip(WeightedLasso, alpha=0.5, fit_intercept=False)
-        assert_sklearn_roundtrip(WeightedLassoCV, n_alphas=5, cv=3, fit_intercept=False)
-        assert_sklearn_roundtrip(WeightedMultiTaskLassoCV, n_alphas=5, cv=3)
+        assert_sklearn_roundtrip(WeightedLassoCV, cv=3, fit_intercept=False)
+        assert_sklearn_roundtrip(WeightedMultiTaskLassoCV, cv=3)
         assert_sklearn_roundtrip(DebiasedLasso, alpha=0.5, fit_intercept=False)
+
+    def test_no_sklearn_future_warnings_on_happy_path_fit(self):
+        # Guard against upstream sklearn deprecations quietly firing during a
+        # basic fit call on our wrappers -- the failure mode PR #1031 was
+        # motivated by. If a new sklearn release deprecates a constructor arg
+        # (or a fit-time argument) we accept and forward, this test fails
+        # loudly with the exact warning message and source instead of silently
+        # emitting a warning storm in production runs.
+        #
+        # Note: our own wrapper-level FutureWarning about n_alphas being
+        # deprecated fires when a user explicitly passes n_alphas on sklearn
+        # >= 1.7. That's intentional (nudges users toward alphas=<int>), but
+        # it's an econml warning, not an sklearn one -- so we deliberately
+        # exercise fits WITHOUT passing n_alphas here. The set_params-based
+        # test below explicitly covers the wrapper-level warning path.
+        X = TestLassoExtensions.X
+        y = TestLassoExtensions.y_simple
+        y_2d = TestLassoExtensions.y_2D_consistent
+        with no_sklearn_future_warnings():
+            WeightedLasso(alpha=0.1).fit(X, y)
+            WeightedLassoCV(cv=3).fit(X, y)
+            WeightedMultiTaskLassoCV(cv=3).fit(X, y_2d)
+            # DebiasedLasso constructs WeightedLassoCV internally for both
+            # alpha and covariance-alpha selection; those internal calls must
+            # use the modern spelling rather than triggering our user-facing
+            # legacy-alias warning.
+            DebiasedLasso().fit(X[:50, :3], y[:50])
+
+    def test_set_params_accepts_legacy_n_alphas(self):
+        # Regression guard against a side effect of the get_params override
+        # for sklearn 1.7+ (see WeightedLassoCV.get_params). Because
+        # ``set_params`` validates its kwargs against ``get_params``,
+        # dropping n_alphas from get_params would otherwise break
+        # ``set_params(n_alphas=...)`` on 1.7+ -- and by extension
+        # ``GridSearchCV`` / ``Pipeline`` parameter grids that name it --
+        # even though ``__init__`` still accepts n_alphas. The matching
+        # ``set_params`` override maps n_alphas back to alphas on 1.7+.
+        #
+        # We check functional semantics via fit rather than attribute
+        # equality, because ``self.alphas`` vs ``self.n_alphas`` are set
+        # differently across sklearn versions (native behavior on < 1.7 vs.
+        # our translation on 1.7+).
+        X = TestLassoExtensions.X
+        y = TestLassoExtensions.y_simple
+        y_2d = TestLassoExtensions.y_2D_consistent
+        for cls, y_fit in [(WeightedLassoCV, y), (WeightedMultiTaskLassoCV, y_2d)]:
+            with (
+                self.subTest(estimator=cls.__name__),
+                no_sklearn_future_warnings(),
+                warnings.catch_warnings(),
+            ):
+                # set_params(n_alphas=5) may emit our wrapper-level FutureWarning
+                # on sklearn 1.7+ (nudging users toward alphas=<int>); suppress
+                # only that warning while still promoting sklearn warnings.
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"The 'n_alphas' parameter of .* is deprecated on scikit-learn >= 1\.7",
+                    category=FutureWarning,
+                )
+                est = cls(cv=3)
+                est.set_params(n_alphas=5)  # doesn't raise
+                if SKLEARN_GE_17:
+                    self.assertEqual(est.alphas, 5)
+                    # A later explicit legacy-alias update replaces an earlier
+                    # alphas value; otherwise GridSearchCV grids over
+                    # n_alphas would be ineffective on a default estimator,
+                    # whose translated alphas value is already non-None.
+                    est.set_params(alphas=[0.5, 0.1])
+                    est.set_params(n_alphas=6)
+                    self.assertEqual(est.alphas, 6)
+                    # Explicit alphas takes precedence unless it is None,
+                    # matching constructor semantics.
+                    est.set_params(n_alphas=7, alphas=[0.5, 0.1])
+                    self.assertEqual(est.alphas, [0.5, 0.1])
+                    est.set_params(n_alphas=7, alphas=None)
+                    self.assertEqual(est.alphas, 7)
+                # Emulate GridSearchCV-style clone-then-set_params-then-fit
+                # to confirm the wrapper is usable end-to-end.
+                clone(cls(cv=3)).set_params(n_alphas=5).fit(X, y_fit)
+
+    def test_n_alphas_deprecation_warning_on_new_sklearn(self):
+        # When a user explicitly passes n_alphas on sklearn >= 1.7, our
+        # wrapper should emit a wrapper-level FutureWarning nudging them to
+        # migrate to alphas=<int>. On older sklearns n_alphas is not
+        # deprecated so no warning should fire.
+        for cls in (WeightedLassoCV, WeightedMultiTaskLassoCV):
+            with self.subTest(estimator=cls.__name__):
+                with warnings.catch_warnings(record=True) as ws:
+                    warnings.simplefilter("always")
+                    cls(n_alphas=5, cv=3)
+                    cls(cv=3).set_params(n_alphas=100)
+                econml_warns = [
+                    w for w in ws
+                    if issubclass(w.category, FutureWarning)
+                    and 'n_alphas' in str(w.message)
+                    and 'EconML' in str(w.message)
+                ]
+                if SKLEARN_GE_17:
+                    self.assertEqual(len(econml_warns), 1)
+                else:
+                    self.assertEqual(len(econml_warns), 0)
 
     #################
     # WeightedLasso #
@@ -322,17 +425,17 @@ class TestLassoExtensions(unittest.TestCase):
         # None and SparseLinearDML.fit / DebiasedLasso.fit raised
         # InvalidParameterError. With default args, the dispatched alphas value
         # must survive to fit time.
-        from packaging.version import parse
-        import sklearn
-        if parse(sklearn.__version__) < parse("1.7"):
+        if not SKLEARN_GE_17:
             self.skipTest("dispatch only active on sklearn 1.7+")
 
         for cls in (WeightedLassoCV, WeightedMultiTaskLassoCV):
-            est = cls()
-            assert est.alphas is not None, \
-                f"{cls.__name__}.alphas was clobbered to None by __init__ (#1032)"
-            assert est.n_alphas == 100, \
-                f"{cls.__name__}.n_alphas should be preserved at 100 (#1032)"
+            with self.subTest(estimator=cls.__name__):
+                est = cls()
+                self.assertEqual(est.alphas, 100)
+                # On sklearn 1.7-1.8 the parent deliberately stores its
+                # "deprecated" sentinel in n_alphas. Preserving that value is
+                # required to keep the parent's fit-time deprecation check
+                # quiet; the effective grid size now lives in alphas.
 
         rng = np.random.default_rng(0)
         n = 300
