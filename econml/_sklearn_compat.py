@@ -237,36 +237,18 @@ from typing import Union
 import sklearn
 from packaging.version import parse
 from sklearn.preprocessing import OneHotEncoder
+# ``_get_column_indices`` and ``_print_elapsed_time`` moved to these private
+# submodules in sklearn 1.5, which is below our supported floor, so the new
+# locations are always correct. They are re-exported here under stable names.
+from sklearn.utils._indexing import _get_column_indices as get_column_indices  # noqa: F401
+from sklearn.utils._user_interface import _print_elapsed_time as print_elapsed_time  # noqa: F401
 
 _SKLEARN_VERSION = parse(sklearn.__version__)
 
 # Version flags. Add a new constant when (and only when) a sklearn release
 # introduces a behavior or API change that EconML needs to branch on.
-SKLEARN_GE_12 = _SKLEARN_VERSION >= parse("1.2")
-SKLEARN_GE_14 = _SKLEARN_VERSION >= parse("1.4")
-SKLEARN_GE_15 = _SKLEARN_VERSION >= parse("1.5")
-SKLEARN_GE_16 = _SKLEARN_VERSION >= parse("1.6")
 SKLEARN_GE_17 = _SKLEARN_VERSION >= parse("1.7")
 SKLEARN_GE_18 = _SKLEARN_VERSION >= parse("1.8")
-
-
-# ---------------------------------------------------------------------------
-# Symbol relocations
-# ---------------------------------------------------------------------------
-
-# ``_get_column_indices`` moved from ``sklearn.utils`` to
-# ``sklearn.utils._indexing`` in sklearn 1.5.
-if SKLEARN_GE_15:
-    from sklearn.utils._indexing import _get_column_indices as get_column_indices
-else:
-    from sklearn.utils import _get_column_indices as get_column_indices  # noqa: F401
-
-# ``_print_elapsed_time`` moved from ``sklearn.utils`` to
-# ``sklearn.utils._user_interface`` in sklearn 1.5.
-if SKLEARN_GE_15:
-    from sklearn.utils._user_interface import _print_elapsed_time as print_elapsed_time
-else:
-    from sklearn.utils import _print_elapsed_time as print_elapsed_time  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -279,9 +261,7 @@ def one_hot_encoder(sparse: bool = False, **kwargs) -> OneHotEncoder:
     Handles the breaking rename of the ``sparse`` constructor argument to
     ``sparse_output`` between sklearn 1.1 and 1.2.
     """
-    if SKLEARN_GE_12:
-        return OneHotEncoder(sparse_output=sparse, **kwargs)
-    return OneHotEncoder(sparse=sparse, **kwargs)
+    return OneHotEncoder(sparse_output=sparse, **kwargs)
 
 
 def ensure_finite_kwargs(ensure_all_finite: Union[str, bool]) -> dict:
@@ -291,6 +271,4 @@ def ensure_finite_kwargs(ensure_all_finite: Union[str, bool]) -> dict:
     and is scheduled to be removed in 1.8+. Splat the returned dict into
     sklearn ``check_array``/``check_X_y`` calls to stay version-agnostic.
     """
-    if SKLEARN_GE_16:
-        return {"ensure_all_finite": ensure_all_finite}
-    return {"force_all_finite": ensure_all_finite}
+    return {"ensure_all_finite": ensure_all_finite}

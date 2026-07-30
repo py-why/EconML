@@ -13,7 +13,7 @@ import numpy as np
 import scipy.sparse as sp
 from joblib import Parallel, delayed
 
-from .._sklearn_compat import SKLEARN_GE_14, SKLEARN_GE_18
+from .._sklearn_compat import SKLEARN_GE_18
 from sklearn.base import BaseEstimator, clone, is_classifier
 from sklearn.ensemble import (GradientBoostingClassifier, GradientBoostingRegressor,
                               RandomForestClassifier, RandomForestRegressor)
@@ -832,15 +832,9 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
 
-    # verbose was removed from sklearn's non-public _fit_and_predict method in 1.4
-    if not SKLEARN_GE_14:
-        predictions = parallel(delayed(_fit_and_predict)(
-            clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
-            for train, test in splits)
-    else:
-        predictions = parallel(delayed(_fit_and_predict)(
-            clone(estimator, safe=safe), X, y, train, test, fit_params, method)
-            for train, test in splits)
+    predictions = parallel(delayed(_fit_and_predict)(
+        clone(estimator, safe=safe), X, y, train, test, fit_params, method)
+        for train, test in splits)
 
     inv_test_indices = np.empty(len(test_indices), dtype=int)
     inv_test_indices[test_indices] = np.arange(len(test_indices))
