@@ -19,22 +19,28 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux"
 ]
+# Lower bounds are deliberately conservative: roughly the newest release available at the
+# end of 2024, capped so they never exceed the version actually exercised on our oldest
+# supported interpreter (Python 3.9) in lkg.txt. Beyond documenting what we actually test,
+# real lower bounds stop resolvers from silently back-tracking into ancient releases when a
+# newer conflict appears: an unbounded "scipy > 1.4.0" allowed a resolver to select scipy
+# 1.6.1, which has no wheels for modern Pythons and fails to build.
 dependencies = [
-    "numpy",
+    "numpy >= 2.0.2",
     # numba is only a transitive dependency, so ideally we wouldn't need to specify it here,
     # but to avoid issues with very old incompatible versions being installed with numpy 2.4.x
     # we need to constrain it here (at least until package metadata directly supports constraints
     # in addition to dependencies)
-    "numba > 0.53.1",
-    "scipy > 1.4.0",
-    "scikit-learn >= 1.0, < 1.10",
-    "sparse",
-    "joblib >= 0.13.0",
-    "statsmodels >= 0.10",
-    "pandas > 1.0",
-    "shap >= 0.38.1",
-    "lightgbm",
-    "packaging"
+    "numba >= 0.60.0",
+    "scipy >= 1.13.1",
+    "scikit-learn >= 1.6.0, < 1.10",
+    "sparse >= 0.15.4",
+    "joblib >= 1.4.2",
+    "statsmodels >= 0.14.4",
+    "pandas >= 2.2.3",
+    "shap >= 0.46.0",
+    "lightgbm >= 4.5.0",
+    "packaging >= 24.2"
 ]
 
 [project.urls]
@@ -50,33 +56,33 @@ automl = [
     "azure-cli"
 ]
 plt = [
-    "graphviz",
-    "matplotlib"
+    "graphviz >= 0.20.3",
+    "matplotlib >= 3.9.4"
 ]
 dowhy = [
     # when updating this, also update the version check in dowhy.py
     "dowhy >= 0.13, < 0.15"
 ]
 ray = [
-    "ray > 2.2.0"
+    "ray >= 2.40.0"
 ]
 all = [
     # Disabled due to incompatibility with scikit-learn
     # azureml-sdk[explain,automl] == 1.0.83
     "azure-cli",
-    "graphviz",
-    "matplotlib",    
+    "graphviz >= 0.20.3",
+    "matplotlib >= 3.9.4",
     "dowhy >= 0.13, < 0.15",
-    "ray > 2.2.0"
+    "ray >= 2.40.0"
 ]
 
 [build-system]
 requires = [
-    "setuptools",
-    "wheel",
+    "setuptools >= 75.6.0",
+    "wheel >= 0.45.1",
     "numpy >=2, <3",
-    "scipy",
-    "cython"
+    "scipy >= 1.13.1",
+    "cython >= 3.0.11"
 ]
 build-backend = "setuptools.build_meta"
 
