@@ -2209,7 +2209,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
             return y, T, Z, X
 
         def true_heterogeneity_function(X):
-            return 5 * X[:, 0]
+            return 5 * X[:, 0] + 10
 
         np.random.seed(123)
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
@@ -2217,10 +2217,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-2.09445,  6.31098, -3.65669])
+    array([ 7.91377, 14.72625,  7.12186])
     >>> est.effect_interval(X[:3])
-    (array([-5.55703,  2.38627, -7.14615]),
-    array([ 1.36811, 10.23568, -0.16722]))
+    (array([ 3.47864, 10.16442,  3.02576]),
+    array([12.34890, 19.28809, 11.21796]))
     """
 
     def __init__(self, *,
