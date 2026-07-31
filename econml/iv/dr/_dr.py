@@ -663,30 +663,37 @@ class _DRIV(_BaseDRIV):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        model_y_xw = _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state)
-        model_t_xw = _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
+        n_jobs = getattr(self, 'n_jobs', None)
+        model_y_xw = _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state,
+                                                 n_jobs=n_jobs)
+        model_t_xw = _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state,
+                                                 n_jobs=n_jobs)
 
         if self.projection:
             # this is a regression model since the instrument E[T|X,W,Z] is always continuous
             model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
                                                      is_discrete=False,
-                                                     random_state=self.random_state)
+                                                     random_state=self.random_state,
+                                                     n_jobs=n_jobs)
 
             # we're using E[T|X,W,Z] as the instrument
             model_z = _make_first_stage_selector(self.model_t_xwz,
                                                  is_discrete=self.discrete_treatment,
-                                                 random_state=self.random_state)
+                                                 random_state=self.random_state,
+                                                 n_jobs=n_jobs)
 
         else:
             model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
                                                      is_discrete=(self.discrete_treatment and
                                                                   self.discrete_instrument and
                                                                   not self.fit_cov_directly),
-                                                     random_state=self.random_state)
+                                                     random_state=self.random_state,
+                                                     n_jobs=n_jobs)
 
             model_z = _make_first_stage_selector(self.model_z_xw,
                                                  is_discrete=self.discrete_instrument,
-                                                 random_state=self.random_state)
+                                                 random_state=self.random_state,
+                                                 n_jobs=n_jobs)
 
         return [_BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
                                           model_y_xw=model_y_xw,
@@ -2517,10 +2524,13 @@ class _IntentToTreatDRIV(_BaseDRIV):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
+        n_jobs = getattr(self, 'n_jobs', None)
         model_y_xw = _make_first_stage_selector(self.model_y_xw,
                                                 is_discrete=self.discrete_outcome,
-                                                random_state=self.random_state)
-        model_t_xwz = _make_first_stage_selector(self.model_t_xwz, is_discrete=True, random_state=self.random_state)
+                                                random_state=self.random_state,
+                                                n_jobs=n_jobs)
+        model_t_xwz = _make_first_stage_selector(self.model_t_xwz, is_discrete=True,
+                                                  random_state=self.random_state, n_jobs=n_jobs)
 
         if self.z_propensity == "auto":
             dummy_z = DummyClassifier(strategy="prior")
@@ -2529,7 +2539,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
         else:
             raise ValueError("Only 'auto' or float is allowed!")
 
-        dummy_z = _make_first_stage_selector(dummy_z, is_discrete=True, random_state=self.random_state)
+        dummy_z = _make_first_stage_selector(dummy_z, is_discrete=True, random_state=self.random_state,
+                                             n_jobs=n_jobs)
 
         return _IntentToTreatDRIVNuisanceSelector(model_y_xw, model_t_xwz, dummy_z, self._gen_prel_model_effect())
 
