@@ -50,29 +50,45 @@ class _ModelNuisance(ModelSelector):
         self._model_y = model_y
         self._model_t = model_t
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None,
+              propensity=None):
         assert Z is None, "Cannot accept instrument!"
-        self._model_t.train(is_selecting, folds, X, W, T, **
-                            filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._uses_user_propensity = propensity is not None
+        if propensity is None:
+            self._model_t.train(is_selecting, folds, X, W, T, **
+                                filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         self._model_y.train(is_selecting, folds, X, W, Y, **
                             filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None,
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, propensity=None,
               y_scoring=None, t_scoring=None, t_score_by_dim=False):
         # note that groups are not passed to score because they are only used for fitting
-        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
-                                       scoring=t_scoring, score_by_dim=t_score_by_dim)
+        if getattr(self, '_uses_user_propensity', False):
+            # no treatment model was fitted, so there is nothing to score
+            T_score = None
+        else:
+            T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight),
+                                          scoring=t_scoring, score_by_dim=t_score_by_dim)
         Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight),
                                       scoring=y_scoring)
         return Y_score, T_score
 
-    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, propensity=None):
+        if getattr(self, '_uses_user_propensity', False) and propensity is None:
+            raise ValueError("This model was trained with user-supplied propensities, "
+                             "so propensities must also be supplied at predict time.")
         Y_pred = self._model_y.predict(X, W)
-        T_pred = self._model_t.predict(X, W)
+        if propensity is not None:
+            # the first stage treatment predictions are the probabilities of each non-control treatment,
+            # matching the one-hot encoding of T (which drops the control category)
+            T_pred = propensity[:, 1:]
+        else:
+            T_pred = self._model_t.predict(X, W)
         if (X is None) and (W is None):  # In this case predict above returns a single row
             Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-            T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
+            if propensity is None:
+                T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
         Y_res = Y - Y_pred.reshape(Y.shape)
         T_res = T - T_pred.reshape(T.shape)
         return Y_res, T_res
@@ -459,8 +475,14 @@ class _RLearner(_OrthoLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_rlearner_model_final())
 
+    @property
+    def _supports_user_propensity(self):
+        # with a discrete treatment, the first stage treatment model predicts treatment probabilities,
+        # so known propensities can be used in its place
+        return self.discrete_treatment
+
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            propensity=None, cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -487,6 +509,20 @@ class _RLearner(_OrthoLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -497,13 +533,16 @@ class _RLearner(_OrthoLearner):
         -------
         self: _RLearner instance
         """
+        if propensity is not None and not self.discrete_treatment:
+            raise ValueError("The propensity argument is only supported when discrete_treatment=True.")
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, scoring=None, propensity=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -526,6 +565,10 @@ class _RLearner(_OrthoLearner):
             Controls for each sample
         sample_weight:(n,) vector, optional
             Weights for each samples
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment probabilities for each sample, in the same format as the
+            `propensity` argument to `fit`. Required if the estimator was fit with user-supplied
+            propensities.
 
 
         Returns
@@ -534,7 +577,7 @@ class _RLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, scoring=scoring)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight, propensity=propensity, scoring=scoring)
 
     @property
     def rlearner_model_final_(self):
@@ -548,6 +591,9 @@ class _RLearner(_OrthoLearner):
 
     @property
     def models_t(self):
+        if getattr(self, '_fit_with_user_propensity', False):
+            raise AttributeError("No treatment model was fitted because user-supplied propensities "
+                                 "were provided at fit time.")
         return [[mdl._model_t.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
@@ -619,7 +665,8 @@ class _RLearner(_OrthoLearner):
         -------
         score_dict : dict[str,list[float]]
             A dictionary where the keys indicate the Y and T scores used and the values are
-            lists of scores, one per CV fold model.
+            lists of scores, one per CV fold model. If the estimator was fit with user-supplied
+            propensities, no treatment model was fitted and the T scores will be None.
         """
         Y_key = f'Y_{_RLearner.scoring_name(y_scoring)}'
         T_Key = f'T_{_RLearner.scoring_name(t_scoring)}'

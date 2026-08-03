@@ -575,7 +575,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -602,6 +602,20 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -615,6 +629,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
                            sample_var=sample_var, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values,
                            inference=inference)
 
@@ -915,7 +930,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -942,6 +957,20 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -955,6 +984,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values,
                            inference=inference)
 
@@ -1194,7 +1224,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                         random_state=self.random_state)
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1214,6 +1244,20 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, `Inference` instance, or None
@@ -1232,6 +1276,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -1420,7 +1465,7 @@ class KernelDML(DML):
         return _RandomFeatures(dim=self.dim, bw=self.bw, random_state=self.random_state)
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1440,6 +1485,20 @@ class KernelDML(DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -1453,6 +1512,7 @@ class KernelDML(DML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -1662,7 +1722,7 @@ class NonParamDML(_BaseDML):
     # override only so that we can update the docstring to indicate
     # support for `GenericSingleTreatmentModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
+            propensity=None, cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1689,6 +1749,20 @@ class NonParamDML(_BaseDML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided,
+            the treatment model is not fitted and these values are used in its place when
+            residualizing the treatment. Only supported when `discrete_treatment=True`.
+            If a single column is passed, the treatment must be binary and the values are
+            interpreted as the probability of the non-control treatment; otherwise there must
+            be one column per treatment category (including control as the first column),
+            ordered to match the fitted categories (the sorted unique values of T, or the
+            `categories` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -1702,6 +1776,7 @@ class NonParamDML(_BaseDML):
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var,
                            groups=groups,
+                           propensity=propensity,
                            cache_values=cache_values,
                            inference=inference)
 
