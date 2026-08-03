@@ -40,7 +40,7 @@ class _DynamicModelNuisanceSelector(ModelSelector):
         self._model_t = model_t
         self.n_periods = n_periods
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, sample_weight=None, groups=None, **fit_params):
         """Fit a series of nuisance models for each period or period pairs."""
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
@@ -87,13 +87,13 @@ class _DynamicModelNuisanceSelector(ModelSelector):
                 self._index_or_None(X, period_filters[t]),
                 self._index_or_None(
                     W, period_filters[t]),
-                Y[period_filters[self.n_periods - 1]])
+                Y[period_filters[self.n_periods - 1]], **fit_params)
             for j in np.arange(t, self.n_periods):
                 self._model_t_trained[j][t].train(
                     is_selecting, translated_folds,
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]),
-                    T[period_filters[j]])
+                    T[period_filters[j]], **fit_params)
         return self
 
     def predict(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
