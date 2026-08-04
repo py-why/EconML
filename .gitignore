@@ -118,3 +118,14 @@ doc/_autosummary/
 
 # compiled C files
 *.c
+
+# local knowledge graph / repo understanding artifacts
+.understand-anything/
+
+# local accidental artifacts / unrelated files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.orig
+forest.jbl

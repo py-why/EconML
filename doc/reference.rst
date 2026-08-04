@@ -56,6 +56,50 @@ Orthogonal Random Forest (ORF)
     econml.orf.DMLOrthoForest
     econml.orf.DROrthoForest
 
+.. _censored_outcomes_api:
+
+Censored Outcomes
+^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.censor.fit_nuisance_survival
+    econml.censor.fit_nuisance_survival_crossfit
+    econml.censor.fit_nuisance_competing_crossfit
+    econml.censor.NuisanceResult
+    econml.censor.CrossFitNuisanceResult
+    econml.censor.ipcw_cut_rmst
+    econml.censor.bj_cut_rmst
+    econml.censor.aipcw_cut_rmst
+    econml.censor.uif_diff_rmst
+    econml.censor.ipcw_cut_rmtlj
+    econml.censor.bj_cut_rmtlj
+    econml.censor.aipcw_cut_rmtlj
+    econml.censor.aipcw_cut_rmtlj_sep_direct_astar1
+    econml.censor.aipcw_cut_rmtlj_sep_indirect_astar1
+    econml.censor.uif_diff_rmtlj
+    econml.censor.uif_diff_rmtlj_sep_direct_astar1
+    econml.censor.uif_diff_rmtlj_sep_indirect_astar1
+    econml.metalearners.SurvivalTLearner
+    econml.metalearners.SurvivalSLearner
+    econml.metalearners.CompetingRisksTLearner
+    econml.metalearners.CompetingRisksSLearner
+    econml.metalearners.TLearner
+    econml.metalearners.SLearner
+    econml.metalearners.XLearner
+    econml.metalearners.IPTWLearner
+    econml.metalearners.AIPTWLearner
+    econml.metalearners.MCLearner
+    econml.metalearners.MCEALearner
+    econml.metalearners.ULearner
+    econml.metalearners.RALearner
+    econml.metalearners.RLearner
+    econml.metalearners.IFLearner
+    econml.grf.CausalSurvivalForest
+    econml.grf.GRFCausalForest
+    econml.grf.causal_forest
+
 Instrumental Variable CATE Estimators
 -------------------------------------
 
