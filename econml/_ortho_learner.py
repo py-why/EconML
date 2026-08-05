@@ -192,8 +192,8 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
          X, y,W=y, Z=None)
 
     >>> nuisance
-    (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
-           -1.829662..., -1.782273...], shape=(5000,)),)
+    (array([-1.1057289 , -1.53756637, -2.4518278 , ...,  1.10628792,
+           -1.82966233, -1.78227335], shape=(5000,)),)
     >>> model_list
     [<Wrapper object at 0x...>, <Wrapper object at 0x...>]
     >>> fitted_inds
@@ -475,19 +475,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
-    np.float64(0.00756830...)
+    np.float64(0.00756830)
     >>> est.const_marginal_effect()
-    np.float64(1.02364992...)
+    np.float64(1.02364992)
     >>> est.effect()
-    array([1.023649...])
+    array([1.023649])
     >>> est.effect(T0=0, T1=10)
-    array([10.236499...])
+    array([10.236499])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
-    np.float64(0.00727995...)
+    np.float64(0.00727995)
     >>> est.ortho_learner_model_final_.model
     LinearRegression(fit_intercept=False)
     >>> est.ortho_learner_model_final_.model.coef_
-    array([1.023649...])
+    array([1.023649])
 
     The following example shows how to do double machine learning with discrete treatments, using
     the _OrthoLearner:
@@ -533,15 +533,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, W=W)
 
     >>> est.score_
-    np.float64(0.00672978...)
+    np.float64(0.00672978)
     >>> est.const_marginal_effect()
-    array([[1.008402...]])
+    array([[1.008402]])
     >>> est.effect()
-    array([1.008402...])
+    array([1.008402])
     >>> est.score(y, T, W=W)
-    np.float64(0.00310431...)
+    np.float64(0.00310431)
     >>> est.ortho_learner_model_final_.model.coef_[0]
-    np.float64(1.00840240...)
+    np.float64(1.00840240)
 
     Attributes
     ----------
