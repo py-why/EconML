@@ -949,7 +949,7 @@ class RegressionForest(BaseGRF):
 
         np.set_printoptions(suppress=True)
         np.random.seed(123)
-        X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
+        X, y = make_regression(n_samples=1000, n_features=4, n_informative=4,
                                random_state=0, shuffle=False)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5)
         regr = RegressionForest(max_depth=None, random_state=0,
@@ -958,9 +958,9 @@ class RegressionForest(BaseGRF):
     >>> regr.fit(X_train, y_train)
     RegressionForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
-    array([0.88..., 0.11..., 0.00..., 0.00...])
+    array([0.2869952 , 0.03651571, 0.59767877, 0.07881031])
     >>> regr.predict(np.ones((1, 4)), interval=True, alpha=.05)
-    (array([[121.0...]]), array([[103.6...]]), array([[138.3...]]))
+    (array([[194.5075591]]), array([[159.10510002]]), array([[229.91001818]]))
 
     References
     ----------
