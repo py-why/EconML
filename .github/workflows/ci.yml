@@ -116,7 +116,7 @@ jobs:
       run: 'pip install pytest && pytest .github/workflows/tests/ -q -o addopts=""'
 
   notebooks:
-    name: Run notebooks
+    name: "Run notebooks (${{ matrix.profile }}, ${{ matrix.kind }})"
     needs: [eval]
     if: ${{ needs.eval.outputs.buildNbs == 'True' }}
     runs-on: ubuntu-latest
@@ -241,7 +241,7 @@ jobs:
         path: notebooks/output/
   
   tests:
-    name: "Run tests"
+    name: "Run tests (${{ matrix.profile }}, ${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.kind }})"
     needs: [eval]
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     strategy:

@@ -114,3 +114,17 @@ def test_verify_job_depends_on_eval(ci):
     # every downstream job skip and the required check report green with nothing
     # having run.
     assert "eval" in ci["jobs"]["verify"]["needs"]
+
+
+def test_matrix_jobs_have_explicit_names(ci):
+    # A combination created by `include` exposes *every* key in the auto-generated
+    # job name, so an all-floor cell would otherwise render as
+    #   Run tests (ubuntu-latest, 3.12, other, all-floor, false, -m "cate_api ...", [plt])
+    # which is unreadable and, worse, unstable: adding a matrix property would
+    # rename the check and silently break any branch protection rule naming it.
+    # An explicit name pins the displayed identity to the dimensions we choose.
+    for job in ("tests", "notebooks"):
+        name = ci["jobs"][job].get("name", "")
+        assert "matrix.profile" in name, (
+            f"{job}: set an explicit name including matrix.profile so job names "
+            "stay readable and stable")
