@@ -1,0 +1,18 @@
+# Profile: current
+#
+# The center of the test matrix: newest known-good versions of everything. This
+# is what most users have installed, and what the recorded per-cell freeze files
+# on the `lkg` branch pin to.
+#
+# This file is a uv configuration file (see
+# https://docs.astral.sh/uv/reference/settings/). CI passes it via
+# `uv --config-file`, so any uv setting is available here without the workflow
+# needing to know anything about it.
+#
+# There are deliberately no constraints by default. Add one when a change needs a
+# newer (or older) dependency than the recorded freeze provides -- doing so
+# changes this file's hash, which invalidates the stale freezes and lets a single
+# pull request land the dependency change and the code change together. See the
+# "Last known good (LKG) dependency versions" section of README.md.
+
+prerelease = "disallow"

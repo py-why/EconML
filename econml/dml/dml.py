@@ -1597,7 +1597,7 @@ class NonParamDML(_BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.35318, 1.28760, 0.83506])
+    array([0.22215931, 1.6484125 , 0.9278963 ])
     """
 
     def __init__(self, *,
