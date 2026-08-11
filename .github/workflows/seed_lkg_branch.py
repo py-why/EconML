@@ -35,9 +35,11 @@ Manual recipe::
     cd ../econml-lkg-worktree
     python /path/to/seed_lkg_branch.py /tmp/lkg-seed-input .
 
-    # 4. Commit and push.
+    # 4. Commit and push. ``--no-verify`` skips the repo's pre-commit hook,
+    #    which would otherwise abort because the orphan ``lkg`` branch has
+    #    no ``.pre-commit-config.yaml``.
     git add -A
-    git commit -s -m "Seed lkg branch from run $RUN_ID"
+    git commit --no-verify -m "Seed lkg branch from run $RUN_ID"
     git push origin lkg
 
     # 5. Clean up.
