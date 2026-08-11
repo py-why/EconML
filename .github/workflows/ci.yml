@@ -123,6 +123,10 @@ jobs:
     strategy:
       matrix:
         kind: [except-customer-scenarios, customer-scenarios]
+        # Notebooks only run the `current` profile: they exercise documentation
+        # examples end to end, which is a different question from dependency-range
+        # coverage.
+        profile: [current]
         include:
         - kind: "except-customer-scenarios"
           extras: "[plt,ray]"
@@ -136,7 +140,7 @@ jobs:
           install_graphviz: false
       fail-fast: false
     env:
-      id_string: ${{ matrix.kind }}-${{ matrix.version }}
+      id_string: ${{ matrix.profile }}-${{ matrix.kind }}-${{ matrix.version }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -166,16 +170,33 @@ jobs:
     - name: Install econml
       shell: bash
       run: |
-        LKG_FILE="lkg-cache/lkg-notebooks-${{ matrix.kind }}-${{ matrix.version }}.txt"
-        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
-          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        set -euo pipefail
+        RECIPE="profiles/${{ matrix.profile }}.toml"
+        FREEZE="lkg-cache/lkg-notebooks-${{ env.id_string }}.txt"
+        VERBOSE="${{ fromJSON('["","-v"]')[runner.debug] }}"
+
+        # See the tests job for why the recipe is hashed into the freeze.
+        WANT=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$RECIPE")
+        HAVE=$(sed -n 's/^# recipe-sha: //p' "$FREEZE" 2>/dev/null || true)
+
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$FREEZE" ] && [ "$WANT" = "$HAVE" ]; then
+          echo "${{ matrix.profile }}: installing from freeze $FREEZE (recipe-sha $WANT)"
+          uv --config-file "$RECIPE" pip install --system -e ".${{ matrix.extras }}" $VERBOSE -r "$FREEZE"
         else
-          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
-          # Notebook-specific deps. When the LKG file is present these are already pinned in it.
-          uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+          echo "::notice::${{ matrix.profile }}: resolving from recipe $RECIPE (freeze missing, stale, or use_lkg unset)"
+          uv --config-file "$RECIPE" pip install --system -e ".${{ matrix.extras }}" $VERBOSE
+          # Notebook-specific deps. When the freeze is used these are already pinned in it.
+          uv --config-file "$RECIPE" pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
         fi
     - name: Save installed packages
-      run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
+      shell: bash
+      run: |
+        set -euo pipefail
+        SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/${{ matrix.profile }}.toml")
+        {
+          echo "# recipe-sha: $SHA"
+          pip freeze --exclude-editable
+        } > notebooks-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
       uses: actions/upload-artifact@v6
       with:
@@ -228,6 +249,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         kind: [serial, other, dml, main, treatment, ray]
+        # Dependency profile, defined by profiles/<name>.toml (a uv config file).
+        # The bulk of the matrix runs `current`; variant profiles are added as
+        # explicit `include` entries below so they don't multiply the whole grid.
+        profile: [current]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
@@ -258,10 +283,41 @@ jobs:
           - kind: ray
             opts: '-m "ray"'
             extras: "[ray]"
+          # --- variant profiles -------------------------------------------------
+          # These specify every matrix dimension, so each creates one additional
+          # combination rather than multiplying the grid. They must repeat `opts`
+          # and `extras` because a combination created by `include` does not
+          # inherit properties from the kind-based entries above.
+          #
+          # `all-floor` installs every direct dependency at its declared lower
+          # bound, which is the only thing in CI that exercises the bounds in
+          # pyproject.toml. Kept to one OS and one interpreter: the floors are an
+          # API-compatibility question, not a platform one.
+          - os: ubuntu-latest
+            python-version: '3.12'
+            kind: main
+            profile: all-floor
+            record_freeze: 'false'
+            opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization or ray)" -n 2'
+            extras: "[plt,dowhy]"
+          - os: ubuntu-latest
+            python-version: '3.12'
+            kind: dml
+            profile: all-floor
+            record_freeze: 'false'
+            opts: '-m "dml and not ray"'
+            extras: "[plt]"
+          - os: ubuntu-latest
+            python-version: '3.12'
+            kind: other
+            profile: all-floor
+            record_freeze: 'false'
+            opts: '-m "cate_api and not ray" -n auto'
+            extras: "[plt]"
       fail-fast: false    
     runs-on: ${{ matrix.os }}
     env:
-      id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
+      id_string: ${{ matrix.profile }}-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -295,16 +351,58 @@ jobs:
     - name: Install econml
       shell: bash
       run: |
-        LKG_FILE="lkg-cache/lkg-tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}.txt"
-        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
-          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        set -euo pipefail
+        RECIPE="profiles/${{ matrix.profile }}.toml"
+        FREEZE="lkg-cache/lkg-tests-${{ env.id_string }}.txt"
+        VERBOSE="${{ fromJSON('["","-v"]')[runner.debug] }}"
+
+        # A freeze is only usable if it was generated from the current recipe.
+        # Hashing the recipe means a pull request that edits it automatically
+        # invalidates its own stale freezes and re-resolves, so a change needing
+        # both new pins and new code can land atomically. Python rather than
+        # sha256sum: setup-python has already run, and it behaves identically on
+        # all three runner OSes.
+        # Only the fallback is annotated with ::notice::. Using the freeze is the
+        # expected steady state across ~100 cells, so annotating it would bury the
+        # one case worth seeing -- a cell unexpectedly resolving fresh -- in a
+        # hundred identical entries. The happy path stays a plain log line.
+        WANT=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$RECIPE")
+        HAVE=$(sed -n 's/^# recipe-sha: //p' "$FREEZE" 2>/dev/null || true)
+
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$FREEZE" ] && [ "$WANT" = "$HAVE" ]; then
+          echo "${{ matrix.profile }}: installing from freeze $FREEZE (recipe-sha $WANT)"
+          uv --config-file "$RECIPE" pip install --system -e ".${{ matrix.extras }}" $VERBOSE -r "$FREEZE"
         else
-          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
+          # Missing, stale, or deliberately unpinned (see profiles/all-floor.toml).
+          # The recipe is still applied, so a variant profile keeps its intent
+          # instead of silently degrading into `current`.
+          if [ "${{ env.use_lkg }}" != "true" ]; then
+            why="use_lkg is not set"
+          elif [ ! -f "$FREEZE" ]; then
+            why="no freeze recorded for this cell"
+          else
+            why="freeze is stale (recipe-sha ${HAVE:-none}, want $WANT)"
+          fi
+          echo "::notice::${{ matrix.profile }}: resolving from recipe $RECIPE ($why)"
+          uv --config-file "$RECIPE" pip install --system -e ".${{ matrix.extras }}" $VERBOSE
         fi
     - name: Save installed packages
-      run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
+      shell: bash
+      # Profiles that deliberately re-resolve on every run (all-floor) opt out:
+      # recording a pin would defeat the point of the profile.
+      if: ${{ matrix.record_freeze != 'false' }}
+      run: |
+        set -euo pipefail
+        # Stamp the recipe hash into the freeze so a later run can tell whether
+        # this file still reflects the profile it was generated from.
+        SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/${{ matrix.profile }}.toml")
+        {
+          echo "# recipe-sha: $SHA"
+          pip freeze --exclude-editable
+        } > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
       uses: actions/upload-artifact@v6
+      if: ${{ matrix.record_freeze != 'false' }}
       with:
         name: requirements-${{ env.id_string }}
         path: tests-${{ env.id_string }}-requirements.txt
@@ -540,7 +638,7 @@ jobs:
       
   verify:
     name: Verify CI checks
-    needs: [lint, notebooks, tests, build, docs]
+    needs: [eval, lint, notebooks, tests, build, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:

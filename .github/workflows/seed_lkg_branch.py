@@ -59,10 +59,10 @@ from pathlib import Path
 def rename_artifact_file(artifact_filename: str) -> str:
     """Map a freeze artifact filename to its lkg-branch filename.
 
-    >>> rename_artifact_file("tests-ubuntu-latest-3.12-main-requirements.txt")
-    'lkg-tests-ubuntu-latest-3.12-main.txt'
-    >>> rename_artifact_file("docs-ubuntu-latest-3.12-requirements.txt")
-    'lkg-docs-ubuntu-latest-3.12.txt'
+    >>> rename_artifact_file("tests-current-ubuntu-latest-3.12-main-requirements.txt")
+    'lkg-tests-current-ubuntu-latest-3.12-main.txt'
+    >>> rename_artifact_file("docs-current-ubuntu-latest-3.12-requirements.txt")
+    'lkg-docs-current-ubuntu-latest-3.12.txt'
     """
     suffix = "-requirements.txt"
     if not artifact_filename.endswith(suffix):
