@@ -189,10 +189,10 @@ class _ModelNuisance(ModelSelector):
         return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities, raw_propensities
 
 
-def _make_first_stage_selector(model, is_discrete, random_state):
+def _make_first_stage_selector(model, is_discrete, random_state, n_jobs=None):
     if model == "auto":
         model = ['linear', 'forest']
-    return get_selector(model, is_discrete=is_discrete, random_state=random_state)
+    return get_selector(model, is_discrete=is_discrete, random_state=random_state, n_jobs=n_jobs)
 
 
 class _ModelFinal:
@@ -678,8 +678,10 @@ class DRLearner(_OrthoLearner):
         return options
 
     def _gen_ortho_learner_model_nuisance(self):
-        model_propensity = _make_first_stage_selector(self.model_propensity, True, self.random_state)
-        model_regression = _make_first_stage_selector(self.model_regression, self.discrete_outcome, self.random_state)
+        model_propensity = _make_first_stage_selector(self.model_propensity, True, self.random_state,
+                                                      n_jobs=getattr(self, 'n_jobs', None))
+        model_regression = _make_first_stage_selector(self.model_regression, self.discrete_outcome, self.random_state,
+                                                      n_jobs=getattr(self, 'n_jobs', None))
 
         return _ModelNuisance(model_propensity, model_regression, self.min_propensity, self.discrete_outcome)
 

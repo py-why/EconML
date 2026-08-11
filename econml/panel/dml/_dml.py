@@ -576,12 +576,14 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     def _gen_model_y(self):
         return _make_first_stage_selector(self.model_y,
                                           is_discrete=self.discrete_outcome,
-                                          random_state=self.random_state)
+                                          random_state=self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t(self):
         return _make_first_stage_selector(self.model_t,
                                           is_discrete=self.discrete_treatment,
-                                          random_state=self.random_state)
+                                          random_state=self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
