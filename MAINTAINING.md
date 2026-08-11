@@ -16,6 +16,34 @@ We use GitHub Actions to build and publish the package and documentation.  To cr
 This section covers infrastructure that only repository maintainers (not
 contributors or end users) need to know about.
 
+## Dependency profiles
+
+A *profile* names one dependency configuration that CI is expected to support.
+Each is a [uv configuration file](https://docs.astral.sh/uv/reference/settings/)
+under `profiles/`, and CI passes it with `uv --config-file`, so any uv setting
+works there without the workflow needing to understand it.
+
+| Profile | What it pins | Where it runs |
+| ---------- | ------------------------------------------- | ---------------------- |
+| `current`  | newest known-good everything                | the whole matrix |
+| `all-floor`| every direct dependency at its declared lower bound | ubuntu / 3.12, a few kinds |
+
+`current` is the center of the matrix and what the per-cell freeze files record.
+`all-floor` uses `resolution = "lowest-direct"`, which makes it the only thing in
+CI that actually exercises the lower bounds declared in `pyproject.toml`; without
+it those bounds are just a promise. It deliberately records **no** freeze — its
+whole purpose is to re-resolve from the floors on each run — which costs nothing
+in reproducibility because `lowest-direct` is deterministic.
+
+Profiles are meant to vary **one factor at a time**: `all-floor` aside, a variant
+should differ from `current` in a single dependency, so a failure points at that
+dependency rather than at an interaction. Adding one means adding a
+`profiles/<name>.toml` and an `include:` entry in the `tests` matrix that spells
+out every dimension (combinations created by `include` inherit nothing, so
+`opts`, `extras`, and `profile` must all be repeated). No freeze needs to exist
+first: a cell with no recorded freeze resolves from its recipe, and the next
+nightly records one.
+
 ## Last-known-good (LKG) branch
 
 CI pins dependency versions for reproducibility using a long-lived orphan
@@ -36,19 +64,72 @@ that cell.
 - **PR runs (and `workflow_dispatch` with `use_lkg=true`)**: each cell
   checks out the `lkg` branch into a `lkg-cache/` directory (sparse,
   `continue-on-error: true` for bootstrap) and installs `-r` its own
-  per-cell file. If the file is missing, the cell falls back to a
-  floating install so a brand-new cell can still bootstrap.
+  per-cell file. If the file is missing **or was generated from a
+  different version of the cell's profile**, the cell resolves from the
+  profile recipe instead, so a brand-new cell can bootstrap and a changed
+  recipe takes effect immediately.
+
+Each freeze records the hash of the recipe it came from:
+
+```
+# recipe-sha: 9f2c1ab77e04
+scikit-learn==1.9.0
+...
+```
+
+The install step recomputes that hash and only uses the freeze if it matches.
+Both branches emit a `::notice::` saying which path was taken, so a cell quietly
+falling back to a floating install is visible rather than silent.
+
+### Changing dependencies and code together
+
+Some changes need a new dependency version *and* the code change that goes with
+it. scikit-learn 1.9, for example, changed how `RandomForest` draws its weighted
+bootstrap, which moved a `NonParamDML` doctest by 37%: the new expected value only
+passes on 1.9, and 1.9 only gets installed once the pins allow it. Refreshing pins
+first turns every open PR red; merging the code first fails its own checks.
+
+Recipe hashing removes the deadlock:
+
+1. Add the constraint you need to the relevant `profiles/*.toml`, e.g.
+
+   ```toml
+   constraint-dependencies = ["scikit-learn>=1.9,<1.10"]
+   ```
+
+2. Make the code change in the **same** commit.
+3. Push. The edit changes the recipe's hash, so every stale freeze for that
+   profile is ignored and the cells resolve fresh under the new constraint. The
+   PR is green on its own.
+4. Merge. There is nothing to clean up — the next nightly regenerates the freezes
+   with the new `recipe-sha` and the cells return to fully pinned.
+
+Because invalidation is *derived* from the recipe rather than declared in a
+separate override file, no follow-up commit is needed to undo anything.
+
+To force a re-resolve without changing any constraint (say the pins are simply
+stale), bump a comment — the hash covers the whole file:
+
+```toml
+# refresh: 2026-08-10 - pick up the numba 0.66 fix
+```
+
+Note the blast radius: changing a recipe re-resolves **everything** for that
+profile, not just the package you constrained, so unrelated upgrades can arrive
+at the same time. That is the same exposure the nightly has, so anything it
+surfaces is real — but it does mean a recipe change can go red for reasons
+unrelated to its diff.
 
 ### File naming convention
 
 Files live flat at the root of the `lkg` branch:
 
-| Job                | Filename                                  |
-| ------------------ | ----------------------------------------- |
-| `tests` cell       | `lkg-tests-<os>-<py>-<kind>.txt`          |
-| `notebooks` cell   | `lkg-notebooks-<kind>-<py>.txt`           |
-| `build_sdist`      | `lkg-build-ubuntu-latest-3.12.txt`        |
-| `create_docs`      | `lkg-docs-ubuntu-latest-3.12.txt`         |
+| Job                | Filename                                          |
+| ------------------ | ------------------------------------------------- |
+| `tests` cell       | `lkg-tests-<profile>-<os>-<py>-<kind>.txt`        |
+| `notebooks` cell   | `lkg-notebooks-<profile>-<kind>-<py>.txt`         |
+| `build_sdist`      | `lkg-build-current-ubuntu-latest-3.12.txt`        |
+| `create_docs`      | `lkg-docs-current-ubuntu-latest-3.12.txt`         |
 
 Rename rule for the seed/recovery script: drop the
 `-requirements.txt` suffix from each downloaded artifact file and
@@ -135,3 +216,8 @@ If a cell's pinned versions become un-installable (e.g., a yanked
 release), delete just that cell's file from the `lkg` branch via a
 direct commit. The next CI run for that cell will fall back to a
 floating install, and the following nightly will repopulate the file.
+
+An alternative that needs no write access to the `lkg` branch: bump the
+`# refresh:` comment in the affected `profiles/*.toml`. That invalidates the
+freezes for that profile by hash, so the cells re-resolve immediately, and it
+lands as a reviewable change in the PR that needs it.

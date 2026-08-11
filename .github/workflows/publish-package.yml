@@ -105,19 +105,34 @@ jobs:
       - name: Install econml[all]
         shell: bash
         run: |
-          LKG_FILE="lkg-cache/lkg-build-ubuntu-latest-3.12.txt"
-          if [ "${{ inputs.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
-            pip install -e ".[all]" -r "$LKG_FILE"
+          set -euo pipefail
+          RECIPE="profiles/current.toml"
+          FREEZE="lkg-cache/lkg-build-current-ubuntu-latest-3.12.txt"
+
+          WANT=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$RECIPE")
+          HAVE=$(sed -n 's/^# recipe-sha: //p' "$FREEZE" 2>/dev/null || true)
+
+          if [ "${{ inputs.use_lkg }}" = "true" ] && [ -f "$FREEZE" ] && [ "$WANT" = "$HAVE" ]; then
+            echo "build: installing from freeze $FREEZE (recipe-sha $WANT)"
+            pip install -e ".[all]" -r "$FREEZE"
           else
+            echo "::notice::build: resolving fresh (freeze missing, stale, or use_lkg unset)"
             pip install -e ".[all]"
           fi
       - name: Save installed packages
-        run: pip freeze --exclude-editable > build-ubuntu-latest-3.12-requirements.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/current.toml")
+          {
+            echo "# recipe-sha: $SHA"
+            pip freeze --exclude-editable
+          } > build-current-ubuntu-latest-3.12-requirements.txt
       - name: Upload installed packages
         uses: actions/upload-artifact@v6
         with:
-          name: requirements-build-ubuntu-latest-3.12
-          path: build-ubuntu-latest-3.12-requirements.txt
+          name: requirements-build-current-ubuntu-latest-3.12
+          path: build-current-ubuntu-latest-3.12-requirements.txt
       - name: Build sdist
         run: python setup.py sdist
       - name: Upload sdist as artifact
