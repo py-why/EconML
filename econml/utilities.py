@@ -960,6 +960,7 @@ def einsum_sparse(subscripts, *arrs):
 
     # when indices are repeated within an array, pre-filter the coordinates and data
     def filter_inds(coords, data, n):
+        import numpy as np
         counts = Counter(inputs[n])
         repeated = [(c, counts[c]) for c in counts if counts[c] > 1]
         if len(repeated) > 0:
@@ -976,9 +977,23 @@ def einsum_sparse(subscripts, *arrs):
           for n, (s, arr) in enumerate(zip(inputs, arrs))
           for c, d in [filter_inds(arr.coords.T, arr.data, n)]]
 
-    # TODO: would using einsum's paths to optimize the order of merging help?
-    while len(xs) > 1:
-        xs.append(merge(xs.pop(), xs.pop()))
+    # Using einsum's paths to optimize the order of merging
+    try:
+        import numpy as np
+        # create dummy arrays to get the contraction path without allocating actual memory
+        dummy_arrs = [np.broadcast_to(np.array([0.]), arr.shape) for arr in arrs]
+        path = np.einsum_path(subscripts, *dummy_arrs, optimize='greedy')[0]
+        # path is like ['einsum_path', (0, 1), (0, 1)]
+        for step in path[1:]:
+            # pop items in reverse order of indices to avoid shifting indices
+            to_merge = [xs.pop(i) for i in sorted(step, reverse=True)]
+            merged = to_merge[0]
+            for x in to_merge[1:]:
+                merged = merge(merged, x)
+            xs.append(merged)
+    except Exception:
+        while len(xs) > 1:
+            xs.append(merge(xs.pop(), xs.pop()))
 
     results = defaultdict(int)
 
