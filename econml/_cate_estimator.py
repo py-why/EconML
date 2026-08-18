@@ -890,9 +890,10 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         outTs = []
         for T in Ts:
             if (ndim(T) == 0) and self._d_t_in and self._d_t_in[0] > 1:
-                warn("A scalar was specified but there are multiple treatments; "
-                     "the same value will be used for each treatment.  Consider specifying"
-                     "all treatments, or using the const_marginal_effect method.")
+                warn(f"Scalar treatment value passed for a model expecting {self._d_t_in[0]} treatments. " 
+                     "The same value will be used for all treatments. " 
+                     "Consider passing a vector/array of values or using const_marginal_effect.")
+                
             if ndim(T) == 0:
                 T = np.full((n_rows,) + self._d_t_in, T)
 
