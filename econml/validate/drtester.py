@@ -5,6 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.model_selection import check_cv
 from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
+from sklearn.utils import check_random_state
 from econml._lazy import _LazyModule
 from econml.utilities import check_input_arrays, deprecated, add_constant
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
@@ -513,7 +514,8 @@ class DRTester:
         Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50),
         metric: str = 'qini',
-        n_bootstrap: int = 1000
+        n_bootstrap: int = 1000,
+        random_state=None
     ) -> UpliftEvaluationResults:
         """
         Calculate uplift curves and coefficients for the given model.
@@ -541,6 +543,9 @@ class DRTester:
             Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
         n_bootstrap: integer, default 1000
             Number of bootstrap samples to run when calculating uniform confidence bands.
+        random_state: int, RandomState instance or None, default None
+            Controls the multiplier bootstrap draws used for the uniform confidence bands. Pass an int or a
+            RandomState instance for reproducible bands.
 
         Returns
         -------
@@ -554,6 +559,10 @@ class DRTester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
+        # A single RandomState shared across the per-treatment calls below, so that each treatment still
+        # draws its own independent multipliers while the whole call stays reproducible from one seed.
+        rng = check_random_state(random_state)
+
         curve_data_dict = dict()
         if self.n_treat == 1:
             coeff, err, curve_df = calc_uplift(
@@ -562,7 +571,8 @@ class DRTester:
                 self.dr_val_,
                 percentiles,
                 metric,
-                n_bootstrap
+                n_bootstrap,
+                rng
             )
             coeffs = [coeff]
             errs = [err]
@@ -577,7 +587,8 @@ class DRTester:
                     self.dr_val_[:, k],
                     percentiles,
                     metric,
-                    n_bootstrap
+                    n_bootstrap,
+                    rng
                 )
                 coeffs.append(coeff)
                 errs.append(err)
@@ -600,7 +611,8 @@ class DRTester:
         Xval: np.array = None,
         Xtrain: np.array = None,
         n_groups: int = 4,
-        n_bootstrap: int = 1000
+        n_bootstrap: int = 1000,
+        random_state=None
     ) -> EvaluationResults:
         """
         Combine the best linear prediction, calibration, and uplift curve methods into a single summary.
@@ -617,6 +629,9 @@ class DRTester:
             Number of quantile-based groups used to calculate calibration score.
         n_bootstrap: integer, default 1000
             Number of bootstrap samples to run when calculating uniform confidence bands for uplift curves.
+        random_state: int, RandomState instance or None, default None
+            Controls the multiplier bootstrap draws used for the uplift confidence bands. Pass an int or a
+            RandomState instance for reproducible bands.
 
         Returns
         -------
@@ -629,8 +644,9 @@ class DRTester:
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap)
-        toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap)
+        rng = check_random_state(random_state)
+        qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap, random_state=rng)
+        toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap, random_state=rng)
 
         self.res = EvaluationResults(
             blp_res=blp_res,
