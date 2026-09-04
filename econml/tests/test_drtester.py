@@ -156,6 +156,47 @@ class TestDRTester(unittest.TestCase):
         self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
         self.assertLess(res_df.autoc_pval.values[0], 0.05)  # heterogeneity
 
+    def test_uplift_random_state(self):
+        # The multiplier bootstrap behind the uniform confidence bands must be seedable, so that
+        # evaluate_uplift / evaluate_all return the same bands for the same inputs.
+        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
+
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y,
+            discrete_treatment=True
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+
+        my_dr_tester = DRTester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+        my_dr_tester.get_cate_preds(Xval, Xtrain)
+
+        def bands(random_state):
+            df = my_dr_tester.evaluate_uplift(random_state=random_state).curves[1]
+            return df[['uniform_critical_value', 'uniform_one_side_critical_value']].values
+
+        # Same seed -> identical bands
+        np.testing.assert_array_equal(bands(123), bands(123))
+        # Different seed -> different bands, so the seed is genuinely driving the draws
+        self.assertFalse(np.array_equal(bands(123), bands(456)))
+        # The point estimates never depended on the bootstrap and must stay put
+        first = my_dr_tester.evaluate_uplift(random_state=123)
+        second = my_dr_tester.evaluate_uplift(random_state=456)
+        np.testing.assert_array_equal(first.params, second.params)
+
+        # evaluate_all threads the seed through both the qini and the toc curve
+        all_1 = my_dr_tester.evaluate_all(random_state=7).summary()
+        all_2 = my_dr_tester.evaluate_all(random_state=7).summary()
+        pd.testing.assert_frame_equal(all_1, all_2)
+
     def test_nuisance_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
 
