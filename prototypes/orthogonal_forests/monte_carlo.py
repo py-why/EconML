@@ -209,7 +209,7 @@ if __name__ == "__main__":
                       max_splits=max_splits, subsample_ratio=subsample_ratio, bootstrap=bootstrap, 
                       model_T=model_T, model_Y=model_Y, model_T_final=LassoCV(), model_Y_final=LassoCV())
         elif args.method_id == 2:
-            est = DishoestOrthoForest(n_trees=n_trees, min_leaf_size=min_leaf_size, residualizer=residualizer,
+            est = DishonestOrthoForest(n_trees=n_trees, min_leaf_size=min_leaf_size, residualizer=residualizer,
                       max_splits=max_splits, subsample_ratio=subsample_ratio, bootstrap=bootstrap, 
                       model_T=model_T, model_Y=model_Y, model_T_final=LassoCV(), model_Y_final=LassoCV())
         elif args.method_id == 3:
