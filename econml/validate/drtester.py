@@ -1,3 +1,4 @@
+import warnings
 from typing import Tuple, Union, List
 
 import numpy as np
@@ -8,7 +9,7 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from econml._lazy import _LazyModule
 from econml.utilities import check_input_arrays, deprecated, add_constant
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
-from .utils import calculate_dr_outcomes, calc_uplift
+from .utils import _calculate_dr_outcomes_with_diagnostics, _format_clip_counts, calc_uplift
 
 _statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for evaluate_blp()
 
@@ -101,6 +102,24 @@ class DRTester:
         Splitter used for cross-validation. Can be either an integer (corresponding to the number of desired folds)
         or a list of indices corresponding to membership in each fold.
 
+    min_propensity: float, default 0.01
+        Lower bound applied independently to each treatment propensity used in a doubly robust denominator.
+
+    warn_on_clip: bool, default True
+        Whether ``fit_nuisance`` warns when propensities are clipped. Structured counts remain available in
+        ``clip_diagnostics_`` when warnings are disabled. Clipping is a numerical stabilization signal and does not
+        by itself prove that identification failed.
+
+    Attributes
+    ----------
+    clip_diagnostics_ : dict
+        Populated by ``fit_nuisance`` with a ``validation`` entry and, when training data are supplied, a ``train``
+        entry. Each split contains ``min_propensity`` (float), ``n_samples`` (int), ``treatment_labels`` (tuple of
+        labels observed in that split), ``below_threshold_by_treatment`` (counts across all rows),
+        ``n_below_threshold`` (their total), ``clipped_by_treatment`` (counts on rows assigned to the corresponding
+        treatment, where clipping changes a doubly robust denominator), and ``n_clipped`` (their total). Treatment
+        keys can differ between splits when an arm is absent from one split.
+
     References
     ----------
     [Chernozhukov2022] V. Chernozhukov et al.
@@ -124,12 +143,16 @@ class DRTester:
         model_regression,
         model_propensity,
         cate,
-        cv: Union[int, List] = 5
+        cv: Union[int, List] = 5,
+        min_propensity: float = 0.01,
+        warn_on_clip: bool = True,
     ):
         self.model_regression = model_regression
         self.model_propensity = model_propensity
         self.cate = cate
         self.cv = cv
+        self.min_propensity = min_propensity
+        self.warn_on_clip = warn_on_clip
 
     def get_cv_splitter(self, random_state: int = 123):
         """
@@ -237,15 +260,37 @@ class DRTester:
         if self.fit_on_train:
             # Get DR outcomes in training sample
             reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain)
-            self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
+            self.dr_train_, train_diagnostics = _calculate_dr_outcomes_with_diagnostics(
+                Dtrain, ytrain, reg_preds_train, prop_preds_train, min_propensity=self.min_propensity
+            )
 
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            self.dr_val_, validation_diagnostics = _calculate_dr_outcomes_with_diagnostics(
+                Dval, yval, reg_preds_val, prop_preds_val, min_propensity=self.min_propensity
+            )
+            self.clip_diagnostics_ = {"train": train_diagnostics, "validation": validation_diagnostics}
         else:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval)
-            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            self.dr_val_, validation_diagnostics = _calculate_dr_outcomes_with_diagnostics(
+                Dval, yval, reg_preds_val, prop_preds_val, min_propensity=self.min_propensity
+            )
+            self.clip_diagnostics_ = {"validation": validation_diagnostics}
+
+        clipped_splits = [
+            f"{split} ({_format_clip_counts(diagnostics)})"
+            for split, diagnostics in self.clip_diagnostics_.items()
+            if diagnostics["n_clipped"]
+        ]
+        if self.warn_on_clip and clipped_splits:
+            warnings.warn(
+                f"Propensity scores were clipped below min_propensity={float(self.min_propensity):g} in "
+                f"{'; '.join(clipped_splits)}. Clipping is a numerical stabilization signal and does not by itself "
+                "prove that identification failed.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         # Calculate ATE in the validation sample
         self.ate_val = self.dr_val_.mean(axis=0)
