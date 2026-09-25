@@ -82,7 +82,8 @@ requires = [
     "wheel >= 0.45.1",
     "numpy >=2, <3",
     "scipy >= 1.13.1",
-    "cython >= 3.0.11"
+    # Cython 3.3.0 generates native extensions that crash throughout the test suite.
+    "cython >= 3.0.11, < 3.3"
 ]
 build-backend = "setuptools.build_meta"
 
