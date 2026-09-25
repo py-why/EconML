@@ -11,8 +11,7 @@ from .dml import _BaseDML
 from .dml import _make_first_stage_selector
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import (shape, check_input_arrays,
-                         cross_product, Summary)
+from ..utilities import shape, check_input_arrays, Summary
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -48,7 +47,7 @@ class _CausalForestFinalWrapper:
         if mask is not None:
             drpreds = drpreds[mask]
         point = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
-        nonnan = np.sum(~np.isnan(drpreds))
+        nonnan = np.sum(~np.isnan(drpreds), axis=0)
         stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
         return point, stderr
 
@@ -80,7 +79,7 @@ class _CausalForestFinalWrapper:
             propensities = T - T_res
             VarT = np.clip(propensities * (1 - propensities), 1e-2, np.inf)
             drpreds = oob_preds
-            drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+            drpreds += np.einsum('ij,ik->ijk', residuals, T_res / VarT)
             drpreds[np.isnan(oob_preds)] = np.nan
             self.ate_, self.ate_stderr_ = self._ate_and_stderr(drpreds)
             self.att_ = []
@@ -1158,7 +1157,7 @@ class CausalForestDML(_BaseDML):
         Returns
         -------
         att_stderr_ : ndarray (n_y, n_t)
-            The standard error of the corresponding `att_`
+            The standard error of the corresponding `att_`.
         """
         return self.rlearner_model_final_.att_stderr_[T]
 
