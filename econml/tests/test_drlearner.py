@@ -17,6 +17,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, PolynomialFeatures
 
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
+from econml.dr._drlearner import _ModelFinal
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from econml.utilities import get_feature_names_or_default, shape
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
@@ -28,6 +29,136 @@ try:
     ray_installed = True
 except ImportError:
     ray_installed = False
+
+
+@pytest.mark.parametrize("multitask", [False, True])
+@pytest.mark.parametrize("column_y", [False, True])
+@pytest.mark.parametrize("column_var", [False, True])
+@pytest.mark.parametrize("n_treatments,trimming", [(2, None), (3, None), (2, .15)])
+def test_final_sample_variance_row_scaling(multitask, column_y, column_var, n_treatments, trimming):
+    rng = np.random.default_rng(123)
+    n = 60
+    X = rng.normal(size=(n, 2))
+    y = rng.normal(size=n)
+    labels = np.arange(n) % n_treatments
+    T = np.eye(n_treatments)[labels, 1:]
+    pred = rng.normal(size=(n, n_treatments))
+    propensity = rng.dirichlet(np.ones(n_treatments), size=n)
+    variance = rng.uniform(.5, 2, n)
+    weights = rng.uniform(.5, 2, n)
+    frequency = rng.integers(2, 5, n)
+    final = _ModelFinal(StatsModelsLinearRegression(), None, multitask, trimming)
+    final.fit(y[:, None] if column_y else y, T, X=X,
+              nuisances=(pred[:, None, :] if column_y else pred, propensity, propensity),
+              sample_weight=weights, freq_weight=frequency,
+              sample_var=variance[:, None] if column_var else variance)
+
+    keep = np.ones(n, dtype=bool) if trimming is None else np.all(
+        (propensity >= trimming) & (propensity <= 1 - trimming), axis=1)
+    assert final.n_samples_trimmed_ == np.sum(~keep)
+    if trimming is not None:
+        assert 0 < np.sum(keep) < n
+    contrast_variance = np.array([
+        [variance[i] * ((labels[i] == t) / propensity[i, t]
+                        - (labels[i] == 0) / propensity[i, 0])**2
+         for t in range(1, n_treatments)]
+        for i in np.flatnonzero(keep)])
+    targets = pred[keep, 1:] - pred[keep, [0]][:, None]
+    if multitask:
+        expected = StatsModelsLinearRegression().fit(
+            X[keep], targets, sample_weight=weights[keep], freq_weight=frequency[keep],
+            sample_var=contrast_variance)
+        models = [(final.model_cate, expected)]
+    else:
+        models = []
+        for t, actual in enumerate(final.models_cate):
+            target = targets[:, [t]] if column_y else targets[:, t]
+            expected = StatsModelsLinearRegression().fit(
+                X[keep], target, sample_weight=weights[keep], freq_weight=frequency[keep],
+                sample_var=contrast_variance[:, [t]] if column_y else contrast_variance[:, t])
+            models.append((actual, expected))
+    for actual, expected in models:
+        np.testing.assert_allclose(actual.predict(X), expected.predict(X))
+        np.testing.assert_allclose(actual.prediction_stderr(X), expected.prediction_stderr(X))
+
+
+@pytest.mark.parametrize("multitask", [False, True])
+@pytest.mark.parametrize("column_y", [False, True])
+@pytest.mark.parametrize("n_treatments", [2, 3])
+def test_final_sample_variance_matches_expanded_observations(multitask, column_y, n_treatments):
+    rng = np.random.default_rng(456)
+    n = 30
+    X = rng.normal(size=(n, 2))
+    labels = np.arange(n) % n_treatments
+    T = np.eye(n_treatments)[labels, 1:]
+    y = X[:, 0] + labels + rng.normal(size=n)
+    propensity = rng.dirichlet(np.ones(n_treatments), size=n)
+    regression = X[:, [0]] + np.arange(n_treatments)
+    deviations = rng.uniform(.5, 2, (n, 1)) * [-2, 0, 2]
+    variance = np.var(deviations, axis=1)
+    weights = rng.uniform(.5, 2, n)
+    fits = []
+    for expanded in [False, True]:
+        indices = np.repeat(np.arange(n), 3) if expanded else np.arange(n)
+        target = (y[:, None] + deviations).reshape(-1) if expanded else y
+        pred = regression[indices] + (
+            np.eye(n_treatments)[labels[indices]] / propensity[indices]
+        ) * (target[:, None] - regression[indices])
+        final = _ModelFinal(StatsModelsLinearRegression(), None, multitask)
+        final.fit(target[:, None] if column_y else target, T[indices], X=X[indices],
+                  nuisances=(pred[:, None, :] if column_y else pred, propensity[indices], propensity[indices]),
+                  sample_weight=weights[indices],
+                  freq_weight=None if expanded else np.full(n, 3),
+                  sample_var=None if expanded else (variance[:, None] if column_y else variance))
+        fits.append([final.model_cate] if multitask else final.models_cate)
+    for summarized, expanded in zip(*fits):
+        np.testing.assert_allclose(summarized.predict(X), expanded.predict(X), atol=1e-10)
+        np.testing.assert_allclose(summarized.coef_stderr_, expanded.coef_stderr_, atol=1e-10)
+        np.testing.assert_allclose(summarized.intercept_stderr_, expanded.intercept_stderr_, atol=1e-10)
+        np.testing.assert_allclose(summarized.prediction_stderr(X), expanded.prediction_stderr(X), atol=1e-10)
+
+
+@pytest.mark.parametrize("mode", ["linear", "separate", "multitask"])
+@pytest.mark.parametrize("n_treatments,trimming", [(3, None), (2, .25)])
+def test_drlearner_sample_variance_outcome_shapes(mode, n_treatments, trimming):
+    rng = np.random.default_rng(123)
+    n = 150
+    X = rng.normal(size=(n, 2))
+    T = rng.permutation(np.arange(n) % n_treatments)
+    y = T + X[:, 0] + rng.normal(size=n)
+    variance = rng.uniform(.5, 2, n)
+    weights = rng.uniform(.5, 2, n)
+    frequency = rng.integers(2, 5, n)
+    results = []
+    for column_y, column_var in [(False, False), (True, False), (True, True), (False, True)]:
+        kwargs = dict(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
+                      random_state=123, trimming_threshold=trimming)
+        est = LinearDRLearner(**kwargs) if mode == "linear" else DRLearner(
+            **kwargs, model_final=StatsModelsLinearRegression(), multitask_model_final=mode == "multitask")
+        est.fit(y[:, None] if column_y else y, T, X=X, sample_weight=weights,
+                freq_weight=frequency, sample_var=variance[:, None] if column_var else variance)
+        effects = est.const_marginal_effect(X)
+        assert effects.shape == ((n, 1, n_treatments - 1) if column_y else (n, n_treatments - 1))
+        if mode == "multitask":
+            stderr = est.multitask_model_cate.prediction_stderr(X)
+        else:
+            stderr = est.const_marginal_effect_inference(X).stderr
+        results.append((effects.reshape(n, -1), stderr.reshape(n, -1)))
+    for effects, stderr in results[1:]:
+        np.testing.assert_allclose(effects, results[0][0], atol=1e-10)
+        np.testing.assert_allclose(stderr, results[0][1], atol=1e-10)
+
+
+@pytest.mark.parametrize("multitask", [False, True])
+@pytest.mark.parametrize("invalid_shape", [(12, 2), (12, 1, 1), (1, 12), (11,)])
+def test_final_rejects_invalid_sample_variance_shape(multitask, invalid_shape):
+    final = _ModelFinal(StatsModelsLinearRegression(), None, multitask)
+    y = np.arange(12, dtype=float)
+    T = (y % 2)[:, None]
+    with pytest.raises(ValueError, match="sample_var must have shape"):
+        final.fit(y, T, X=y[:, None],
+                  nuisances=(np.column_stack([y, y + 1]), np.full((12, 2), .5), np.full((12, 2), .5)),
+                  freq_weight=np.full(12, 2), sample_var=np.ones(invalid_shape))
 
 
 @pytest.mark.serial
