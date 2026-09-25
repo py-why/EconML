@@ -1444,6 +1444,9 @@ class PopulationSummaryResults:
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
+        An outcome/treatment interval is NaN if any of its sample means or standard errors
+        is nonfinite, or any standard error is nonpositive. Other intervals are unaffected.
+
         Parameters
         ----------
         alpha:  float in [0, 1], optional
@@ -1576,12 +1579,14 @@ class PopulationSummaryResults:
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):
         """Get the confidence interval of mixture gaussian distribution."""
-        # if stderr is zero, ppf will return nans and the loop below would never terminate
-        # so bail out early; note that it might be possible to correct the algorithm for
-        # this scenario, but since scipy's cdf returns nan whenever scale is zero it won't
-        # be clean
-        if (np.any(stderr == 0)):
-            return np.full(shape(mean)[1:], np.nan)
+        # Invalid normal parameters prevent convergence. Exclude only the affected
+        # outcome/treatment columns from the solver.
+        invalid = np.any((stderr <= 0) | ~np.isfinite(stderr) | ~np.isfinite(mean), axis=0)
+        if np.any(invalid):
+            result = np.full(shape(mean)[1:], np.nan)
+            if not np.all(invalid):
+                result[~invalid] = self._mixture_ppf(alpha, mean[:, ~invalid], stderr[:, ~invalid], tol)
+            return result
         mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
         lower = np.min(mix_ppf, axis=0)
         upper = np.max(mix_ppf, axis=0)
