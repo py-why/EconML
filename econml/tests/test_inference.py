@@ -6,6 +6,9 @@ import pandas as pd
 import unittest
 import pytest
 import pickle
+from unittest.mock import patch
+from scipy.optimize import brentq
+from scipy.stats import norm
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -15,6 +18,74 @@ from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
 from econml.utilities import get_feature_names_or_default, get_input_columns
+
+
+@pytest.mark.parametrize("output_shape", [(), (1,), (2,), (1, 3), (2, 3)])
+@pytest.mark.parametrize("zero_scales", ["none", "sample", "column", "all"])
+def test_population_mixture_zero_scales(output_shape, zero_scales):
+    n_columns = int(np.prod(output_shape))
+    mean = np.arange(3 * n_columns, dtype=float).reshape(3, n_columns) + 10
+    stderr = np.linspace(.5, 2, 3 * n_columns).reshape(3, n_columns)
+    if zero_scales == "sample":
+        stderr[1, 0] = 0
+    elif zero_scales == "column":
+        stderr[:, 0] = 0
+    elif zero_scales == "all":
+        stderr[:] = 0
+
+    expected = np.full((2, n_columns), np.nan)
+    for j in range(n_columns):
+        if np.any(stderr[:, j] == 0):
+            continue
+        for i, alpha in enumerate([.025, .975]):
+            bounds = norm.ppf(alpha, loc=mean[:, j], scale=stderr[:, j])
+            expected[i, j] = brentq(
+                lambda x: np.mean(norm.cdf(x, loc=mean[:, j], scale=stderr[:, j])) - alpha,
+                np.min(bounds), np.max(bounds))
+
+    for order in [np.arange(n_columns), np.arange(n_columns)[::-1]]:
+        pop = PopulationSummaryResults(
+            mean[:, order].reshape((3,) + output_shape),
+            stderr[:, order].reshape((3,) + output_shape),
+            None, d_t=output_shape[-1] if len(output_shape) == 2 else 1,
+            d_y=output_shape[0] if output_shape else 1)
+        intervals = pop.conf_int_point(tol=1e-9)
+        for i, interval in enumerate(intervals):
+            assert interval.shape == (1,) + output_shape
+            np.testing.assert_allclose(
+                interval.reshape(-1), expected[i, order], atol=1e-6, equal_nan=True)
+
+
+@pytest.mark.parametrize("output_shape", [(3,), (1, 3)])
+@pytest.mark.parametrize("field,value", [
+    ("mean", np.nan), ("mean", np.inf), ("mean", -np.inf),
+    ("stderr", np.nan), ("stderr", np.inf), ("stderr", -np.inf), ("stderr", -1),
+])
+def test_population_mixture_invalid_columns(output_shape, field, value):
+    mean = np.array([[0., 1., 10.], [0., 2., 12.], [0., 3., 14.]])
+    stderr = np.ones_like(mean)
+    stderr[:, 0] = 0
+    (mean if field == "mean" else stderr)[1, 1] = value
+    reference = PopulationSummaryResults(mean[:, 2], stderr[:, 2], None, d_t=1, d_y=1)
+    expected = reference.conf_int_point(tol=1e-9)
+    original_ppf = norm.ppf
+
+    def checked_ppf(alpha, *, loc, scale):
+        # Fail promptly rather than hanging if invalid parameters reach the iterative solver.
+        assert np.all(np.isfinite(loc))
+        assert np.all(np.isfinite(scale) & (scale > 0))
+        return original_ppf(alpha, loc=loc, scale=scale)
+
+    for order in [np.arange(3), np.array([2, 0, 1])]:
+        pop = PopulationSummaryResults(
+            mean[:, order].reshape((3,) + output_shape),
+            stderr[:, order].reshape((3,) + output_shape), None,
+            d_t=output_shape[-1] if len(output_shape) == 2 else 1, d_y=output_shape[0])
+        with patch("econml.inference._inference.scipy.stats.norm.ppf", side_effect=checked_ppf):
+            intervals = pop.conf_int_point(tol=1e-9)
+        for interval, bound in zip(intervals, expected):
+            assert interval.shape == (1,) + output_shape
+            np.testing.assert_allclose(interval.reshape(-1), np.array([np.nan, np.nan, bound.item()])[order])
 
 
 class TestInference(unittest.TestCase):
