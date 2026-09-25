@@ -10,12 +10,13 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, Polynomial
 from sklearn.model_selection import KFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.dml import NonParamDML
+from econml.dml.causal_forest import _CausalForestFinalWrapper
 import numpy as np
 import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
-from scipy.stats import pearsonr
+from scipy.stats import norm, pearsonr
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
@@ -41,6 +42,115 @@ def rand_sol(A, b):
     A_plus = np.linalg.pinv(A)
     x = A_plus @ b
     return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
+
+
+@pytest.mark.dml
+@pytest.mark.parametrize("outcome_shape", [(), (1,), (2,)])
+@pytest.mark.parametrize("n_treatments", [1, 2])
+@pytest.mark.parametrize("missing", ["none", "rows", "columns"])
+@pytest.mark.parametrize("masked", [False, True])
+def test_cfdml_dr_stderr_per_column(outcome_shape, n_treatments, missing, masked):
+    wrapper = _CausalForestFinalWrapper(None, None, discrete_treatment=True, drate=True)
+    wrapper._d_y = outcome_shape
+    wrapper._d_t = (n_treatments,)
+    n_outcomes = outcome_shape[0] if outcome_shape else 1
+    drpreds = np.random.default_rng(123).normal(size=(12, n_outcomes, n_treatments))
+    if missing == "rows":
+        drpreds[:2] = np.nan
+    elif missing == "columns":
+        for y, t in itertools.product(range(n_outcomes), range(n_treatments)):
+            drpreds[:1 + y + t, y, t] = np.nan
+    mask = np.arange(12) % 3 == 0 if masked else None
+
+    point, stderr = wrapper._ate_and_stderr(drpreds, mask)
+    selected = drpreds[mask] if masked else drpreds
+    expected_point = np.empty((n_outcomes, n_treatments))
+    expected_stderr = np.empty_like(expected_point)
+    for y, t in itertools.product(range(n_outcomes), range(n_treatments)):
+        values = selected[:, y, t]
+        values = values[~np.isnan(values)]
+        expected_point[y, t] = values.mean()
+        expected_stderr[y, t] = values.std() / np.sqrt(len(values))
+
+    expected_shape = outcome_shape + (n_treatments,)
+    assert point.shape == stderr.shape == expected_shape
+    np.testing.assert_allclose(point, expected_point.reshape(expected_shape))
+    np.testing.assert_allclose(stderr, expected_stderr.reshape(expected_shape))
+
+
+@pytest.mark.dml
+@pytest.mark.parametrize("outcome_shape", [(), (1,), (2,)])
+@pytest.mark.parametrize("n_arms", [2, 3])
+def test_cfdml_dr_stderr_inference(outcome_shape, n_arms):
+    rng = np.random.default_rng(123)
+    n = 240
+    X = rng.normal(size=(n, 2))
+    T = rng.permutation(np.arange(n) % n_arms)
+    Y = T + X[:, 0] + rng.normal(size=n)
+    if outcome_shape:
+        Y = np.column_stack([Y + rng.normal(size=n) for _ in range(outcome_shape[0])])
+    est = CausalForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
+                          discrete_treatment=True, drate=True, n_estimators=40,
+                          random_state=123, n_jobs=1)
+    est.fit(Y, T, X=X)
+    drpreds = est.rlearner_model_final_._oob_preds
+    # Keep the data and estimator seeds: this reference calculation relies on their
+    # producing finite predictions, including an OOB prediction for every observation.
+    assert np.isfinite(drpreds).all()
+    expected_shape = outcome_shape + (n_arms - 1,)
+    for arm in [None, *range(n_arms)]:
+        selected = drpreds if arm is None else drpreds[T == arm]
+        expected_point = selected.mean(axis=0).reshape(expected_shape)
+        expected_stderr = (selected.std(axis=0) / np.sqrt(selected.shape[0])).reshape(expected_shape)
+        if arm is None:
+            point, stderr, inference = est.ate_, est.ate_stderr_, est.ate__inference()
+        else:
+            point, stderr, inference = est.att_(T=arm), est.att_stderr_(T=arm), est.att__inference(T=arm)
+        assert point.shape == stderr.shape == expected_shape
+        np.testing.assert_allclose(point, expected_point)
+        np.testing.assert_allclose(stderr, expected_stderr)
+        np.testing.assert_allclose(inference.point_estimate, expected_point)
+        np.testing.assert_allclose(inference.stderr, expected_stderr)
+        lower, upper = inference.conf_int()
+        np.testing.assert_allclose(lower, expected_point - norm.ppf(.975) * expected_stderr)
+        np.testing.assert_allclose(upper, expected_point + norm.ppf(.975) * expected_stderr)
+        np.testing.assert_allclose(inference.zstat(), expected_point / expected_stderr)
+        np.testing.assert_allclose(inference.pvalue(), 2 * norm.sf(np.abs(expected_point / expected_stderr)))
+
+
+@pytest.mark.dml
+@pytest.mark.parametrize("n_arms", [2, 3, 4])
+def test_cfdml_dr_inference_duplicate_outcome(n_arms):
+    rng = np.random.default_rng(123)
+    n = 240
+    X = rng.normal(size=(n, 2))
+    T = rng.permutation(np.arange(n) % n_arms)
+    Y = T + X[:, 0] + rng.normal(size=n)
+    estimators = []
+    for outcome in [Y, np.column_stack([Y, Y])]:
+        # Linear regression fits outcomes independently; matching forest seeds keep
+        # the comparison about duplicating an outcome, not different random fits.
+        est = CausalForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
+                              discrete_treatment=True, drate=True, n_estimators=40,
+                              random_state=123, n_jobs=1)
+        est.fit(outcome, T, X=X)
+        estimators.append(est)
+
+    for arm in [None, *range(n_arms)]:
+        single, duplicated = [
+            est.ate__inference() if arm is None else est.att__inference(T=arm)
+            for est in estimators
+        ]
+        assert np.isfinite(single.stderr).all()
+        assert np.all(single.stderr > 0)
+        # A duplicate outcome supplies no new observations: neither outcome's
+        # marginal uncertainty should shrink, regardless of the standard-error formula.
+        for actual, expected in [
+            (duplicated.point_estimate, single.point_estimate),
+            (duplicated.stderr, single.stderr),
+            *zip(duplicated.conf_int(), single.conf_int()),
+        ]:
+            np.testing.assert_allclose(actual, np.stack([expected, expected]))
 
 
 @pytest.mark.dml
