@@ -120,12 +120,13 @@ class _FirstStageSelector(SingleModelSelector):
         return self._model.best_score
 
 
-def _make_first_stage_selector(model, is_discrete, random_state):
+def _make_first_stage_selector(model, is_discrete, random_state, n_jobs=None):
     if model == 'auto':
         model = ['forest', 'linear']
     return _FirstStageSelector(get_selector(model,
                                             is_discrete=is_discrete,
-                                            random_state=random_state),
+                                            random_state=random_state,
+                                            n_jobs=n_jobs),
                                discrete_target=is_discrete)
 
 
@@ -561,10 +562,12 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t(self):
-        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1647,11 +1650,13 @@ class NonParamDML(_BaseDML):
 
     def _gen_model_y(self):
         return _make_first_stage_selector(self.model_y, is_discrete=self.discrete_outcome,
-                                          random_state=self.random_state)
+                                          random_state=self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t(self):
         return _make_first_stage_selector(self.model_t, is_discrete=self.discrete_treatment,
-                                          random_state=self.random_state)
+                                          random_state=self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)

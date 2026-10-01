@@ -683,10 +683,12 @@ class CausalForestDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state,
+                                          n_jobs=self.n_jobs)
 
     def _gen_model_t(self):
-        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state,
+                                          n_jobs=self.n_jobs)
 
     def _gen_model_final(self):
         return MultiOutputGRF(CausalForest(n_estimators=self.n_estimators,
