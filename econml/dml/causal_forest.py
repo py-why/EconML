@@ -48,7 +48,7 @@ class _CausalForestFinalWrapper:
         if mask is not None:
             drpreds = drpreds[mask]
         point = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
-        nonnan = np.sum(~np.isnan(drpreds))
+        nonnan = np.sum(~np.isnan(drpreds), axis=0)
         stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
         return point, stderr
 
@@ -573,7 +573,8 @@ class CausalForestDML(_BaseDML):
         averaged over the training data and with a doubly robust correction. Available only
         when `discrete_treatment=True` and `drate=True`.
     ate_stderr_ : ndarray of shape (n_outcomes, n_treatments)
-        The standard error of the `ate_` attribute.
+        The standard error of the `ate_` attribute, using the number of non-missing
+        doubly robust predictions for each outcome-treatment pair separately.
     feature_importances_ : ndarray of shape (n_features,)
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
@@ -1158,7 +1159,8 @@ class CausalForestDML(_BaseDML):
         Returns
         -------
         att_stderr_ : ndarray (n_y, n_t)
-            The standard error of the corresponding `att_`
+            The standard error of the corresponding `att_`, using the number of non-missing
+            doubly robust predictions within treatment group T for each outcome-treatment pair separately.
         """
         return self.rlearner_model_final_.att_stderr_[T]
 
