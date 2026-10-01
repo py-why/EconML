@@ -246,6 +246,9 @@ class _ModelFinal:
     def fit(self, Y, T, X=None, W=None, *, nuisances,
             sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_pred, T_pred, T_pred_raw = nuisances
+        if sample_var is not None and np.shape(sample_var) not in [(len(Y),), (len(Y), 1)]:
+            raise ValueError(f"sample_var must have shape ({len(Y)},) or ({len(Y)}, 1), "
+                             f"instead got {np.shape(sample_var)}.")
 
         # Apply sample trimming based on Crump et al. (2009) if enabled
         # Use raw (unclipped) propensities for trimming decisions
@@ -271,7 +274,11 @@ class _ModelFinal:
         self.sensitivity_params = dr_sensitivity_values(Y, T, Y_pred, T_pred)
 
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
-        propensities = np.sum(T_pred * T_complete, axis=1).reshape((T.shape[0],))
+        weighted_sample_var = None
+        if sample_var is not None:
+            # Each contrast depends on the observed outcome only for its treatment or control arm.
+            outcome_derivative = T / T_pred[:, 1:] - T_complete[:, [0]] / T_pred[:, [0]]
+            weighted_sample_var = sample_var.reshape(-1, 1) * outcome_derivative**2
 
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
@@ -283,18 +290,18 @@ class _ModelFinal:
             ys = Y_pred[..., 1:] - Y_pred[..., [0]]  # subtract control results from each other arm
             if self.d_y:  # need to squeeze out singleton so that we fit on 2D array
                 ys = ys.squeeze(1)
-            weighted_sample_var = np.tile((sample_var / propensities**2).reshape((-1, 1)),
-                                          self.d_t) if sample_var is not None else None
             filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                                  freq_weight=freq_weight, sample_var=weighted_sample_var)
             self.model_cate = self._model_final.fit(X, ys, **filtered_kwargs)
         else:
-            weighted_sample_var = sample_var / propensities**2 if sample_var is not None else None
-            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
-                                                 freq_weight=freq_weight, sample_var=weighted_sample_var)
-            self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[..., t] - Y_pred[..., 0],
-                                                                         **filtered_kwargs)
-                                for t in np.arange(1, Y_pred.shape[-1])]
+            self.models_cate = []
+            for t in range(self.d_t):
+                target_var = (weighted_sample_var[:, t].reshape((len(Y),) + self.d_y)
+                              if weighted_sample_var is not None else None)
+                filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                     freq_weight=freq_weight, sample_var=target_var)
+                self.models_cate.append(clone(self._model_final, safe=False).fit(
+                    X, Y_pred[..., t + 1] - Y_pred[..., 0], **filtered_kwargs))
         return self
 
     def predict(self, X=None):
@@ -700,7 +707,7 @@ class DRLearner(_OrthoLearner):
 
         Parameters
         ----------
-        Y: (n,) vector of length n
+        Y: (n,) or (n, 1) array_like
             Outcomes for each sample
         T: (n,) vector of length n
             Treatments for each sample
@@ -714,9 +721,11 @@ class DRLearner(_OrthoLearner):
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array_like, optional
+        sample_var : (n,) or (n, 1) array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
+            compute the mean outcome represented by observation i. Either shape is accepted for
+            vector or singleton-column outcomes. Variances are propagated separately to each
+            treatment-versus-control contrast.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -1328,7 +1337,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         Parameters
         ----------
-        Y: (n,) vector of length n
+        Y: (n,) or (n, 1) array_like
             Outcomes for each sample
         T: (n,) vector of length n
             Treatments for each sample
@@ -1342,9 +1351,11 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array_like, optional
+        sample_var : (n,) or (n, 1) array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
+            compute the mean outcome represented by observation i. Either shape is accepted for
+            vector or singleton-column outcomes. Variances are propagated separately to each
+            treatment-versus-control contrast.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
