@@ -1,0 +1,20 @@
+# Profile: all-floor
+#
+# Every direct dependency resolved to its declared lower bound, so this profile
+# is what actually validates the floors declared in pyproject.toml. Without it
+# those bounds are only a promise: nothing else in the matrix installs anything
+# near them, so a floor that has quietly become unsatisfiable (or that our code
+# no longer supports) would go unnoticed until a user hit it.
+#
+# This file is a uv configuration file (see
+# https://docs.astral.sh/uv/reference/settings/). CI passes it via
+# `uv --config-file`.
+#
+# This profile deliberately records **no freeze**: re-resolving from the declared
+# floors on every run is the entire point, and a recorded pin would defeat it.
+# That costs nothing in reproducibility, because `lowest-direct` is deterministic
+# -- it always selects the lowest version satisfying each declared bound, so the
+# result only moves when pyproject.toml moves (or when a release is yanked).
+
+resolution = "lowest-direct"
+prerelease = "disallow"
