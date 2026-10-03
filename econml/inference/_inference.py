@@ -465,22 +465,28 @@ class StatsModelsInference(LinearModelFinalInference):
     ----------
     cov_type : str, default 'HC1'
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'HC0', 'HC1'.
+        'HC0', 'HC1', 'clustered'.
+    cov_options : dict, optional
+        Additional options for covariance estimation. For clustered covariance, supports:
+        - 'group_correction': bool, default True. Whether to apply N_G/(N_G-1) correction.
+        - 'df_correction': bool, default True. Whether to apply (N-1)/(N-K) correction.
     """
 
-    def __init__(self, cov_type='HC1'):
-        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
+    def __init__(self, cov_type='HC1', cov_options=None):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1', 'clustered']:
             raise ValueError("Unsupported cov_type; "
                              "must be one of 'nonrobust', "
-                             "'HC0', 'HC1'")
+                             "'HC0', 'HC1', 'clustered'")
 
         self.cov_type = cov_type
+        self.cov_options = cov_options if cov_options is not None else {}
 
     def prefit(self, estimator, *args, **kwargs):
         super().prefit(estimator, *args, **kwargs)
         assert not (self.model_final.fit_intercept), ("Inference can only be performed on models linear in "
                                                       "their features, but here fit_intercept is True")
         self.model_final.cov_type = self.cov_type
+        self.model_final.cov_options = self.cov_options
 
 
 class GenericModelFinalInferenceDiscrete(Inference):
@@ -660,21 +666,27 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
     ----------
     cov_type : str, default 'HC1'
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'HC0', 'HC1'.
+        'HC0', 'HC1', 'clustered'.
+    cov_options : dict, optional
+        Additional options for covariance estimation. For clustered covariance, supports:
+        - 'group_correction': bool, default True. Whether to apply N_G/(N_G-1) correction.
+        - 'df_correction': bool, default True. Whether to apply (N-1)/(N-K) correction.
     """
 
-    def __init__(self, cov_type='HC1'):
-        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
+    def __init__(self, cov_type='HC1', cov_options=None):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1', 'clustered']:
             raise ValueError("Unsupported cov_type; "
                              "must be one of 'nonrobust', "
-                             "'HC0', 'HC1'")
+                             "'HC0', 'HC1', 'clustered'")
 
         self.cov_type = cov_type
+        self.cov_options = cov_options if cov_options is not None else {}
 
     def prefit(self, estimator, *args, **kwargs):
         super().prefit(estimator, *args, **kwargs)
         # need to set the fit args before the estimator is fit
         self.model_final.cov_type = self.cov_type
+        self.model_final.cov_options = self.cov_options
 
 
 class InferenceResults(metaclass=abc.ABCMeta):
