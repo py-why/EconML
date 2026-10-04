@@ -549,7 +549,7 @@ Usage FAQs
 
 - **What if my treatment is categorical/binary?**
 
-    You can simply set `discrete_treatment=True` in the parameters of the class. Then use any classifier for 
+    You can simply set `discrete_treatment=True` in the parameters of the class. Then use any classifier for
     `model_t`, that has a `predict_proba` method:
 
     .. testcode::
@@ -560,6 +560,37 @@ Usage FAQs
         est.fit(y, t, X=X, W=W)
         point = est.const_marginal_effect(X)
         est.effect(X, T0=t0, T1=t1)
+
+- **What if I already know the treatment assignment probabilities (e.g. a randomized experiment)?**
+
+    If the treatment is discrete and the assignment probabilities are known by design (e.g. data from an
+    A/B test or a stratified experiment with per-unit assignment probabilities), you can pass them
+    directly via the ``propensity`` argument of ``fit`` instead of having the library estimate a
+    treatment model; the first stage treatment model is then not fitted at all:
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+        p = np.full((y.shape[0], 3), 1 / 3)  # known probabilities of the three treatment values
+        est = LinearDML(discrete_treatment=True)
+        est.fit(y, t, X=X, W=W, propensity=p)
+        point = est.const_marginal_effect(X)
+
+    For a binary treatment, ``p`` can be a single vector with the probability of the non-control
+    treatment; with more treatment categories, pass one column per category (including control as the
+    first column), ordered to match the sorted unique treatment values (or the ``categories`` argument
+    if it was set). Note that since no propensity model is fitted, the ``propensity`` argument must
+    also be supplied when calling ``score`` on new data. The same argument is supported by the
+    :class:`.DRLearner` family of estimators.
+
+    The supplied values must be the true, by-design probabilities of treatment conditional on
+    *everything* that influenced assignment — including design variables such as randomization
+    blocks or strata, even when those variables are not part of X or W. For example, with subjects
+    randomized within blocks, the correct value is each subject's within-block assignment
+    probability; the marginal treatment rate, or probabilities estimated from (X, W) alone, are not
+    generally sufficient when assignment depended on other outcome-relevant variables. When the
+    design variables are available, it is still worthwhile to also include them in W: this is not
+    needed for identification, but it reduces variance.
 
 - **How can I assess the performance of the CATE model?**
 
