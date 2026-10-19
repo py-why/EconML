@@ -1,5 +1,56 @@
 name: Run all checks
 
+# A note on job/step `if:` conditions involving success()/failure()/cancelled()/always():
+#
+# Most jobs/steps below need no explicit `if:` at all - the implicit default (run only if
+# everything upstream succeeded) is what you want unless you specifically need to keep going
+# after a failure or skip. For the recurring cases where it isn't, copy one of these patterns
+# verbatim rather than inventing a new combination of status functions.
+#
+# 1. Job: "run even if a dependency failed or was skipped, as long as at least one of them ran":
+#      needs: [a, b]
+#      if: ${{ !cancelled() && (needs.a.result != 'skipped' || needs.b.result != 'skipped') }}
+#    Write one `needs.<job>.result != 'skipped'` clause per `needs:` entry, by name. Once
+#    `!cancelled()` holds, each result is success, failure, or skipped, so `!= 'skipped'` means
+#    "actually ran". Use `&&` instead of `||` if *every* dependency must have run. Keep the clause
+#    list in sync with `needs:`; a missing clause makes the job skip too often, never run wrongly.
+#    Do NOT shorten this to `needs.*.result` (or to `success() || failure()`):
+#    - At job level, the `needs.*` wildcard also sees the job's *transitive ancestors*, not just its
+#      direct `needs` (https://github.com/actions/runner/issues/1540). E.g. `merge-lkg` (whose only
+#      dependency, `generate-lkg`, was skipped) still ran because a job further upstream
+#      succeeded/failed: https://github.com/py-why/EconML/actions/runs/37643628893 and attempt 2
+#      of https://github.com/py-why/EconML/actions/runs/37480838785. (The wildcard is fine inside
+#      a *step's* `if:`, e.g. in `verify` below, where it only sees direct dependencies.)
+#    - `success()`/`failure()` likewise consider all ancestors, so an upstream failure leaks
+#      through a cleanly skipped dependency (https://github.com/py-why/EconML/actions/runs/36911879734),
+#      and an upstream skip can suppress a job whose other dependency did run.
+#    - A job-level `if:` without any status function gets an implicit `success() &&` prepended,
+#      so e.g. an event-type filter alone silently stops the job after any upstream test failure.
+#      Always include `!cancelled()` when the job should survive upstream failures.
+#    Because the whole decision lives in the job's own `if:`, none of its steps need an `if:`.
+#    (There is no "exit job early, successfully" step feature, so gating individual steps would
+#    otherwise mean repeating the condition on every one of them.) Note too that status functions
+#    are only valid inside `if:` - interpolating e.g. `${{ cancelled() }}` into a `run:` body is a
+#    parse error that makes GitHub silently drop `pull_request` runs for the whole workflow.
+#
+# 2. Step: "run a cleanup/upload step regardless of outcome, but only if step <id> actually ran"
+#    (e.g. uploading test/coverage output after `run_tests`):
+#      if: ${{ always() && contains(fromJSON('["success", "failure"]'), steps.<id>.outcome) }}
+#    `always()` overrides the implicit success() (otherwise the step is skipped whenever <id>
+#    failed); the outcome check excludes the case where <id> never ran (e.g. an earlier install
+#    step failed), which would otherwise fail trying to upload files that don't exist. Avoid the
+#    equivalent `success() || failure() && contains(...)`, which relies on `&&` binding tighter
+#    than `||`.
+#
+# 3. Final pass/fail gate: see `verify` at the end of this file (job-level `always()` plus
+#    step-level checks against `needs.*.result`).
+#
+# Re-runs ("Re-run failed jobs"): jobs that aren't re-run keep their earlier result, and re-run
+# jobs re-evaluate their `if:` against their direct dependencies' latest results, so the
+# patterns above behave the same on later attempts. Both this and pattern 1 (vs. the wildcard
+# form) were checked with a minimal repro in https://github.com/py-why/EconML/actions/runs/39296065305
+# (attempt 1, then "Re-run failed jobs" as attempt 2).
+
 on:
   pull_request:
     branches:
@@ -34,6 +85,9 @@ env:
   use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' || ''}}
 
 jobs:
+  # See the status-check-function note at the top of this file for the job-level and
+  # step-level `if:` patterns used by several jobs/steps below (coverage-report,
+  # merge-artifacts, generate-lkg, merge-lkg, and the test/notebook upload steps).
   eval: 
     name: Evaluate changes
     runs-on: ubuntu-latest
@@ -168,13 +222,17 @@ jobs:
         PYTEST_ADDOPTS: '-m "notebook"'
         NOTEBOOK_DIR_PATTERN: ${{ matrix.pattern }}
         COVERAGE_PROCESS_START: 'pyproject.toml'
+    # Steps below run whether `run_tests` succeeded or failed, but only if it actually ran
+    # (as opposed to being skipped because an earlier step, e.g. installing dependencies,
+    # failed first). `always()` overrides the implicit `success()` default so the step isn't
+    # skipped just because `run_tests` failed; the explicit outcome check then filters out
+    # the case where `run_tests` itself never ran.
     - name: Make coverage filename unique
       run: mv .coverage .coverage.${{ env.id_string }}
-      # Run whether or not the tests passed, but only if they ran at all
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
       uses: actions/upload-artifact@v6
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage-${{ env.id_string }}
         path: .coverage.${{ env.id_string }}
@@ -182,17 +240,16 @@ jobs:
         include-hidden-files: true
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
-      # Run whether or not the tests passed, but only if they ran at all
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
       uses: actions/upload-artifact@v6
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
     - name: Upload notebook outputs
       uses: actions/upload-artifact@v6
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: notebooks-${{ env.id_string }}
         path: notebooks/output/
@@ -285,13 +342,14 @@ jobs:
         # across the matrix and matches what other projects affected by the
         # same flake have done.
         MPLBACKEND: Agg
+    # Steps below run whether `run_tests` succeeded or failed, but only if it actually ran
+    # (see the identical comment in the `notebooks` job above for the full rationale).
     - name: Make coverage filename unique
       run: mv .coverage .coverage.${{ env.id_string }}
-      # Run whether or not the tests passed, but only if they ran at all
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload coverage report
       uses: actions/upload-artifact@v6
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage-${{ env.id_string }}
         path: .coverage.${{ env.id_string }}
@@ -299,18 +357,19 @@ jobs:
         include-hidden-files: true
     - name: Make test XML filename unique
       run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
-      # Run whether or not the tests passed, but only if they ran at all
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
     - name: Upload test XML files
       uses: actions/upload-artifact@v6
-      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      if: always() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
   store-reqs-per-env:
     name: Store requirements for LKG updates
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
+    # No `needs:`, so there are no ancestor jobs for a `success()`/`failure()` check to mean
+    # anything: this job's own condition is just the event-type gate below.
+    if: github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule'
     strategy:
       matrix:
         kind: [tests]
@@ -365,7 +424,7 @@ jobs:
   coverage-report:
     name: "Coverage report"
     needs: [tests, notebooks]
-    if: success() || failure()
+    if: ${{ !cancelled() && (needs.tests.result != 'skipped' || needs.notebooks.result != 'skipped') }}
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -399,7 +458,12 @@ jobs:
   merge-artifacts:
     name: "Merge artifacts"
     needs: [coverage-report, tests, notebooks, store-reqs-per-env]
-    if: success() || failure()
+    if: >-
+      ${{ !cancelled() && (
+        needs.coverage-report.result != 'skipped' ||
+        needs.tests.result != 'skipped' ||
+        needs.notebooks.result != 'skipped' ||
+        needs.store-reqs-per-env.result != 'skipped') }}
     strategy:
       matrix:
         artifact: [requirements, tests, coverage, notebooks, lkg-tests, lkg-notebooks]
@@ -419,7 +483,9 @@ jobs:
   generate-lkg:
     name: "Generate updated last known good files"
     needs: [merge-artifacts]
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
+    if: >-
+      ${{ !cancelled() && needs.merge-artifacts.result != 'skipped' &&
+        (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule') }}
     strategy:
       matrix:
         kind: [tests, notebooks]
@@ -454,7 +520,7 @@ jobs:
   merge-lkg:
     name: "Merge last known good versions"
     needs: [generate-lkg]
-    if: success() || failure()
+    if: ${{ !cancelled() && needs.generate-lkg.result != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
     - name: "Merge last known good versions"
