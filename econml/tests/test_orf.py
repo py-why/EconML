@@ -2,13 +2,102 @@
 # Licensed under the MIT License.
 
 import numpy as np
+import pytest
 import unittest
 import warnings
+from types import SimpleNamespace
 from numpy.random import choice, normal, uniform
+from scipy.stats import norm
 from sklearn.linear_model import Lasso, LogisticRegression, LogisticRegressionCV
 from sklearn.multioutput import MultiOutputRegressor
+from sklearn.preprocessing import FunctionTransformer
 from econml.orf import DMLOrthoForest, DROrthoForest
+from econml.orf._ortho_forest import BLBInference
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
+from econml.utilities import jacify_featurizer
+
+
+@pytest.mark.parametrize("treatment_shape", [(), (1,), (2,)])
+@pytest.mark.parametrize("outcome_shape", [(), (1,)])
+@pytest.mark.parametrize("transform", ["identity", "linear", "quadratic"])
+def test_blb_transformed_marginal_standard_errors(treatment_shape, outcome_shape, transform):
+    """Propagate coefficient standard deviations through treatment transformations."""
+    n = 4
+    d_t = treatment_shape[0] if treatment_shape else 1
+    T = np.linspace(-2, 3, n * d_t).reshape((n,) + treatment_shape)
+    X = np.zeros((n, 1))
+    params = np.arange(1, d_t + 1, dtype=float)
+    # Sampling uncertainty of estimated treatment-effect coefficients, not outcome noise or
+    # across-observation effect heterogeneity; the two-treatment coefficient errors are correlated.
+    # The stub supplies known covariance to isolate inference propagation from forest fitting.
+    factor = np.array([[2., 0.], [1., 3.]])[:d_t, :d_t]
+    covariance = factor @ factor.T
+    if transform == "identity":
+        featurizer = FunctionTransformer()
+        derivatives = np.tile(np.eye(d_t), (n, 1, 1))
+    elif transform == "linear":
+        matrix = np.array([[1., 2.], [-1., 0.5]]) if d_t == 2 else np.array([[-2.]])
+        featurizer = FunctionTransformer(lambda value: (value.reshape(-1, d_t) @ matrix).reshape(value.shape))
+        derivatives = np.tile(matrix, (n, 1, 1))
+    else:
+        featurizer = FunctionTransformer(lambda value: value**2)
+        derivatives = 2 * T.reshape(n, d_t, 1) * np.eye(d_t)
+
+    def expand_treatments(X, *treatments, transform=True):
+        return (X, *(featurizer.transform(value) if transform else value for value in treatments))
+
+    estimator = SimpleNamespace(
+        _d_t=treatment_shape, _d_y=outcome_shape, _original_treatment_featurizer=featurizer,
+        transformer=jacify_featurizer(featurizer),
+        _expand_treatments=expand_treatments,
+        _predict=lambda X, stderr: [(params, covariance) for _ in X],
+        cate_feature_names=lambda: None, cate_output_names=lambda: None, cate_treatment_names=lambda: None
+    )
+    inference = BLBInference().fit(estimator)
+    result = inference.marginal_effect_inference(T, X)
+    alpha = 0.1
+    # With an identity transform, a coordinate derivative and a one-unit coordinate contrast
+    # estimate the same quantity: points, standard errors, and intervals must agree.
+    # The explicit transformer exercises the transformed marginal-inference path.
+    if transform == "identity":
+        marginal_interval = inference.marginal_effect_interval(T, X, alpha=alpha)
+        for coordinate in range(d_t):
+            T1 = T.copy()
+            if treatment_shape:
+                T1[:, coordinate] += 1
+            else:
+                T1 += 1
+            effect_result = inference.effect_inference(X, T0=T, T1=T1)
+            marginal_index = (..., coordinate) if treatment_shape else (...,)
+            marginal_point = result.point_estimate[marginal_index]
+            marginal_stderr = result.stderr[marginal_index]
+            assert marginal_point.shape == effect_result.point_estimate.shape == (n,) + outcome_shape
+            assert marginal_stderr.shape == effect_result.stderr.shape == (n,) + outcome_shape
+            np.testing.assert_allclose(marginal_point, effect_result.point_estimate, atol=1e-10)
+            np.testing.assert_allclose(marginal_stderr, effect_result.stderr, atol=1e-10)
+            np.testing.assert_allclose(np.asarray(result.conf_int(alpha=alpha))[marginal_index],
+                                       effect_result.conf_int(alpha=alpha), atol=1e-10)
+            np.testing.assert_allclose(np.asarray(marginal_interval)[marginal_index],
+                                       inference.effect_interval(X, T0=T, T1=T1, alpha=alpha), atol=1e-10)
+    expected_shape = (n,) + outcome_shape + treatment_shape
+    expected_effect = (derivatives @ params).reshape(expected_shape)
+    # Independent analytical oracle: factor maps independent unit-variance errors into coefficient
+    # errors, and derivative rows map those into marginal-effect errors. Their product's row norms
+    # give standard deviations, not variances.
+    expected_stderr = np.linalg.norm(derivatives @ factor, axis=-1).reshape(expected_shape)
+    np.testing.assert_allclose(result.point_estimate, expected_effect, atol=1e-10)
+    np.testing.assert_allclose(result.stderr, expected_stderr, atol=1e-10)
+    np.testing.assert_allclose(result.var, expected_stderr**2, atol=1e-10)
+    expected_interval = (expected_effect - norm.ppf(1 - alpha / 2) * expected_stderr,
+                         expected_effect + norm.ppf(1 - alpha / 2) * expected_stderr)
+    np.testing.assert_allclose(result.conf_int(alpha=alpha), expected_interval, atol=1e-10)
+    np.testing.assert_allclose(inference.marginal_effect_interval(T, X, alpha=alpha),
+                               expected_interval, atol=1e-10)
+    # The constant-marginal path reports coefficients directly, so it must agree under identity too.
+    if transform == "identity":
+        constant_result = inference.const_marginal_effect_inference(X)
+        np.testing.assert_allclose(result.stderr, constant_result.stderr, atol=1e-10)
+        np.testing.assert_allclose(result.conf_int(alpha=alpha), constant_result.conf_int(alpha=alpha), atol=1e-10)
 
 
 class TestOrthoForest(unittest.TestCase):
