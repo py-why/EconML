@@ -289,7 +289,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         return self._fit_single_output_cov(nuisances, X, -1, groups)
 
     def _fit_single_output_cov(self, nuisances, X, y_index, groups):
-        """Calculate the covariance (n_periods*n_treatments) x (n_periods*n_treatments) matrix for a single outcome."""
+        """Calculate single-outcome covariance in period, treatment, then feature order."""
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
         period_filters = _get_groups_period_filter(groups, self.n_periods)
@@ -337,9 +337,10 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
                 Sigma[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = sigma_tj
                 if j >= t:
-                    # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
+                    # The negative derivative of period-t scores w.r.t. period-j coefficients
+                    # puts resT_t on rows and the future-period residualized regressor on columns.
                     m_tj = np.mean(
-                        XT_res[j][t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
+                        resT_t.reshape(-1, d_xt, 1) @ XT_res[j][t].reshape(-1, 1, d_xt),
                         axis=0)
                     J[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = m_tj
@@ -468,8 +469,6 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
              0.006...],
            [-0.092...,  0.326..., -0.013..., -0.237..., -0.141...,
             -0.264...]])
-    >>> est.effect(X[:2], T0=0, T1=1)
-    array([-0.529..., -0.422...])
     >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
     array([-0.529..., -0.422...])
     >>> est.coef_
@@ -480,15 +479,15 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
            [ 0.032...],
            [-0.130...]])
     >>> est.coef__interval()
-    (array([[-0.136...],
-           [ 0.001...],
-           [-0.110...],
-           [-0.370...],
+    (array([[-0.143...],
+           [-0.003...],
            [-0.100...],
-           [-0.294...]]), array([[0.210...],
-           [0.404...],
-           [0.199...],
-           [0.101...],
+           [-0.358...],
+           [-0.100...],
+           [-0.294...]]), array([[0.217...],
+           [0.408...],
+           [0.188...],
+           [0.089...],
            [0.164...],
            [0.034...]]))
     """

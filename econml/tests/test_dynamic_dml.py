@@ -6,13 +6,108 @@ import pickle
 import numpy as np
 from contextlib import ExitStack
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import (LassoCV, Lasso, MultiTaskLasso,
+from sklearn.linear_model import (LassoCV, Lasso, LinearRegression, MultiTaskLasso,
                                   LogisticRegression)
 from econml.panel.dml import DynamicDML
 from econml.panel.dml._dml import _get_groups_period_filter
 from econml.inference import BootstrapInference
 from econml.utilities import shape
 from econml.tests.dgp import DynamicPanelDGP
+
+
+@pytest.mark.parametrize("n_periods", [1, 3])
+@pytest.mark.parametrize("d_t", [1, 2])
+@pytest.mark.parametrize("d_x", [0, 2])
+@pytest.mark.parametrize("d_y", [None, 1, 2])
+def test_dynamic_covariance_score_derivative(n_periods, d_t, d_x, d_y):
+    """Compare fitted covariance and effect inference to differentiated panel scores."""
+    rng = np.random.default_rng(71)
+    n_units = 160
+    groups = np.repeat(np.arange(n_units), n_periods)
+    W = rng.normal(size=(n_units * n_periods, 2))
+    X = rng.normal(size=(n_units * n_periods, d_x)) if d_x else None
+    T = rng.normal(size=(n_units, n_periods, d_t))
+    # Nonsymmetric coupling exposes transposed cross-period blocks that scalar or symmetric cases hide.
+    coupling = np.array([[0.4, 1.3], [-0.7, 0.2]])[:d_t, :d_t]
+    for t in range(1, n_periods):
+        T[:, t] += T[:, t - 1] @ coupling
+    Y = rng.normal(size=(n_units * n_periods,) + (() if d_y is None else (d_y,)))
+    T = T.reshape(-1, d_t)
+    if d_t == 1:
+        T = T.ravel()
+    est = DynamicDML(model_y=LinearRegression(), model_t=LinearRegression(), cv=2, random_state=123)
+    est.fit(Y, T, X=X, W=W, groups=groups, cache_values=True)
+
+    # Reuse fitted nuisance residuals to isolate final-stage correctness: this is an independent
+    # estimating-equation reference, not primarily an invariance test or end-to-end DGP calibration.
+    Y_res, T_res, X_res, _ = est.residuals_
+    filters = _get_groups_period_filter(est._cached_values.groups, n_periods)
+    features = np.ones((n_units, 1))
+    if X_res is not None:
+        features = np.column_stack([features, X_res[filters[0]]])
+    T_res = T_res.reshape(-1, d_t, n_periods)
+    Y_res = Y_res.reshape(-1, d_y or 1)
+    # design[j, t] uses period-j treatment residuals relative to period-t information, interacted
+    # with baseline features. Explicit treatment-major columns keep the reference independent of _combine.
+    design = {
+        (j, t): np.column_stack([T_res[filters[j], k, t] * features[:, f]
+                                for k in range(d_t) for f in range(d_x + 1)])
+        for t in range(n_periods) for j in range(t, n_periods)
+    }
+    width = d_t * (d_x + 1)
+    beta = np.zeros((n_periods, width, d_y or 1))
+    # Independent backward regressions verify unchanged point coefficients before checking uncertainty.
+    for t in reversed(range(n_periods)):
+        adjusted = Y_res[filters[t]].copy()
+        for j in range(t + 1, n_periods):
+            adjusted -= design[j, t] @ beta[j]
+        beta[t] = np.linalg.lstsq(design[t, t], adjusted, rcond=None)[0]
+    expected_coef = beta.reshape(n_periods * width, d_y or 1).T
+    np.testing.assert_allclose(est.model_final_.coef_,
+                               expected_coef[0] if d_y is None else expected_coef, atol=1e-12)
+
+    expected_cov = []
+    for outcome in range(d_y or 1):
+        # Each row is one panel unit's stacked estimating equations, keeping its periods together.
+        def scores(params):
+            coefs = params.reshape(n_periods, width)
+            return np.column_stack([
+                design[t, t] * (Y_res[filters[t], outcome] -
+                                sum(design[j, t] @ coefs[j] for j in range(t, n_periods)))[:, None]
+                for t in range(n_periods)
+            ])
+
+        params = expected_coef[outcome]
+        steps = 1e-5 * np.eye(params.size)
+        # Negative finite differences put score coordinates on rows and coefficient coordinates
+        # on columns, without reproducing the production outer-product formula.
+        jacobian = np.column_stack([
+            -(scores(params + step).mean(axis=0) - scores(params - step).mean(axis=0)) / 2e-5
+            for step in steps
+        ])
+        influence = np.linalg.solve(jacobian, scores(params).T).T
+        # Coefficient sampling covariance, not outcome variance: independent units contribute
+        # influence vectors, and their outer-product sum / n_units**2 is covariance of the average.
+        expected_cov.append(influence.T @ influence / n_units**2)
+    expected_cov = np.array(expected_cov)
+    np.testing.assert_allclose(est.model_final_._param_var,
+                               expected_cov[0] if d_y is None else expected_cov, rtol=1e-8, atol=1e-10)
+
+    # A treatment contrast checks that public effect inference receives the covariance in the
+    # correct period/treatment/feature layout.
+    X_test = rng.normal(size=(4, d_x)) if d_x else None
+    test_features = np.column_stack([np.ones(4), X_test]) if d_x else np.ones((1, 1))
+    contrast = rng.normal(size=n_periods * d_t)
+    effect_design = np.column_stack([contrast[k] * test_features[:, f]
+                                    for k in range(contrast.size) for f in range(d_x + 1)])
+    expected_stderr = np.column_stack([
+        np.sqrt(np.einsum('ij,jk,ik->i', effect_design, cov, effect_design)) for cov in expected_cov
+    ])
+    T1 = np.tile(contrast, (test_features.shape[0], 1))
+    inference = est.effect_inference(X_test, T0=np.zeros_like(T1), T1=T1)
+    np.testing.assert_allclose(inference.stderr,
+                               expected_stderr[:, 0] if d_y is None else expected_stderr,
+                               rtol=1e-8, atol=1e-10)
 
 
 @pytest.mark.cate_api
