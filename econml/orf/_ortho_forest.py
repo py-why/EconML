@@ -1448,8 +1448,9 @@ class BLBInference(Inference):
                 jac_index.append(None)
 
             jac = jac_T[tuple(jac_index)]
-            final = np.einsum('mj, mjk, mk -> m', jac, cov, jac)
-            scales[tuple(me_index)] = final
+            projected_var = np.einsum('mj, mjk, mk -> m', jac, cov, jac)
+            # Inference needs the standard deviation of the projected coefficient uncertainty.
+            scales[tuple(me_index)] = np.sqrt(projected_var)
 
         eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
         scales = scales.reshape((-1,) + self._d_y + T.shape[1:])
