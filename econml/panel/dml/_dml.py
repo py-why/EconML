@@ -289,7 +289,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         return self._fit_single_output_cov(nuisances, X, -1, groups)
 
     def _fit_single_output_cov(self, nuisances, X, y_index, groups):
-        """Calculate the covariance (n_periods*n_treatments) x (n_periods*n_treatments) matrix for a single outcome."""
+        """Calculate single-outcome covariance in period, treatment, then feature order."""
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
         period_filters = _get_groups_period_filter(groups, self.n_periods)
@@ -337,9 +337,10 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
                 Sigma[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = sigma_tj
                 if j >= t:
-                    # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
+                    # The negative derivative of period-t scores w.r.t. period-j coefficients
+                    # puts resT_t on rows and the future-period residualized regressor on columns.
                     m_tj = np.mean(
-                        XT_res[j][t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
+                        resT_t.reshape(-1, d_xt, 1) @ XT_res[j][t].reshape(-1, 1, d_xt),
                         axis=0)
                     J[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = m_tj
