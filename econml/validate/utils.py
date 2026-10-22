@@ -1,14 +1,109 @@
-from typing import Tuple
+import warnings
+from numbers import Real
+from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
+
+
+def _validate_dr_inputs(D, y, reg_preds, prop_preds, min_propensity):
+    """Validate inputs shared by the public and diagnostic DR outcome paths."""
+    if not isinstance(min_propensity, Real) or isinstance(min_propensity, (bool, np.bool_)):
+        raise ValueError("min_propensity must be a finite number strictly between 0 and 0.5")
+    min_propensity = float(min_propensity)
+    if not np.isfinite(min_propensity) or not 0 < min_propensity < 0.5:
+        raise ValueError("min_propensity must be a finite number strictly between 0 and 0.5")
+
+    D = np.asarray(D)
+    y = np.asarray(y)
+    reg_preds = np.asarray(reg_preds)
+    prop_preds = np.asarray(prop_preds)
+    if D.ndim != 1 or y.ndim != 1:
+        raise ValueError("D and y must be one-dimensional arrays")
+    if reg_preds.ndim != 2 or prop_preds.ndim != 2:
+        raise ValueError("reg_preds and prop_preds must be two-dimensional arrays")
+    if not (D.shape[0] == y.shape[0] == reg_preds.shape[0] == prop_preds.shape[0]):
+        raise ValueError("D, y, reg_preds, and prop_preds must have the same number of rows")
+    if reg_preds.shape[1] != prop_preds.shape[1]:
+        raise ValueError("reg_preds and prop_preds must have the same number of treatment columns")
+    if not all(np.all(np.isfinite(values)) for values in (D, y, reg_preds, prop_preds)):
+        raise ValueError("D, y, reg_preds, and prop_preds must contain only finite values")
+
+    treatments = np.sort(np.unique(D))
+    if treatments.size == 0 or treatments[0] != 0:
+        raise ValueError("D must include control treatment 0")
+    if not np.all(np.equal(treatments, treatments.astype(int))) or np.any(treatments < 0):
+        raise ValueError("D must contain nonnegative integer treatment labels")
+    if int(treatments[-1]) >= reg_preds.shape[1]:
+        raise ValueError("reg_preds and prop_preds must include a column for every treatment label in D")
+    return D, y, reg_preds, prop_preds, treatments.astype(int), min_propensity
+
+
+def _format_clip_counts(diagnostics: Dict) -> str:
+    """Format nonzero per-arm clipping counts for warning messages."""
+    return ", ".join(
+        f"{label}: {count}"
+        for label, count in diagnostics["clipped_by_treatment"].items()
+        if count
+    )
+
+
+def _calculate_dr_outcomes_with_diagnostics(
+    D: np.array,
+    y: np.array,
+    reg_preds: np.array,
+    prop_preds: np.array,
+    *,
+    min_propensity: float = 0.01,
+) -> Tuple[np.array, Dict]:
+    """Compute doubly robust outcomes and propensity clipping diagnostics."""
+    D, y, reg_preds, prop_preds, treatments, min_propensity = _validate_dr_inputs(
+        D, y, reg_preds, prop_preds, min_propensity
+    )
+    below_threshold_by_treatment = {
+        int(treatment): int(np.count_nonzero(prop_preds[:, treatment] < min_propensity))
+        for treatment in treatments
+    }
+    clipped_by_treatment = {
+        int(treatment): int(
+            np.count_nonzero((D == treatment) & (prop_preds[:, treatment] < min_propensity))
+        )
+        for treatment in treatments
+    }
+
+    dr_vec = []
+    d0_mask = np.where(D == 0, 1, 0)
+    y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], min_propensity, np.inf)) * (
+        y - reg_preds[:, 0]
+    )
+    for k in treatments:
+        if k > 0:
+            dk_mask = np.where(D == k, 1, 0)
+            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], min_propensity, np.inf)) * (
+                y - reg_preds[:, k]
+            )
+            dr_vec.append(y_dr_k - y_dr_0)
+
+    diagnostics = {
+        "min_propensity": min_propensity,
+        "n_samples": D.shape[0],
+        "treatment_labels": tuple(int(treatment) for treatment in treatments),
+        "below_threshold_by_treatment": below_threshold_by_treatment,
+        "n_below_threshold": sum(below_threshold_by_treatment.values()),
+        "clipped_by_treatment": clipped_by_treatment,
+        "n_clipped": sum(clipped_by_treatment.values()),
+    }
+    return np.column_stack(dr_vec), diagnostics
 
 
 def calculate_dr_outcomes(
     D: np.array,
     y: np.array,
     reg_preds: np.array,
-    prop_preds: np.array
+    prop_preds: np.array,
+    *,
+    min_propensity: float = 0.01,
+    warn_on_clip: bool = True,
 ) -> np.array:
     """
     Calculate doubly-robust (DR) outcomes using predictions from nuisance models.
@@ -25,25 +120,34 @@ def calculate_dr_outcomes(
         Outcome predictions for each potential treatment
     prop_preds: (n x n_treat) matrix
         Propensity score predictions for each treatment
+    min_propensity: float, default 0.01
+        Lower bound applied independently to each treatment propensity used as a denominator.
+    warn_on_clip: bool, default True
+        Whether to emit a warning when any propensity is below ``min_propensity``. Clipping is a numerical
+        stabilization signal and does not by itself prove that identification failed.
 
     Returns
     -------
     Doubly robust outcome values
-    """
-    # treat each treatment as a separate regression
-    # here, prop_preds should be a matrix
-    # with rows corresponding to units and columns corresponding to treatment statuses
-    dr_vec = []
-    d0_mask = np.where(D == 0, 1, 0)
-    y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], .01, np.inf)) * (y - reg_preds[:, 0])
-    for k in np.sort(np.unique(D)):  # pick a treatment status
-        if k > 0:  # make sure it is not control
-            dk_mask = np.where(D == k, 1, 0)
-            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], .01, np.inf)) * (y - reg_preds[:, k])
-            dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
-            dr_vec.append(dr_k)
-    dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
 
+    Raises
+    ------
+    ValueError
+        If the clipping threshold is invalid, inputs are nonfinite or have incompatible shapes, control treatment 0
+        is absent, or predictions do not contain a column for every observed treatment label.
+    """
+    dr, diagnostics = _calculate_dr_outcomes_with_diagnostics(
+        D, y, reg_preds, prop_preds, min_propensity=min_propensity
+    )
+    if warn_on_clip and diagnostics["n_clipped"]:
+        warnings.warn(
+            f"Propensity scores were clipped below min_propensity={diagnostics['min_propensity']:g} "
+            f"for {diagnostics['n_clipped']} values across treatment arms "
+            f"({_format_clip_counts(diagnostics)}). Clipping is a numerical stabilization signal and does not "
+            "by itself prove that identification failed.",
+            UserWarning,
+            stacklevel=2,
+        )
     return dr
 
 
