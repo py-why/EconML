@@ -1449,7 +1449,7 @@ class BLBInference(Inference):
 
             jac = jac_T[tuple(jac_index)]
             final = np.einsum('mj, mjk, mk -> m', jac, cov, jac)
-            scales[tuple(me_index)] = final
+            scales[tuple(me_index)] = np.sqrt(final)
 
         eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
         scales = scales.reshape((-1,) + self._d_y + T.shape[1:])
