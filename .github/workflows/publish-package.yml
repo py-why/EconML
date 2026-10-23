@@ -92,8 +92,47 @@ jobs:
           python-version: 3.12
       - name: Ensure latest pip and setuptools
         run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+      - name: Checkout lkg branch
+        # Fetch the per-cell freeze file. continue-on-error so the bootstrap case
+        # (lkg branch doesn't exist yet, or this cell has no entry) falls through
+        # to the floating-install branch below.
+        uses: actions/checkout@v6
+        with:
+          ref: lkg
+          path: lkg-cache
+          fetch-depth: 1
+        continue-on-error: true
       - name: Install econml[all]
-        run: pip install -e .[all] ${{ inputs.use_lkg && '-r lkg.txt' || '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECIPE="profiles/current.toml"
+          FREEZE="lkg-cache/lkg-build-current-ubuntu-latest-3.12.txt"
+
+          WANT=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "$RECIPE")
+          HAVE=$(sed -n 's/^# recipe-sha: //p' "$FREEZE" 2>/dev/null || true)
+
+          if [ "${{ inputs.use_lkg }}" = "true" ] && [ -f "$FREEZE" ] && [ "$WANT" = "$HAVE" ]; then
+            echo "build: installing from freeze $FREEZE (recipe-sha $WANT)"
+            pip install -e ".[all]" -r "$FREEZE"
+          else
+            echo "::notice::build: resolving fresh (freeze missing, stale, or use_lkg unset)"
+            pip install -e ".[all]"
+          fi
+      - name: Save installed packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/current.toml")
+          {
+            echo "# recipe-sha: $SHA"
+            pip freeze --exclude-editable
+          } > build-current-ubuntu-latest-3.12-requirements.txt
+      - name: Upload installed packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: requirements-build-current-ubuntu-latest-3.12
+          path: build-current-ubuntu-latest-3.12-requirements.txt
       - name: Build sdist
         run: python setup.py sdist
       - name: Upload sdist as artifact
