@@ -967,6 +967,9 @@ class DRLearner(_OrthoLearner):
 
         Parameters
         ----------
+        T: alphanumeric
+            The treatment with respect to calculate the sensitivity summary.
+
         null_hypothesis: float, default 0
             The null_hypothesis value for the ATE.
 
@@ -976,8 +979,13 @@ class DRLearner(_OrthoLearner):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         decimals: int, default 3
             Number of decimal places to round each column to.
@@ -1014,8 +1022,13 @@ class DRLearner(_OrthoLearner):
         c_y: float, default 0.05
             The level of confounding in the outcome. Ranges from 0 to 1.
 
-        c_d: float, default 0.05
+        c_t: float, default 0.05
             The level of confounding in the treatment. Ranges from 0 to 1.
+
+        rho: float, default 1.
+            The worst case correlation between the estimation errors in Y and T.
+            Should be in the range [-1, 1], with -1 and 1 being the most
+            conservative choices.
 
         interval_type: str, default 'ci'
             The type of interval to return. Can be 'ci' or 'theta'
