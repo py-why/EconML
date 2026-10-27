@@ -667,7 +667,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -742,7 +742,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -796,7 +796,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
