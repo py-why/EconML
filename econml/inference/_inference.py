@@ -1444,8 +1444,8 @@ class PopulationSummaryResults:
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
-        An outcome/treatment interval is NaN if any of its sample means or standard errors
-        is nonfinite, or any standard error is nonpositive. Other intervals are unaffected.
+        An outcome/treatment interval is NaN if any sample mean or standard error is nonfinite,
+        or any standard error is nonpositive. Other intervals are unaffected.
 
         Parameters
         ----------
