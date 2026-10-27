@@ -3,17 +3,64 @@
 
 import unittest
 import numpy as np
+import pytest
 from scipy.special import expit
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import (ElasticNetCV, Lasso, LassoCV, LinearRegression, LogisticRegression,
                                   LogisticRegressionCV, MultiTaskElasticNetCV, MultiTaskLassoCV,
                                   RidgeCV, RidgeClassifierCV)
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV, KFold, RandomizedSearchCV
 from sklearn.preprocessing import PolynomialFeatures
 from econml.dml import LinearDML
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
+from econml.sklearn_extensions.model_selection import get_selector
 from econml.utilities import MultiModelWrapper
 from econml.dr import LinearDRLearner
+
+
+@pytest.mark.parametrize("model,weighted", [
+    (MultiTaskElasticNetCV(), False),
+    (MultiTaskLassoCV(), False),
+    (WeightedLassoCVWrapper(), False),
+    (WeightedLassoCVWrapper(), True),
+])
+def test_multitask_selector_score_output_variance(model, weighted):
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(150, 3))
+    y = rng.normal(size=(150, 2)) * [1, 3] + [10, -20]
+    folds = list(KFold(3).split(X))
+    kwargs = {"sample_weight": rng.uniform(.5, 2, len(y))} if weighted else {}
+    scores = []
+    mse_paths = []
+    for target in [y, y + [1000, -300], y[:, ::-1], np.tile(y, (1, 2))]:
+        selector = get_selector(model, is_discrete=False)
+        selector.train(True, folds, X, target, **kwargs)
+        min_mse = np.min(np.mean(selector.searcher.mse_path_, axis=-1))
+        expected_variance = np.mean([np.var(target[:, j]) for j in range(target.shape[1])])
+        np.testing.assert_allclose(selector.best_score, 1 - min_mse / expected_variance)
+        scores.append(selector.best_score)
+        mse_paths.append(selector.searcher.mse_path_)
+    np.testing.assert_allclose(scores[:3], scores[0], atol=1e-10)
+    for path in mse_paths[1:3]:
+        np.testing.assert_allclose(path, mse_paths[0], atol=1e-10)
+
+
+@pytest.mark.parametrize("model", [ElasticNetCV(), LassoCV(), WeightedLassoCVWrapper()])
+@pytest.mark.parametrize("weighted", [False, True])
+def test_single_output_selector_score_variance(model, weighted):
+    rng = np.random.default_rng(123)
+    X = rng.normal(size=(150, 3))
+    y = X[:, 0] + rng.normal(size=150)
+    folds = list(KFold(3).split(X))
+    kwargs = {"sample_weight": rng.uniform(.5, 2, len(y))} if weighted else {}
+    scores = []
+    for target in [y, y[:, None], y + 1000]:
+        selector = get_selector(model, is_discrete=False)
+        selector.train(True, folds, X, target, **kwargs)
+        min_mse = np.min(np.mean(selector.searcher.mse_path_, axis=-1))
+        np.testing.assert_allclose(selector.best_score, 1 - min_mse / np.var(target))
+        scores.append(selector.best_score)
+    np.testing.assert_allclose(scores, scores[0], atol=1e-10)
 
 
 class TestModelSelection(unittest.TestCase):
