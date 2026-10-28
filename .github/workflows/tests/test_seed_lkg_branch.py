@@ -48,6 +48,10 @@ _spec.loader.exec_module(seed_lkg_branch)
          "lkg-build-ubuntu-latest-3.12.txt"),
         ("docs-ubuntu-latest-3.12-requirements.txt",
          "lkg-docs-ubuntu-latest-3.12.txt"),
+        ("tests-current-windows-latest-3.12-main-build-requirements.txt",
+         "lkg-tests-current-windows-latest-3.12-main-build.txt"),
+        ("wheels-current-windows-latest-cp313t-win-amd64-build-requirements.txt",
+         "lkg-wheels-current-windows-latest-cp313t-win-amd64-build.txt"),
     ],
 )
 def test_rename_artifact_file_known_cells(artifact_name: str, expected: str) -> None:

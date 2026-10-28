@@ -73,7 +73,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Ensure latest pip and setuptools
-        run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+        run: python -m pip install --upgrade "pip>=25.3" setuptools uv "build>=1.2.2" tomli
       - name: Checkout lkg branch
         # Fetch the per-cell freeze file. continue-on-error so the bootstrap case
         # (lkg branch doesn't exist yet, or this cell has no entry) falls through
@@ -84,6 +84,12 @@ jobs:
           path: lkg-cache
           fetch-depth: 1
         continue-on-error: true
+      - name: Prepare isolated build constraints
+        run: >-
+          python .github/workflows/build_constraints.py
+          --cell docs-current-ubuntu-latest-3.12
+          --output docs-current-ubuntu-latest-3.12-build-requirements.txt
+          --use-lkg ${{ inputs.use_lkg && 'true' || 'false' }} --export-env
       - name: Install econml[all]
         shell: bash
         run: |
@@ -99,10 +105,10 @@ jobs:
 
           if [ "${{ inputs.use_lkg }}" = "true" ] && [ -f "$FREEZE" ] && [ "$WANT" = "$HAVE" ]; then
             echo "docs: installing from freeze $FREEZE (recipe-sha $WANT)"
-            pip install -e ".[all]" -r "$FREEZE"
+            uv --config-file "$RECIPE" pip install --system -e ".[all]" -r "$FREEZE"
           else
             echo "::notice::docs: resolving fresh (freeze missing, stale, or use_lkg unset)"
-            pip install -e ".[all]"
+            uv --config-file "$RECIPE" pip install --system -e ".[all]"
           fi
       - name: Save installed packages
         shell: bash
@@ -111,13 +117,9 @@ jobs:
           SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/current.toml")
           {
             echo "# recipe-sha: $SHA"
+            echo "# build-recipe-sha: $BUILD_RECIPE_SHA"
             pip freeze --exclude-editable
           } > docs-current-ubuntu-latest-3.12-requirements.txt
-      - name: Upload installed packages
-        uses: actions/upload-artifact@v6
-        with:
-          name: requirements-docs-current-ubuntu-latest-3.12
-          path: docs-current-ubuntu-latest-3.12-requirements.txt
       - name: Install graphviz
         run: sudo apt-get -yq install graphviz
       - name: Build documentation
@@ -130,6 +132,14 @@ jobs:
       - name: Run doctests
         run: sphinx-build ./doc/ ./build/sphinx/doctest/ -b doctest
         if : ${{ inputs.run_doctests }}
+      - name: Upload passing dependency pair
+        uses: actions/upload-artifact@v6
+        with:
+          name: requirements-docs-current-ubuntu-latest-3.12
+          path: |
+            docs-current-ubuntu-latest-3.12-requirements.txt
+            docs-current-ubuntu-latest-3.12-build-requirements.txt
+          if-no-files-found: error
         
   publish-docs:
     name: Publish documentation

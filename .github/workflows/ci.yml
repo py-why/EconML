@@ -113,7 +113,7 @@ jobs:
       # part of the package, and need a basic Python env that this job already provides.
       # `-o addopts=""` neutralizes the package-wide pytest addopts in pyproject.toml
       # (which require pytest-xdist, pytest-cov, and the econml package itself).
-      run: 'pip install pytest && pytest .github/workflows/tests/ -q -o addopts=""'
+      run: 'pip install pytest pyyaml uv "build>=1.2.2" tomli && pytest .github/workflows/tests/ -q -o addopts=""'
 
   notebooks:
     name: "Run notebooks (${{ matrix.profile }}, ${{ matrix.kind }})"
@@ -166,6 +166,15 @@ jobs:
         path: lkg-cache
         fetch-depth: 1
       continue-on-error: true
+    - name: Install build tooling
+      run: uv pip install --system "build>=1.2.2" tomli
+    - name: Prepare isolated build constraints
+      shell: bash
+      run: |
+        python .github/workflows/build_constraints.py \
+          --cell "notebooks-${{ env.id_string }}" \
+          --output "notebooks-${{ env.id_string }}-build-requirements.txt" \
+          --use-lkg "${{ env.use_lkg == 'true' && 'true' || 'false' }}" --export-env
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
       shell: bash
@@ -195,13 +204,9 @@ jobs:
         SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/${{ matrix.profile }}.toml")
         {
           echo "# recipe-sha: $SHA"
+          echo "# build-recipe-sha: $BUILD_RECIPE_SHA"
           pip freeze --exclude-editable
         } > notebooks-${{ env.id_string }}-requirements.txt
-    - name: Upload installed packages
-      uses: actions/upload-artifact@v6
-      with:
-        name: requirements-${{ env.id_string }}
-        path: notebooks-${{ env.id_string }}-requirements.txt
     - name: Install pytest
       run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
     - name: Run notebook tests
@@ -233,6 +238,15 @@ jobs:
       with:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
+
+    - name: Upload passing dependency pair
+      uses: actions/upload-artifact@v6
+      with:
+        name: requirements-notebooks-${{ env.id_string }}
+        path: |
+          notebooks-${{ env.id_string }}-requirements.txt
+          notebooks-${{ env.id_string }}-build-requirements.txt
+        if-no-files-found: error
     - name: Upload notebook outputs
       uses: actions/upload-artifact@v6
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
@@ -347,6 +361,16 @@ jobs:
         path: lkg-cache
         fetch-depth: 1
       continue-on-error: true
+    - name: Install build tooling
+      run: uv pip install --system "build>=1.2.2" tomli
+    - name: Prepare isolated build constraints
+      shell: bash
+      run: |
+        python .github/workflows/build_constraints.py \
+          --cell "tests-${{ env.id_string }}" \
+          --output "tests-${{ env.id_string }}-build-requirements.txt" \
+          --use-lkg "${{ env.use_lkg == 'true' && matrix.record_freeze != 'false' && 'true' || 'false' }}" \
+          --export-env
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
       shell: bash
@@ -398,14 +422,9 @@ jobs:
         SHA=$(python -c "import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest()[:12])" "profiles/${{ matrix.profile }}.toml")
         {
           echo "# recipe-sha: $SHA"
+          echo "# build-recipe-sha: $BUILD_RECIPE_SHA"
           pip freeze --exclude-editable
         } > tests-${{ env.id_string }}-requirements.txt
-    - name: Upload installed packages
-      uses: actions/upload-artifact@v6
-      if: ${{ matrix.record_freeze != 'false' }}
-      with:
-        name: requirements-${{ env.id_string }}
-        path: tests-${{ env.id_string }}-requirements.txt
     - name: Install pytest
       run: uv pip install --system pytest pytest-xdist pytest-cov coverage[toml]
     - name: Run tests
@@ -445,6 +464,16 @@ jobs:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
+    - name: Upload passing dependency pair
+      uses: actions/upload-artifact@v6
+      if: ${{ success() && matrix.record_freeze != 'false' }}
+      with:
+        name: requirements-tests-${{ env.id_string }}
+        path: |
+          tests-${{ env.id_string }}-requirements.txt
+          tests-${{ env.id_string }}-build-requirements.txt
+        if-no-files-found: error
+
   push-lkg:
     name: "Push per-cell LKG files to lkg branch"
     needs: [tests, notebooks, build, docs]
@@ -470,9 +499,8 @@ jobs:
     #     keep the bot from clobbering it.
     # Gating here keeps the redesign drop-in for forks: no fork-side setup
     # needed, no per-fork branch protection, no surprise commits.
-    # !cancelled() (rather than success()) lets a single failing tests/notebooks
-    # cell still update the other cells' freezes — the freeze is uploaded before
-    # pytest runs, so it captures install state, not test state.
+    # Passing cells upload their build/runtime pair only after validation.
+    # A failing cell leaves its previous LKG pair untouched.
     if: |
       !cancelled()
       && github.repository == 'py-why/EconML'
@@ -513,7 +541,7 @@ jobs:
           for f in "$dir"*-requirements.txt; do
             [ -f "$f" ] || continue
             base=$(basename "$f")
-            # base is "tests-<id>-requirements.txt" or "notebooks-<id>-requirements.txt"
+            # Runtime and build files travel together in each passing artifact.
             stem="${base%-requirements.txt}"
             cp "$f" "$STAGE/lkg-${stem}.txt"
           done

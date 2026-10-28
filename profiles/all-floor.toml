@@ -12,9 +12,8 @@
 #
 # This profile deliberately records **no freeze**: re-resolving from the declared
 # floors on every run is the entire point, and a recorded pin would defeat it.
-# That costs nothing in reproducibility, because `lowest-direct` is deterministic
-# -- it always selects the lowest version satisfying each declared bound, so the
-# result only moves when pyproject.toml moves (or when a release is yanked).
+# Transitive dependencies can still advance. This is a runtime-floor profile;
+# isolated builds use the independent policy in build.toml.
 
 resolution = "lowest-direct"
 prerelease = "disallow"
