@@ -503,3 +503,19 @@ class TestSeparateModelDeprecation(unittest.TestCase):
     def test_separate_model_emits_future_warning(self):
         with self.assertWarnsRegex(FutureWarning, "SeparateModel is deprecated"):
             SeparateModel(LinearRegression(), LinearRegression())
+
+    def test_einsum_sparse_optimization(self):
+        import sparse
+        from econml.utilities import einsum_sparse
+        import numpy as np
+        np.random.seed(42)
+        # We test a path that is optimized differently than left-to-right
+        # "ab,bc,cd->ad" usually gets optimized to contract (bc, cd) first or (ab, bc) depending on sizes
+        a = sparse.random((10, 20), density=0.1)
+        b = sparse.random((20, 30), density=0.1)
+        c = sparse.random((30, 40), density=0.1)
+
+        res_sparse = einsum_sparse('ab,bc,cd->ad', a, b, c)
+        res_dense = np.einsum('ab,bc,cd->ad', a.todense(), b.todense(), c.todense())
+
+        np.testing.assert_allclose(res_sparse.todense(), res_dense)
