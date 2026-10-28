@@ -1,0 +1,5 @@
+# Resolution policy for isolated builds, independent of the runtime profile.
+# Editing this file or [build-system] invalidates the recorded build constraints.
+# Public compatibility bounds belong in [build-system].requires; temporary CI
+# constraints can be added here with constraint-dependencies.
+prerelease = "disallow"
