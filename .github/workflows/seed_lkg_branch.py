@@ -3,8 +3,8 @@
 """Seed (or re-seed) the long-lived ``lkg`` branch from a CI run's per-cell freezes.
 
 Walks ``input_dir`` looking for subdirectories named ``requirements-*``, each
-containing one ``*-requirements.txt`` freeze file uploaded by a tests / notebooks
-/ build_sdist / create_docs job. Copies each file into ``output_dir`` with the
+containing ``*-requirements.txt`` runtime/build freeze pairs (or build-only
+wheel freezes) uploaded by passing cells. Copies each file into ``output_dir`` with the
 name ``lkg-<stem>.txt`` where ``<stem>`` is the artifact file's basename minus
 the ``-requirements.txt`` suffix.
 
@@ -93,7 +93,7 @@ def collect_freezes(input_dir: Path) -> list[tuple[Path, str]]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Copy per-cell pip-freeze artifacts from a CI run into a directory "
+            "Copy per-cell dependency-freeze artifacts from a CI run into a directory "
             "structured for the lkg branch. See module docstring for the full "
             "manual recipe."
         ),

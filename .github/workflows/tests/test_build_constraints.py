@@ -1,0 +1,266 @@
+# Copyright (c) PyWhy contributors. All rights reserved.
+# Licensed under the MIT License.
+"""Tests for recording the isolated build environment rather than runtime pins."""
+
+import importlib.util
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import textwrap
+from types import SimpleNamespace
+import zipfile
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parent.parent / "build_constraints.py"
+_spec = importlib.util.spec_from_file_location("build_constraints", _SCRIPT)
+build_constraints = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(build_constraints)
+
+
+@pytest.fixture
+def project(tmp_path):
+    (tmp_path / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["setuptools", "cython<3.3"]\n'
+        'build-backend = "setuptools.build_meta"\n'
+        '[project]\nname = "example"\nversion = "1"\ndependencies = ["numpy>=2"]\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "profiles").mkdir()
+    (tmp_path / "profiles" / "build.toml").write_text('prerelease = "disallow"\n', encoding="utf-8")
+    (tmp_path / "lkg-cache").mkdir()
+    return tmp_path
+
+
+def test_fingerprint_tracks_build_inputs_not_runtime_versions(project):
+    recipe = project / "profiles" / "build.toml"
+    initial = build_constraints.fingerprint(project, recipe, "editable")
+    manifest = project / "pyproject.toml"
+    manifest.write_text(manifest.read_text().replace("numpy>=2", "numpy>=2.1"))
+    assert build_constraints.fingerprint(project, recipe, "editable") == initial
+    manifest.write_text(manifest.read_text().replace("cython<3.3", "cython<3.4"))
+    assert build_constraints.fingerprint(project, recipe, "editable") != initial
+
+
+def test_fingerprint_handles_recipe_edits_line_endings_and_backend_hooks(project):
+    recipe = project / "profiles" / "build.toml"
+    initial = build_constraints.fingerprint(project, recipe, "wheel")
+    recipe.write_bytes(recipe.read_text().encode().replace(b"\n", b"\r\n"))
+    assert build_constraints.fingerprint(project, recipe, "wheel") == initial
+    (project / "setup.py").write_text("# new backend requirements\n")
+    assert build_constraints.fingerprint(project, recipe, "wheel") != initial
+    (project / "setup.py").unlink()
+    recipe.write_text('prerelease = "disallow"\n# refresh\n', encoding="utf-8")
+    assert build_constraints.fingerprint(project, recipe, "wheel") != initial
+
+
+def test_matching_build_lock_is_reused_and_stale_c_is_removed(project, monkeypatch):
+    recipe = project / "profiles" / "build.toml"
+    digest = build_constraints.fingerprint(project, recipe, "editable")
+    recorded = project / "lkg-cache" / "lkg-tests-cell-build.txt"
+    recorded.write_text(f"# build-recipe-sha: {digest}\ncython==3.2.9\n", encoding="utf-8")
+    extension = project / "econml" / "tree"
+    extension.mkdir(parents=True)
+    (extension / "example.pyx").write_text("")
+    (extension / "example.c").write_text("generated with a different Cython")
+
+    def unexpected_resolution(*args):
+        pytest.fail("a matching lock must not re-resolve against a newer Cython")
+
+    monkeypatch.setattr(build_constraints, "resolve", unexpected_resolution)
+    output = project / "candidate.txt"
+    build_constraints.prepare(project, recipe, "editable", recorded.parent, "tests-cell", output, True)
+    assert output.read_text() == recorded.read_text()
+    assert not (extension / "example.c").exists()
+
+
+@pytest.mark.parametrize("state", ["missing", "stale", "disabled"])
+def test_fallback_records_the_actual_candidate(project, monkeypatch, state):
+    recipe = project / "profiles" / "build.toml"
+    digest = build_constraints.fingerprint(project, recipe, "editable")
+    recorded = project / "lkg-cache" / "lkg-tests-cell-build.txt"
+    if state != "missing":
+        stamp = digest if state == "disabled" else "old-recipe"
+        recorded.write_text(f"# build-recipe-sha: {stamp}\ncython==3.1.0\n", encoding="utf-8")
+
+    def resolve(root, config, distribution, output):
+        assert root == project and config == recipe and distribution == "editable"
+        output.write_text("cython==3.2.9\nsetuptools==80.0.0\n", encoding="utf-8")
+
+    monkeypatch.setattr(build_constraints, "resolve", resolve)
+    output = project / "candidate.txt"
+    build_constraints.prepare(project, recipe, "editable", recorded.parent, "tests-cell",
+                              output, state != "disabled")
+    assert output.read_text().startswith(f"# build-recipe-sha: {digest}\ncython==3.2.9\n")
+    if recorded.exists():
+        assert "cython==3.1.0" in recorded.read_text()
+
+
+def test_failed_resolution_leaves_no_promotable_candidate(project, monkeypatch):
+    def fail(root, recipe, distribution, output):
+        output.write_text("partial resolution")
+        generated = root / "econml" / "tree"
+        generated.mkdir(parents=True)
+        (generated / "example.pyx").write_text("")
+        (generated / "example.c").write_text("generated by a provisional backend")
+        (generated / "unrelated.c").write_text("not generated from Cython")
+        raise subprocess.CalledProcessError(1, ["uv", "pip", "compile"])
+
+    monkeypatch.setattr(build_constraints, "resolve", fail)
+    output = project / "candidate.txt"
+    with pytest.raises(subprocess.CalledProcessError):
+        build_constraints.prepare(project, project / "profiles" / "build.toml",
+                                  "wheel", project / "lkg-cache", "cell", output, False)
+    assert not output.exists()
+    assert not (project / "econml" / "tree" / "example.c").exists()
+    assert (project / "econml" / "tree" / "unrelated.c").exists()
+
+
+@pytest.mark.parametrize("distribution", ["wheel", "sdist"])
+def test_backend_added_requirements_are_resolved_and_installed_in_isolation(project, monkeypatch, distribution):
+    commands = []
+    roots = []
+
+    class Isolated:
+        python_executable = "isolated-python"
+
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def run(command, *, check, env):
+        assert check
+        assert "UV_BUILD_CONSTRAINT" not in env
+        assert "PIP_BUILD_CONSTRAINT" not in env
+        commands.append(command)
+        if "compile" in command:
+            source = Path(command[command.index("compile") + 1])
+            roots.append(source.read_text())
+            output = Path(command[command.index("--output-file") + 1])
+            assert not output.exists(), "old output pins would silently prevent nightly upgrades"
+            output.write_text("cython==3.2.9\nsetuptools==80.0.0\n" +
+                              ("wheel==0.45.1\n" if "wheel" in roots[-1] else "") +
+                              ("editables==0.5\n" if "editables" in roots[-1] else ""))
+        else:
+            assert command[command.index("--python") + 1] == "isolated-python"
+
+    monkeypatch.setenv("UV_BUILD_CONSTRAINT", "previous-wheel.txt")
+    monkeypatch.setenv("PIP_BUILD_CONSTRAINT", "previous-wheel.txt")
+    monkeypatch.setattr(build_constraints, "DefaultIsolatedEnv", Isolated)
+    monkeypatch.setattr(build_constraints, "ProjectBuilder", SimpleNamespace(
+        from_isolated_env=lambda *args: SimpleNamespace(
+            get_requires_for_build=lambda kind: {"editables"} if kind == "editable" else {"wheel"})))
+    monkeypatch.setattr(build_constraints.shutil, "which", lambda name: name)
+    monkeypatch.setattr(build_constraints.subprocess, "run", run)
+    output = project / "candidate.txt"
+    output.write_text("cython==3.0.11\n")
+    build_constraints.resolve(project, project / "profiles" / "build.toml", distribution, output)
+    assert len(roots) == 2
+    assert "wheel" not in roots[0] and "wheel" in roots[1]
+    assert "wheel==0.45.1" in output.read_text()
+    assert ("editables==0.5" in output.read_text()) == (distribution == "sdist")
+    assert all("--no-build-isolation" not in command for command in commands)
+
+
+def test_cli_exports_constraints_for_both_frontends(project, monkeypatch):
+    def resolve(root, recipe, distribution, output):
+        output.write_text("cython==3.2.9\n", encoding="utf-8")
+
+    monkeypatch.setattr(build_constraints, "resolve", resolve)
+    environment = project / "github-env"
+    monkeypatch.setenv("GITHUB_ENV", str(environment))
+    output = project / "candidate.txt"
+    build_constraints.main(["--root", str(project), "--cell", "docs-cell",
+                            "--output", str(output), "--export-env",
+                            "--record-directory", str(project / "records")])
+    exported = environment.read_text()
+    assert f"UV_BUILD_CONSTRAINT={output}" in exported
+    assert f"PIP_BUILD_CONSTRAINT={output}" in exported
+    assert "BUILD_RECIPE_SHA=" in exported
+    assert (project / "records" / "docs-cell-build-requirements.txt").read_bytes() == output.read_bytes()
+
+
+def test_wheel_cells_distinguish_free_threaded_interpreters(monkeypatch):
+    monkeypatch.setattr(build_constraints.sysconfig, "get_platform", lambda: "win-amd64")
+    monkeypatch.setattr(build_constraints.sysconfig, "get_config_var", lambda name: 0)
+    regular = build_constraints.wheel_cell("wheels-current-windows-latest")
+    monkeypatch.setattr(build_constraints.sysconfig, "get_config_var", lambda name: 1)
+    free_threaded = build_constraints.wheel_cell("wheels-current-windows-latest")
+    assert regular != free_threaded
+    assert regular.endswith("-win-amd64") and free_threaded.endswith("-win-amd64")
+
+
+def test_real_isolated_build_uses_lock_without_changing_runtime(project, monkeypatch):
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is required for the offline build integration test")
+    wheels = project / "packages"
+    wheels.mkdir()
+
+    def package(name, version, requires=""):
+        info = f"{name}-{version}.dist-info"
+        files = {
+            f"{name}.py": f"VERSION = '{version}'\n",
+            f"{info}/METADATA": f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n{requires}",
+            f"{info}/WHEEL": "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        }
+        files[f"{info}/RECORD"] = "".join(f"{path},,\n" for path in [*files, f"{info}/RECORD"])
+        with zipfile.ZipFile(wheels / f"{name}-{version}-py3-none-any.whl", "w") as archive:
+            for path, content in files.items():
+                archive.writestr(path, content)
+
+    package("build_probe_extra", "4.0")
+    for version in ("1.0", "2.0"):
+        package("build_probe_dep", version, "Requires-Dist: build-probe-extra\n")
+    (project / "pyproject.toml").write_text(
+        '[build-system]\nrequires = ["build-probe-dep"]\n'
+        'build-backend = "probe_backend"\nbackend-path = ["."]\n', encoding="utf-8")
+    (project / "probe_backend.py").write_text(textwrap.dedent("""\
+        import zipfile
+        from pathlib import Path
+        import build_probe_dep
+
+        def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+            name = "probe_result-1.0-py3-none-any.whl"
+            with zipfile.ZipFile(Path(wheel_directory) / name, "w") as wheel:
+                wheel.writestr("build-version.txt", build_probe_dep.VERSION)
+                wheel.writestr("probe_result-1.0.dist-info/METADATA",
+                               "Metadata-Version: 2.1\\nName: probe-result\\nVersion: 1.0\\n")
+                wheel.writestr("probe_result-1.0.dist-info/WHEEL",
+                               "Wheel-Version: 1.0\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n")
+                wheel.writestr("probe_result-1.0.dist-info/RECORD", "")
+            return name
+        """), encoding="utf-8")
+    recipe = project / "profiles" / "build.toml"
+    recipe.write_text('constraint-dependencies = ["build-probe-dep==1.0"]\n', encoding="utf-8")
+    monkeypatch.setenv("UV_NO_INDEX", "true")
+    monkeypatch.setenv("UV_FIND_LINKS", str(wheels))
+    monkeypatch.delenv("UV_BUILD_CONSTRAINT", raising=False)
+    monkeypatch.delenv("PIP_BUILD_CONSTRAINT", raising=False)
+    output = project / "build-pins.txt"
+    build_constraints.prepare(project, recipe, "wheel", project / "lkg-cache", "cell", output, False)
+    assert "build-probe-dep==1.0" in output.read_text()
+    assert "build-probe-extra==4.0" in output.read_text()
+
+    def run(*command, env=None):
+        return subprocess.run(command, env=env, check=True, capture_output=True, text=True)
+
+    runtime = project / "runtime"
+    run(uv, "venv", str(runtime), "--python", sys.executable)
+    python = runtime / ("Scripts" if os.name == "nt" else "bin") / ("python.exe" if os.name == "nt" else "python")
+    run(uv, "pip", "install", "--python", str(python), "build-probe-dep==2.0")
+    environment = dict(os.environ, UV_BUILD_CONSTRAINT=str(output))
+    destination = project / "built"
+    run(uv, "--no-config", "build", str(project), "--wheel", "--python", str(python),
+        "--out-dir", str(destination), env=environment)
+    with zipfile.ZipFile(next(destination.glob("*.whl"))) as wheel:
+        assert wheel.read("build-version.txt") == b"1.0"
+    result = run(str(python), "-I", "-c", "import build_probe_dep; print(build_probe_dep.VERSION)")
+    assert result.stdout.strip() == "2.0"

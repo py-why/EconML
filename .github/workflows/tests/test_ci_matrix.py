@@ -128,3 +128,34 @@ def test_matrix_jobs_have_explicit_names(ci):
         assert "matrix.profile" in name, (
             f"{job}: set an explicit name including matrix.profile so job names "
             "stay readable and stable")
+
+
+@pytest.mark.parametrize("workflow,job,validation", [
+    ("ci.yml", "tests", "Run tests"),
+    ("ci.yml", "notebooks", "Run notebook tests"),
+    ("publish-documentation.yml", "create_docs", "Run doctests"),
+    ("publish-package.yml", "build_sdist", "Build sdist"),
+])
+def test_dependency_pairs_are_only_published_after_validation(workflow, job, validation):
+    steps = yaml.safe_load((WORKFLOWS / workflow).read_text(encoding="utf-8"))["jobs"][job]["steps"]
+    validate_index = next(i for i, step in enumerate(steps) if step.get("name") == validation)
+    uploads = [(i, step) for i, step in enumerate(steps)
+               if str(step.get("with", {}).get("name", "")).startswith("requirements-")]
+    assert len(uploads) == 1
+    upload_index, upload = uploads[0]
+    assert upload_index > validate_index
+    assert "always()" not in upload.get("if", "") and "failure()" not in upload.get("if", "")
+    assert "-build-requirements.txt" in upload["with"]["path"]
+    assert any(step.get("name") == "Prepare isolated build constraints" for step in steps[:validate_index])
+
+
+def test_wheel_builds_use_constraints_and_test_the_built_extension():
+    job = yaml.safe_load((WORKFLOWS / "publish-package.yml").read_text(encoding="utf-8"))["jobs"]["build_wheels"]
+    steps = job["steps"]
+    build = next(step for step in steps if step.get("name") == "Build wheels")
+    assert build["env"]["CIBW_BUILD_FRONTEND"] == "build[uv]"
+    assert "UV_BUILD_CONSTRAINT" in build["env"]["CIBW_ENVIRONMENT"]
+    assert "--record-directory /output" in build["env"]["CIBW_BEFORE_BUILD_LINUX"]
+    assert "RegressionForest" in build["env"]["CIBW_TEST_COMMAND"]
+    wheel_upload = next(step for step in steps if step.get("name") == "Upload wheels as artifact")
+    assert wheel_upload["with"]["path"].endswith("*.whl"), "build constraints must not be published to PyPI"
