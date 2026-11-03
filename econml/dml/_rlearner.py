@@ -50,12 +50,12 @@ class _ModelNuisance(ModelSelector):
         self._model_y = model_y
         self._model_t = model_t
 
-    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, folds, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, **fit_params):
         assert Z is None, "Cannot accept instrument!"
         self._model_t.train(is_selecting, folds, X, W, T, **
-                            filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+                            filter_none_kwargs(sample_weight=sample_weight, groups=groups, **fit_params))
         self._model_y.train(is_selecting, folds, X, W, Y, **
-                            filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+                            filter_none_kwargs(sample_weight=sample_weight, groups=groups, **fit_params))
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None,
