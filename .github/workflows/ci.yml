@@ -107,6 +107,13 @@ jobs:
       run: python -m pip install --upgrade pip && pip install --upgrade setuptools
     - name: Run Ruff
       run: 'pip install ruff && ruff check'
+    - name: Test workflow helper scripts
+      # Covers .github/workflows/seed_lkg_branch.py (and any future workflow helpers).
+      # Lives in the lint job because these scripts are workflow infrastructure, not
+      # part of the package, and need a basic Python env that this job already provides.
+      # `-o addopts=""` neutralizes the package-wide pytest addopts in pyproject.toml
+      # (which require pytest-xdist, pytest-cov, and the econml package itself).
+      run: 'pip install pytest && pytest .github/workflows/tests/ -q -o addopts=""'
 
   notebooks:
     name: Run notebooks
@@ -145,13 +152,28 @@ jobs:
     - name: Install graphviz
       run: sudo apt-get -yq install graphviz
       if: ${{ matrix.install_graphviz }}
+    - name: Checkout lkg branch
+      # Fetch the per-cell freeze files. continue-on-error so the bootstrap case
+      # (lkg branch doesn't exist yet, or this matrix cell has no entry) falls
+      # through to the floating-install branch below.
+      uses: actions/checkout@v6
+      with:
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+      continue-on-error: true
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
-    # Install notebook requirements (if not already done as part of lkg)
-    - name: Install notebook requirements
-      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      if: ${{ !env.use_lkg }}
+      shell: bash
+      run: |
+        LKG_FILE="lkg-cache/lkg-notebooks-${{ matrix.kind }}-${{ matrix.version }}.txt"
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        else
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
+          # Notebook-specific deps. When the LKG file is present these are already pinned in it.
+          uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+        fi
     - name: Save installed packages
       run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
@@ -259,9 +281,26 @@ jobs:
     - name: Install uv
       # check if we're running on windows
       run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
+    - name: Checkout lkg branch
+      # Fetch the per-cell freeze files. continue-on-error so the bootstrap case
+      # (lkg branch doesn't exist yet, or this matrix cell has no entry) falls
+      # through to the floating-install branch below.
+      uses: actions/checkout@v6
+      with:
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+      continue-on-error: true
     # Add verbose flag to pip installation if in debug mode
     - name: Install econml
-      run: uv pip install --system -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
+      shell: bash
+      run: |
+        LKG_FILE="lkg-cache/lkg-tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}.txt"
+        if [ "${{ env.use_lkg }}" = "true" ] && [ -f "$LKG_FILE" ]; then
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }} -r "$LKG_FILE"
+        else
+          uv pip install --system -e ".${{ matrix.extras }}" ${{ fromJSON('["","-v"]')[runner.debug] }}
+        fi
     - name: Save installed packages
       run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
     - name: Upload installed packages
@@ -308,59 +347,116 @@ jobs:
         name: tests-${{ env.id_string }}
         path: ${{ env.id_string }}-test-results.xml
 
-  store-reqs-per-env:
-    name: Store requirements for LKG updates
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
-    strategy:
-      matrix:
-        kind: [tests]
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
-        include:
-          # assign extras to all combinations
-          - extras: "[plt,dowhy,ray]"
-          # overwrite extras for python 3.14, and 3.13 under Windows, because ray is unsupported there
-          - extras: "[plt,dowhy]"
-            python-version: '3.14'
-          - extras: "[plt,dowhy]"
-            python-version: '3.13'
-            os: 'windows-latest'
-            # explicitly add the two notebook extras
-          - kind: notebooks-other
-            os: ubuntu-latest
-            python-version: '3.12'
-            extras: "[plt,ray]"
-          - kind: notebooks-customer
-            os: ubuntu-latest
-            python-version: '3.12'
-            extras: "[plt,dowhy]"
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+  push-lkg:
+    name: "Push per-cell LKG files to lkg branch"
+    needs: [tests, notebooks, build, docs]
+    # Only push freezes when we're generating fresh ones from main, never from a
+    # feature branch. We push on:
+    #   * the nightly schedule (which only runs on the default branch), or
+    #   * workflow_dispatch with use_lkg=false AND dispatched from main AND
+    #     without an inputs.ref override (so users can manually test against a
+    #     future dep version on a feature branch without enshrining it in LKG
+    #     before the breaking change is reviewed).
+    # The github.repository check stops the job from firing on forks. GitHub
+    # runs the scheduled workflow on every fork's default branch by default
+    # (until the fork goes 60 days without activity), and lets fork owners
+    # workflow_dispatch on their own main, so without this gate every active
+    # fork would run push-lkg nightly. That would:
+    #   * burn the fork owner's Actions minutes for no benefit (the fork's
+    #     GITHUB_TOKEN can only push to the fork, not upstream, so the
+    #     upstream lkg branch is never at risk regardless);
+    #   * pollute the fork's lkg branch (or create one if it doesn't exist)
+    #     with auto-generated commits the fork owner didn't ask for;
+    #   * force every fork owner who wants to host a personal lkg copy for
+    #     pinned installs on their own CI to add branch protection on it to
+    #     keep the bot from clobbering it.
+    # Gating here keeps the redesign drop-in for forks: no fork-side setup
+    # needed, no per-fork branch protection, no surprise commits.
+    # !cancelled() (rather than success()) lets a single failing tests/notebooks
+    # cell still update the other cells' freezes — the freeze is uploaded before
+    # pytest runs, so it captures install state, not test state.
+    if: |
+      !cancelled()
+      && github.repository == 'py-why/EconML'
+      && (github.event_name == 'schedule'
+          || (github.event_name == 'workflow_dispatch'
+              && !inputs.use_lkg
+              && github.ref == 'refs/heads/main'
+              && (inputs.ref == '' || inputs.ref == 'main' || inputs.ref == 'refs/heads/main')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Serialize across concurrent workflow runs so we don't race on push.
+    # cancel-in-progress: false so a later run waits rather than discarding an in-flight push.
+    concurrency:
+      group: lkg-push
+      cancel-in-progress: false
     steps:
-    - name: Checkout repository
+    - name: Checkout lkg branch
       uses: actions/checkout@v6
       with:
-        ref: ${{ env.ref }}
-    - name: Setup Python
-      uses: actions/setup-python@v6
+        ref: lkg
+        path: lkg-cache
+        fetch-depth: 1
+    - name: Download requirements artifacts
+      uses: actions/download-artifact@v8
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install uv
-      # check if we're running on windows
-      run: ${{ runner.os == 'Windows' && 'irm https://astral.sh/uv/install.ps1 | iex' || 'curl -LsSf https://astral.sh/uv/install.sh | sh' }}
-    - name: Install econml
-      # add all extras used by any of the individual tests, which is a superset of what's actually used anywhere
-      run: uv pip install --system -e .${{ matrix.extras }}
-    - name: Install notebook requirements
-      run: uv pip install --system jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      if: startswith(matrix.kind, 'notebooks-')
-    - name: Save installed packages
-      run: pip freeze --exclude-editable > lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
-    - name: Upload installed packages
-      uses: actions/upload-artifact@v6
-      with:
-        name: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}
-        path: lkg-${{ matrix.kind }}-${{ matrix.os }}-${{ matrix.python-version }}.txt
+        pattern: requirements-*
+        path: reqs
+    - name: Commit and push per-cell LKG files
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Stage all per-cell freezes into a temp dir so we can re-apply them after
+        # a fetch/reset if a concurrent push races us.
+        STAGE=$(mktemp -d)
+        for dir in ./reqs/requirements-*/; do
+          for f in "$dir"*-requirements.txt; do
+            [ -f "$f" ] || continue
+            base=$(basename "$f")
+            # base is "tests-<id>-requirements.txt" or "notebooks-<id>-requirements.txt"
+            stem="${base%-requirements.txt}"
+            cp "$f" "$STAGE/lkg-${stem}.txt"
+          done
+        done
+        copied=$(ls "$STAGE" | wc -l)
+        echo "Staged $copied per-cell LKG files."
+        if [ "$copied" -eq 0 ]; then
+          echo "::error::No per-cell LKG files were staged; aborting before commit."
+          exit 1
+        fi
+
+        cd lkg-cache
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        msg="Update LKG from CI run ${{ github.run_id }} attempt ${{ github.run_attempt }}"
+        for attempt in 1 2 3 4 5; do
+          # Resync with remote on every attempt (cheap on attempt 1, essential on retries).
+          git fetch origin lkg
+          git reset --hard origin/lkg
+
+          # Overlay the staged files on top of the latest remote HEAD.
+          cp -f "$STAGE"/*.txt ./
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No drift; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "$msg"
+
+          if git push origin HEAD:lkg; then
+            echo "Push succeeded on attempt $attempt."
+            exit 0
+          fi
+          echo "Push failed on attempt $attempt; retrying after rebase..."
+          sleep 5
+        done
+        echo "::error::Push to lkg branch failed after 5 attempts."
+        exit 1
 
   coverage-report:
     name: "Coverage report"
@@ -398,11 +494,11 @@ jobs:
       
   merge-artifacts:
     name: "Merge artifacts"
-    needs: [coverage-report, tests, notebooks, store-reqs-per-env]
+    needs: [coverage-report, tests, notebooks, build, docs]
     if: success() || failure()
     strategy:
       matrix:
-        artifact: [requirements, tests, coverage, notebooks, lkg-tests, lkg-notebooks]
+        artifact: [requirements, tests, coverage, notebooks]
     runs-on: ubuntu-latest
     steps:
     - name: "Merge artifacts"
@@ -415,55 +511,6 @@ jobs:
       # Unlike with plain upload-artifact, there's no way to ignore the situation where no files are found when using the v4 merge action
       # (see https://github.com/actions/upload-artifact/issues/520), so just continue on error isntead
       continue-on-error: true
-
-  generate-lkg:
-    name: "Generate updated last known good files"
-    needs: [merge-artifacts]
-    if: (success() || failure()) && (github.event_name == 'workflow_dispatch' && !inputs.use_lkg || github.event_name == 'schedule')
-    strategy:
-      matrix:
-        kind: [tests, notebooks]
-        include:
-        - kind: tests
-          pattern: tests
-          output-name: lkg
-        - kind: notebooks
-          pattern: "notebooks-(?P<subset>[a-z]+)"
-          output-name: lkg-notebook
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
-      with:
-        ref: ${{ env.ref }}
-    - name: Setup Python
-      uses: actions/setup-python@v6
-    - name: Download files
-      uses: actions/download-artifact@v8
-      with:
-        name: lkg-${{ matrix.kind }}
-        path: requirements
-    - name: "Generate last known good versions"
-      run: python .github/workflows/generate_lkg.py requirements "lkg-${{ matrix.pattern }}-(?P<os>[a-z]+)-(latest|[0-9.]+)-(?P<pyversion>[0-9.]+).txt" ${{ matrix.output-name }}.txt
-    - name: "Upload last known good versions"
-      uses: actions/upload-artifact@v6
-      with:
-        name: ${{ matrix.output-name }}
-        path: ${{ matrix.output-name }}.txt
-        
-  merge-lkg:
-    name: "Merge last known good versions"
-    needs: [generate-lkg]
-    if: success() || failure()
-    runs-on: ubuntu-latest
-    steps:
-    - name: "Merge last known good versions"
-      uses: actions/upload-artifact/merge@v6
-      with:
-        # can't use just "lkg" for the name since that artifact already exists and merge won't overwrite it even when delete-merged is true
-        name: lkg-files
-        pattern: "lkg*"
-        delete-merged: true
 
   build:
     name: Build package
