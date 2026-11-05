@@ -465,3 +465,29 @@ class TestInference(unittest.TestCase):
                 return getattr(self.cate_est, name)
             else:
                 return self.__getattribute__(name)
+
+
+@pytest.mark.parametrize("d_t,d_y", [(None, 1), (None, 2), (1, 1), (1, 2), (2, 1), (2, 2)])
+@pytest.mark.parametrize("has_stderr", [False, True])
+def test_population_summary_rendering(d_t, d_y, has_stderr):
+    pred_shape = (4,) + ((d_y,) if d_y > 1 else ()) + ((d_t,) if d_t and d_t > 1 else ())
+    pred = np.arange(1, np.prod(pred_shape) + 1, dtype=float).reshape(pred_shape)
+    pred_stderr = np.full_like(pred, 0.5) if has_stderr else None
+    population = PopulationSummaryResults(pred, pred_stderr, None, d_t=d_t, d_y=d_y)
+    summary = population.summary()
+
+    expected_headers = ['mean_point']
+    if has_stderr:
+        expected_headers += ['stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
+    if d_y > 1 or (d_t and d_t > 1):
+        expected_headers.insert(0, '')
+    assert summary.tables[0].data[0] == expected_headers
+    assert len(summary.tables) == (3 if has_stderr else 2)
+    for table in summary.tables:
+        assert all(len(row) == len(table.data[0]) for row in table.data)
+
+    for rendered in [summary.as_text(), summary.as_html(), summary.as_csv(), summary.as_latex(),
+                     str(population), population._repr_html_()]:
+        rendered = rendered.replace(r'\_', '_')
+        assert 'mean_point' in rendered
+        assert ('stderr_mean' in rendered) == has_stderr

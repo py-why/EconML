@@ -1508,6 +1508,8 @@ class PopulationSummaryResults:
         smry : Summary instance
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
+            When prediction standard errors are unavailable, only point estimates
+            and their distribution are included.
         """
         return self._print(alpha=alpha, value=value, decimals=decimals,
                            tol=tol, output_names=output_names, treatment_names=treatment_names)
@@ -1530,6 +1532,7 @@ class PopulationSummaryResults:
 
         # 1. Uncertainty of Mean Point Estimate
         res1 = self._format_res(self.mean_point, decimals)
+        myheaders1 = ['mean_point']
         if self.pred_stderr is not None:
             res1 = np.hstack((res1,
                               self._format_res(self.stderr_mean, decimals),
@@ -1537,12 +1540,11 @@ class PopulationSummaryResults:
                               self._format_res(self.pvalue(value=value), decimals),
                               self._format_res(self.conf_int_mean(alpha=alpha)[0], decimals),
                               self._format_res(self.conf_int_mean(alpha=alpha)[1], decimals)))
+            myheaders1 += ['stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self._d_t)]
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
-
-        myheaders1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
 
         mystubs = self._get_stub_names(self.d_y, self._d_t, treatment_names, output_names)
         title1 = "Uncertainty of Mean Point Estimate"

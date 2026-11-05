@@ -1354,12 +1354,14 @@ class Summary:
 
         Notes
         -----
-        This currently merges tables with different number of columns.
-        It is recommended to use `as_latex_tabular` directly on the individual
-        tables.
+        Tables with the same number of columns are merged. Tables with different
+        numbers of columns are rendered as separate tabular environments.
 
         """
-        latex = _statsmodels_summary.summary_return(self.tables, return_fmt='latex')
+        if len({len(table[0]) for table in self.tables}) > 1:
+            latex = '\n'.join(table.as_latex_tabular() for table in self.tables)
+        else:
+            latex = _statsmodels_summary.summary_return(self.tables, return_fmt='latex')
         if self.extra_txt is not None:
             latex = latex + '\n\n' + self.extra_txt.replace('\n', ' \\newline\n ')
         return latex
@@ -1734,5 +1736,4 @@ def strata_from_discrete_arrays(arrs):
         curr_array = temp + curr_array * len(enc.classes_)
 
     return curr_array
-
 
