@@ -96,7 +96,8 @@ class Test2SLS(unittest.TestCase):
         Z = np.random.normal(size=(5000, 2))
         W = np.random.normal(size=(5000, 1))
         # Note: no noise, just testing that we can exactly recover when we ought to be able to
-        T = np.hstack([np.cross(X, Z).reshape(-1, 1) + W, (np.prod(X, axis=1) + np.prod(Z, axis=1)).reshape(-1, 1)])
+        cross = X[:, 0] * Z[:, 1] - X[:, 1] * Z[:, 0]
+        T = np.hstack([cross.reshape(-1, 1) + W, (np.prod(X, axis=1) + np.prod(Z, axis=1)).reshape(-1, 1)])
         Y = X * T + X**2
 
         est = SieveTSLS(
