@@ -223,7 +223,7 @@ def size(X):
 
     Parameters
     ----------
-    a : array_like
+    X : array_like
         Input data
 
     Returns
@@ -318,12 +318,9 @@ def cross_product(*XS):
 
     Parameters
     ----------
-    X1 : n x d1 matrix
-        First matrix of n samples of d1 features
-        (or an n-element vector, which will be treated as an n x 1 matrix)
-    X2 : n x d2 matrix
-        Second matrix of n samples of d2 features
-        (or an n-element vector, which will be treated as an n x 1 matrix)
+    *XS : n x d_i matrices
+        Matrices of n samples of d_i features
+        (or n-element vectors, which will be treated as n x 1 matrices)
 
     Returns
     -------
@@ -355,7 +352,7 @@ def stack(XS, axis=0):
 
     Parameters
     ----------
-    arrays : sequence of array_like
+    XS : sequence of array_like
         Each array must have the same shape
 
     axis : int, optional

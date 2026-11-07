@@ -1423,7 +1423,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha:  float in [0, 1], default 0.05
+        alpha:  float in [0, 1], optional
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 

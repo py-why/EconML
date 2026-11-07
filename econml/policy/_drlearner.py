@@ -460,7 +460,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -508,7 +508,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -569,7 +569,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -897,7 +897,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -950,7 +950,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
@@ -1018,7 +1018,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, default False
+        filled : bool, default True
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
