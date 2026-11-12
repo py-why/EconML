@@ -1,6 +1,6 @@
 [project]
 name = "econml"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{ name = "PyWhy contributors" }]
 description = "This package contains several methods for calculating Conditional Average Treatment Effects"
 readme = "README.md"
@@ -9,7 +9,6 @@ license = "MIT"
 dynamic = ["version"]
 
 classifiers = [
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -20,10 +19,11 @@ classifiers = [
     "Operating System :: POSIX :: Linux"
 ]
 # Lower bounds are deliberately conservative: roughly the newest release available at the
-# end of 2024, capped so they never exceed the version actually exercised on our oldest
-# supported interpreter (Python 3.9) in lkg.txt. Beyond documenting what we actually test,
-# real lower bounds stop resolvers from silently back-tracking into ancient releases when a
-# newer conflict appears: an unbounded "scipy > 1.4.0" allowed a resolver to select scipy
+# end of 2024, capped at the versions exercised on Python 3.9 in lkg.txt when these
+# bounds were set. Dropping Python 3.9 does not raise these dependency floors.
+# Beyond documenting what we actually test, real lower bounds stop resolvers from silently
+# back-tracking into ancient releases when a newer conflict appears: an unbounded
+# "scipy > 1.4.0" allowed a resolver to select scipy
 # 1.6.1, which has no wheels for modern Pythons and fails to build.
 dependencies = [
     "numpy >= 2.0.2",
