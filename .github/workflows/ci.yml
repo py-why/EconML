@@ -102,11 +102,13 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.9'
+        python-version: '3.12'
     - name: Ensure latest pip and setuptools
       run: python -m pip install --upgrade pip && pip install --upgrade setuptools
     - name: Run Ruff
       run: 'pip install ruff && ruff check'
+    - name: Test workflow helpers
+      run: pip install pytest pyyaml tomli packaging && pytest .github/workflows/tests/ -q -o addopts=""
 
   notebooks:
     name: Run notebooks
@@ -237,7 +239,8 @@ jobs:
             opts: '-m "ray"'
             extras: "[ray]"
       fail-fast: false    
-    runs-on: ${{ matrix.os }}
+    # Python 3.9 is unavailable on Ubuntu 26.04; retain it on 24.04 for the release.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.9' && 'ubuntu-24.04' || matrix.os }}
     env:
       id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
@@ -335,7 +338,8 @@ jobs:
             python-version: '3.12'
             extras: "[plt,dowhy]"
       fail-fast: false
-    runs-on: ${{ matrix.os }}
+    # Match the test runners without changing matrix labels used by LKG artifacts.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.9' && 'ubuntu-24.04' || matrix.os }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
