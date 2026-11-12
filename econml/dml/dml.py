@@ -425,9 +425,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    verbose: int, default 2
-        The verbosity level of the output messages. Higher values indicate more verbosity.
-
     cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
