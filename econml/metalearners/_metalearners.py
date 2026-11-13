@@ -18,6 +18,25 @@ from ..utilities import (check_input_arrays, check_inputs, check_models, broadca
 from .._shap import _shap_explain_model_cate
 
 
+def _model_spec(estimator, name, n):
+    # `fit` replaces model arguments such as `models` with the list of per-treatment models it trains.
+    # A refit with the same number of treatments reuses that list, as before.  If the number of treatments
+    # changed and the list is still the one `fit` created, start again from the original argument.
+    # Returns the value to resolve and the original argument to remember.
+    value = getattr(estimator, name)
+    resolved, spec = getattr(estimator, '_model_specs', {}).get(name, (None, None))
+    if resolved is None or value is not resolved:
+        return value, value
+    return (value if len(value) == n else spec), spec
+
+
+def _set_resolved_models(estimator, name, spec, resolved):
+    if not hasattr(estimator, '_model_specs'):
+        estimator._model_specs = {}
+    estimator._model_specs[name] = (resolved, spec)
+    setattr(estimator, name, resolved)
+
+
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Conditional mean regression estimator.
@@ -111,7 +130,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
-        self.models = check_models(self.models, self._d_t[0] + 1)
+        models, spec = _model_spec(self, 'models', self._d_t[0] + 1)
+        _set_resolved_models(self, 'models', spec, check_models(models, self._d_t[0] + 1))
 
         for ind in range(self._d_t[0] + 1):
             self.models[ind].fit(X[T == ind], Y[T == ind])
@@ -390,11 +410,15 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
-        self.models = check_models(self.models, self._d_t[0] + 1)
-        if self.cate_models is None:
-            self.cate_models = [clone(model, safe=False) for model in self.models]
+        n_models = self._d_t[0] + 1
+        models, models_spec = _model_spec(self, 'models', n_models)
+        cate_models, cate_models_spec = _model_spec(self, 'cate_models', n_models)
+        _set_resolved_models(self, 'models', models_spec, check_models(models, n_models))
+        if cate_models is None:
+            _set_resolved_models(self, 'cate_models', cate_models_spec,
+                                 [clone(model, safe=False) for model in self.models])
         else:
-            self.cate_models = check_models(self.cate_models, self._d_t[0] + 1)
+            _set_resolved_models(self, 'cate_models', cate_models_spec, check_models(cate_models, n_models))
         self.propensity_models = []
         self.cate_treated_models = []
         self.cate_controls_models = []
@@ -556,8 +580,10 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
-        self.models = check_models(self.models, self._d_t[0] + 1)
-        self.final_models = check_models(self.final_models, self._d_t[0])
+        models, models_spec = _model_spec(self, 'models', self._d_t[0] + 1)
+        final_models, final_models_spec = _model_spec(self, 'final_models', self._d_t[0])
+        _set_resolved_models(self, 'models', models_spec, check_models(models, self._d_t[0] + 1))
+        _set_resolved_models(self, 'final_models', final_models_spec, check_models(final_models, self._d_t[0]))
         self.propensity_models = []
         self.models_control = []
         self.models_treated = []
