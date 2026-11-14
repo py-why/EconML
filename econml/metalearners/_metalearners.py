@@ -61,7 +61,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.58547..., 1.82860..., 0.78379...])
+    array([0.58547, 1.82860, 0.78379])
     """
 
     def __init__(self, *,
@@ -188,7 +188,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.23577..., 1.62784... , 0.45946...])
+    array([0.23577, 1.62784 , 0.45946])
     """
 
     def __init__(self, *,
@@ -335,7 +335,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.58547..., 1.82860..., 0.78379...])
+    array([0.58547, 1.82860, 0.78379])
     """
 
     def __init__(self, *,
@@ -503,7 +503,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.51237..., 1.99866..., 0.68552...])
+    array([0.51237, 1.99866, 0.68552])
     """
 
     def __init__(self, *,
