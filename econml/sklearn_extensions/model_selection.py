@@ -465,8 +465,15 @@ def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
 
 
 def _to_elasticNet(model: ElasticNetCV, args, kwargs, is_lasso=False, cls=None, extra_attrs=[]):
-    # We need an R^2 score to compare to other models; ElasticNetCV doesn't provide it,
-    # but we can calculate it ourselves from the MSE plus the variance of the target y
+    # Retain the fast R^2 approximation: mse_path_ already averages squared errors over
+    # outputs, so normalize by the mean of the per-output variances. Pooling outputs
+    # would incorrectly count differences between their means as target variation.
+    #
+    # Scores are still not directly comparable to other selectors' default R^2 scores:
+    # we use variances computed over all supplied observations rather than within each
+    # validation fold, and aggregate outputs differently. Consistent scoring requires
+    # broader evaluation changes because mse_path_ no longer contains per-output errors.
+    # The denominator also remains unweighted when CV uses sample weights.
     y = signature(model.fit).bind(*args, **kwargs).arguments["y"]
     cls = cls or (Lasso if is_lasso else ElasticNet)
     new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start', 'dual_gap_',
@@ -477,7 +484,7 @@ def _to_elasticNet(model: ElasticNetCV, args, kwargs, is_lasso=False, cls=None, 
         _copy_to(model, new_model, ["l1_ratio"], True)
     # max R^2 corresponds to min MSE
     min_mse = np.min(np.mean(model.mse_path_, axis=-1))  # last dimension in mse_path is folds, so average over that
-    r2 = 1 - min_mse / np.var(y)  # R^2 = 1 - MSE / Var(y)
+    r2 = 1 - min_mse / np.mean(np.var(y, axis=0))  # R^2 = 1 - MSE / Var(y)
     return new_model, r2
 
 
