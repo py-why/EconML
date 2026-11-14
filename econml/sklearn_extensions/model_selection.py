@@ -674,7 +674,7 @@ class GridSearchCVList(BaseEstimator):
         Either estimator needs to provide a ``score`` function,
         or ``scoring`` must be passed.
 
-    param_grid : list of dict or list of list of dictionaries
+    param_grid_list : list of dict or list of list of dictionaries
         For each estimator, the dictionary with parameters names (`str`) as keys and lists of
         parameter settings to try as values, or a list of such
         dictionaries, in which case the grids spanned by each dictionary
