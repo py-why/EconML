@@ -11,12 +11,30 @@ import scipy.sparse
 import pytest
 from econml.utilities import (check_high_dimensional, einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
-                              strata_from_discrete_arrays, add_constant, MultiModelWrapper, SeparateModel)
+                              strata_from_discrete_arrays, add_constant, MultiModelWrapper, SeparateModel, Summary)
 from sklearn.preprocessing import OneHotEncoder, SplineTransformer
 from sklearn.linear_model import LinearRegression, LogisticRegressionCV, LassoCV
 
 
 class TestUtilities(unittest.TestCase):
+    def test_summary_latex(self):
+        from statsmodels.iolib.summary import summary_return
+
+        for ncols in [2, 1, 3]:
+            summary = Summary()
+            summary.add_table([[1, 2]], ['first', 'second'], ['row0'], 'First table')
+            summary.add_table([list(range(ncols))], [f'col{i}' for i in range(ncols)], ['row1'], 'Second table')
+            summary.add_extra_txt(['First note', 'Second note'])
+            original_text = summary.as_text()
+
+            if ncols == 2:
+                expected = summary_return(summary.tables, return_fmt='latex')
+            else:
+                expected = '\n'.join(table.as_latex_tabular() for table in summary.tables)
+            expected += '\n\nFirst note \\newline\n Second note'
+            assert summary.as_latex() == expected
+            assert summary.as_text() == original_text
+
     def test_check_high_dimensional(self):
         X = np.repeat(
             a=np.expand_dims(np.arange(3), axis=1),
