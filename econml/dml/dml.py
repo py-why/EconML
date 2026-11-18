@@ -107,8 +107,22 @@ class _FirstStageSelector(SingleModelSelector):
                                      "don't contain all treatments")
             Target = inverse_onehot(Target)
 
-        self._model.train(is_selecting, folds, _combine(X, W, Target.shape[0]), Target,
-                          **filter_none_kwargs(groups=groups, sample_weight=sample_weight))
+        try:
+            self._model.train(is_selecting, folds, _combine(X, W, Target.shape[0]), Target,
+                              **filter_none_kwargs(groups=groups, sample_weight=sample_weight))
+        except ValueError as exc:
+            if (not self._discrete_target
+                    and np.ndim(Target) == 2 and np.shape(Target)[1] > 1):
+                raise ValueError(
+                    f"First-stage model failed to fit a {np.shape(Target)[1]}-column target. "
+                    "This typically happens when treatment_featurizer (or a multi-dimensional "
+                    "outcome) produces a multi-column target but the supplied model does not "
+                    "support multi-output regression. Wrap your model with "
+                    "sklearn.multioutput.MultiOutputRegressor, or use a model with native "
+                    "multi-output support (e.g. LinearRegression, RandomForestRegressor, "
+                    f"GradientBoostingRegressor). Original error: {exc}"
+                ) from exc
+            raise
         return self
 
     @property

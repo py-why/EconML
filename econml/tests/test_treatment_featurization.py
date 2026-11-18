@@ -626,3 +626,57 @@ class TestTreatmentFeaturization(unittest.TestCase):
         for s in scores[t_key]:
             assert np.isfinite(s), \
                 f"score_nuisances T score {s} is not finite (#1006/#1029)"
+
+    def test_single_output_model_t_with_featurizer_raises_helpful_error(self):
+        # Regression test for #1012: when treatment_featurizer produces a
+        # multi-column target but model_t does not support multi-output
+        # regression (e.g. CatBoost, older XGBoost), the underlying
+        # estimator raises an opaque shape error. Verify EconML now wraps
+        # that error with guidance to use MultiOutputRegressor.
+        from sklearn.base import BaseEstimator, RegressorMixin
+        from sklearn.multioutput import MultiOutputRegressor
+
+        class _SingleOutputOnlyRegressor(BaseEstimator, RegressorMixin):
+            def fit(self, X, y, **kwargs):
+                y_arr = np.asarray(y)
+                if y_arr.ndim > 1 and y_arr.shape[1] > 1:
+                    raise ValueError(
+                        f"single-output regressor expected 1D target, got shape {y_arr.shape}"
+                    )
+                self.coef_ = np.linalg.lstsq(X, y_arr.ravel(), rcond=None)[0]
+                return self
+
+            def predict(self, X):
+                return X @ self.coef_
+
+        rng = np.random.default_rng(0)
+        n = 600
+        X = rng.normal(size=(n, 3))
+        T = rng.normal(size=n)
+        Y = 2 * T + T**2 + X[:, 0] + rng.normal(size=n)
+
+        est = LinearDML(
+            model_y=LinearRegression(),
+            model_t=_SingleOutputOnlyRegressor(),
+            treatment_featurizer=polynomial_treatment_featurizer,
+            cv=2,
+            random_state=0,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            est.fit(Y, T, X=X)
+        msg = str(ctx.exception)
+        assert "MultiOutputRegressor" in msg, \
+            f"expected MultiOutputRegressor guidance in error, got: {msg}"
+        assert "multi-column target" in msg or "multi-output" in msg, \
+            f"expected multi-output framing in error, got: {msg}"
+
+        est_fixed = LinearDML(
+            model_y=LinearRegression(),
+            model_t=MultiOutputRegressor(_SingleOutputOnlyRegressor()),
+            treatment_featurizer=polynomial_treatment_featurizer,
+            cv=2,
+            random_state=0,
+        )
+        est_fixed.fit(Y, T, X=X)
+        assert np.all(np.isfinite(est_fixed.effect(X[:5]))), \
+            "wrapping single-output model_t with MultiOutputRegressor should make fit succeed"
