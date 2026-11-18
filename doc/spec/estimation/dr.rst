@@ -469,6 +469,41 @@ Usage FAQs
 
     The method allows for multiple discrete (categorical) treatments and will estimate a CATE model for each treatment.
 
+- **What if I already know the treatment assignment probabilities (e.g. a randomized experiment)?**
+
+    If the assignment probabilities are known by design (e.g. data from an A/B test or a stratified
+    experiment with per-unit assignment probabilities), you can pass them directly via the
+    ``propensity`` argument of ``fit`` instead of having the library estimate a propensity model;
+    the propensity model is then not fitted at all and the known values are used in the doubly
+    robust correction (they remain subject to ``min_propensity`` clipping and ``trimming_threshold``
+    trimming):
+
+    .. testcode::
+
+        from econml.dr import DRLearner
+        p = np.full(y.shape[0], 1 / 2)  # known probability of treatment for each sample
+        est = DRLearner()
+        est.fit(y, T, X=X, W=W, propensity=p)
+        point = est.effect(X, T0=T0, T1=T1)
+
+    For a binary treatment, ``p`` can be a single vector with the probability of the non-control
+    treatment; with more treatment categories, pass one column per category (including control as
+    the first column), ordered to match the sorted unique treatment values (or the ``categories``
+    argument if it was set). Note that since no propensity model is fitted, the ``propensity``
+    argument must also be supplied when calling ``score`` on new data. The same argument is
+    supported by the DML family of estimators when ``discrete_treatment=True``.
+
+    The supplied values must be the true, by-design probabilities of treatment conditional on
+    *everything* that influenced assignment — including design variables such as randomization
+    blocks or strata, even when those variables are not part of X or W. For example, with subjects
+    randomized within blocks, the correct value is each subject's within-block assignment
+    probability; the marginal treatment rate, or probabilities estimated from (X, W) alone, are not
+    generally sufficient when assignment depended on other outcome-relevant variables. When the
+    design variables are available, it is still worthwhile to also include them in W: this is not
+    needed for identification, but it reduces variance. Also note that a non-default
+    ``min_propensity`` will bias the estimates if the true design probabilities fall below it, so
+    aggressive clipping should be avoided when the supplied probabilities are exact.
+
 - **How can I assess the performance of the CATE model?**
 
     Each of the DRLearner classes have an attribute `score_` after they are fitted. So one can access that
