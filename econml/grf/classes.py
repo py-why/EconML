@@ -359,7 +359,8 @@ class CausalForest(BaseGRF):
                  n_jobs=-1,
                  random_state=None,
                  verbose=0,
-                 warm_start=False):
+                 warm_start=False,
+                 use_memmap=False):
         super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
                          min_samples_split=min_samples_split,
                          min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
@@ -368,7 +369,7 @@ class CausalForest(BaseGRF):
                          max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
                          honest=honest, inference=inference, fit_intercept=fit_intercept,
                          subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
-                         warm_start=warm_start)
+                         warm_start=warm_start, use_memmap=use_memmap)
 
     def fit(self, X, T, y, *, sample_weight=None):
         """
