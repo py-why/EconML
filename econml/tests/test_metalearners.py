@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import Lasso, LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
@@ -98,59 +98,31 @@ class TestMetalearners(unittest.TestCase):
                 self._test_te(DA_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
     def test_refit_with_different_number_of_treatments(self):
-        """A refit with a different number of treatments starts again from the constructor's model arguments."""
-        rng = np.random.RandomState(0)
-        X = rng.normal(size=(600, 3))
-        T3 = rng.randint(0, 3, size=600)
-        T2 = rng.randint(0, 2, size=600)
-        Y3 = X[:, 0] + T3 * (1 + X[:, 1]) + 0.1 * rng.normal(size=600)
-        Y2 = X[:, 0] + T2 * (1 + X[:, 1]) + 0.1 * rng.normal(size=600)
-        X_test = X[:20]
-        makers = [
-            lambda: TLearner(models=LinearRegression()),
-            lambda: XLearner(models=LinearRegression()),
-            lambda: XLearner(models=LinearRegression(), cate_models=LinearRegression()),
-            lambda: DomainAdaptationLearner(models=LinearRegression(), final_models=LinearRegression()),
+        """Construction and refitting leave the supplied model specifications intact."""
+        X, T, Y = self.heterogeneous_te_data
+        model = LinearRegression()
+        propensity = LogisticRegression()
+        learners = [
+            (TLearner, dict(models=model)),
+            (SLearner, dict(overall_model=model)),
+            (XLearner, dict(models=model, cate_models=model, propensity_model=propensity)),
+            (DomainAdaptationLearner, dict(models=model, final_models=model, propensity_model=propensity)),
         ]
-        for make in makers:
-            with self.subTest(learner=make()):
-                est = make()
-                for Y, T in [(Y3, T3), (Y2, T2), (Y3, T3)]:
-                    est.fit(Y, T, X=X)
-                    np.testing.assert_allclose(est.const_marginal_effect(X_test),
-                                               make().fit(Y, T, X=X).const_marginal_effect(X_test))
-
-        # assigning new models between fits is still respected
-        est = TLearner(models=LinearRegression())
-        est.fit(Y3, T3, X=X)
-        est.models = [LinearRegression(), LinearRegression()]
-        est.fit(Y2, T2, X=X)
-        np.testing.assert_allclose(est.const_marginal_effect(X_test),
-                                   TLearner(models=LinearRegression()).fit(Y2, T2, X=X).const_marginal_effect(X_test))
-
-    def test_refit_with_same_number_of_treatments_keeps_models(self):
-        """A refit with the same number of treatments reuses the fitted models, including edits to them."""
-        rng = np.random.RandomState(1)
-        X = rng.normal(size=(600, 3))
-        T = rng.randint(0, 3, size=600)
-        Y = X[:, 0] + T * (1 + X[:, 1]) + 0.1 * rng.normal(size=600)
-        X_test = X[:20]
-
-        # changed parameters of a fitted model
-        est = TLearner(models=Ridge()).fit(Y, T, X=X)
-        models = est.models
-        models[1].set_params(alpha=100.0)
-        est.fit(Y, T, X=X)
-        self.assertIs(est.models, models)
-        expected = TLearner(models=[Ridge(), Ridge(alpha=100.0), Ridge()]).fit(Y, T, X=X)
-        np.testing.assert_allclose(est.const_marginal_effect(X_test), expected.const_marginal_effect(X_test))
-
-        # a replaced model
-        est = TLearner(models=Ridge()).fit(Y, T, X=X)
-        est.models[2] = Lasso(alpha=0.5)
-        est.fit(Y, T, X=X)
-        expected = TLearner(models=[Ridge(), Ridge(), Lasso(alpha=0.5)]).fit(Y, T, X=X)
-        np.testing.assert_allclose(est.const_marginal_effect(X_test), expected.const_marginal_effect(X_test))
+        binary = T != 5
+        for learner_type, specs in learners:
+            with self.subTest(learner=learner_type.__name__):
+                learner = learner_type(**specs)
+                for name, spec in specs.items():
+                    self.assertIs(getattr(learner, name), spec)
+                learner.fit(Y, T, X=X)
+                learner.fit(Y[binary], T[binary], X=X[binary])
+                for name, spec in specs.items():
+                    self.assertIs(getattr(learner, name), spec)
+                fresh = learner_type(**specs).fit(Y[binary], T[binary], X=X[binary])
+                np.testing.assert_allclose(learner.effect(self.X_test, T0=1, T1=3),
+                                           fresh.effect(self.X_test, T0=1, T1=3))
+        self.assertFalse(hasattr(model, 'coef_'))
+        self.assertFalse(hasattr(propensity, 'coef_'))
 
     def _test_te(self, learner_instance, T0, T1, tol, te_type="const", multi_y=False):
         if te_type not in ["const", "heterogeneous"]:

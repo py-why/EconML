@@ -18,23 +18,14 @@ from ..utilities import (check_input_arrays, check_inputs, check_models, broadca
 from .._shap import _shap_explain_model_cate
 
 
-def _model_spec(estimator, name, n):
-    # `fit` replaces model arguments such as `models` with the list of per-treatment models it trains.
-    # A refit with the same number of treatments reuses that list, as before.  If the number of treatments
-    # changed and the list is still the one `fit` created, start again from the original argument.
-    # Returns the value to resolve and the original argument to remember.
-    value = getattr(estimator, name)
-    resolved, spec = getattr(estimator, '_model_specs', {}).get(name, (None, None))
-    if resolved is None or value is not resolved:
-        return value, value
-    return (value if len(value) == n else spec), spec
+# Distinguish omission from an explicitly supplied propensity model.
+_DEFAULT_PROPENSITY_MODEL = object()
 
 
-def _set_resolved_models(estimator, name, spec, resolved):
-    if not hasattr(estimator, '_model_specs'):
-        estimator._model_specs = {}
-    estimator._model_specs[name] = (resolved, spec)
-    setattr(estimator, name, resolved)
+def _clone_models(models, n):
+    resolved = check_models(models, n)
+    # check_models clones a single estimator per arm but returns sequences unchanged.
+    return clone(resolved, safe=False) if isinstance(models, (list, tuple)) else resolved
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -55,6 +46,11 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
     allow_missing: bool
         Whether to allow missing values in X. If True, will need to supply models
         that can handle missing values.
+
+    Attributes
+    ----------
+    models_ : list or tuple of estimators
+        Fitted outcome models in treatment order, starting with control.
 
     Examples
     --------
@@ -87,7 +83,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  categories='auto',
                  allow_missing=False):
-        self.models = clone(models, safe=False)
+        self.models = models
         self.categories = categories
         self.allow_missing = allow_missing
         super().__init__()
@@ -130,11 +126,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
-        models, spec = _model_spec(self, 'models', self._d_t[0] + 1)
-        _set_resolved_models(self, 'models', spec, check_models(models, self._d_t[0] + 1))
-
-        for ind in range(self._d_t[0] + 1):
-            self.models[ind].fit(X[T == ind], Y[T == ind])
+        self.models_ = _clone_models(self.models, self._d_t[0] + 1)
+        for ind, model in enumerate(self.models_):
+            model.fit(X[T == ind], Y[T == ind])
 
     def const_marginal_effect(self, X):
         """Calculate the constant marignal treatment effect on a vector of features for each sample.
@@ -157,9 +151,10 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             force_all_finite = False
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
+        models = getattr(self, 'models_', self.models)  # fitted estimators from older versions
         taus = []
         for ind in range(self._d_t[0]):
-            taus.append(self.models[ind + 1].predict(X) - self.models[0].predict(X))
+            taus.append(models[ind + 1].predict(X) - models[0].predict(X))
         taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
             taus = transpose(taus, (0, 2, 1))  # shape as of m*d_y*d_t
@@ -183,6 +178,11 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
     allow_missing: bool
         Whether to allow missing values in X. If True, will need to supply overall_model
         that can handle missing values.
+
+    Attributes
+    ----------
+    overall_model_ : estimator
+        Fitted outcome model.
 
     Examples
     --------
@@ -215,7 +215,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  overall_model,
                  categories='auto',
                  allow_missing=False):
-        self.overall_model = clone(overall_model, safe=False)
+        self.overall_model = overall_model
         self.categories = categories
         self.allow_missing = allow_missing
         super().__init__()
@@ -263,7 +263,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # Thus, we append the controls column before the one-hot-encoded T
         # We might want to revisit, though, since it's linearly determined by the others
         feat_arr = np.concatenate((X, 1 - np.sum(T, axis=1).reshape(-1, 1), T), axis=1)
-        self.overall_model.fit(feat_arr, Y)
+        self.overall_model_ = clone(self.overall_model, safe=False)
+        self.overall_model_.fit(feat_arr, Y)
 
     def const_marginal_effect(self, X=None):
         """
@@ -291,7 +292,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
-        prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
+        model = getattr(self, 'overall_model_', self.overall_model)  # fitted estimators from older versions
+        prediction = model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
         if self._d_y:
             prediction = transpose(prediction, (0, 2, 1))
             taus = (prediction - np.repeat(prediction[:, :, 0], self._d_t[0] + 1).reshape(prediction.shape))[:, :, 1:]
@@ -319,7 +321,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If None, it will be same models as the outcome estimators.
         Must implement `fit` and `predict` methods.
 
-    propensity_model : estimator for the propensity function
+    propensity_model : estimator for the propensity function, default LogisticRegression()
         Must implement `fit` and `predict_proba` methods. The `fit` method must
         be able to accept X and T, where T is a shape (n, ) array.
 
@@ -330,6 +332,11 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     allow_missing: bool
         Whether to allow missing values in X. If True, will need to supply models, cate_models, and
         propensity_model that can handle missing values.
+
+    Attributes
+    ----------
+    models_ : list or tuple of estimators
+        Fitted outcome models in treatment order, starting with control.
 
     Examples
     --------
@@ -361,12 +368,13 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  models,
                  cate_models=None,
-                 propensity_model=LogisticRegression(),
+                 propensity_model=_DEFAULT_PROPENSITY_MODEL,
                  categories='auto',
                  allow_missing=False):
-        self.models = clone(models, safe=False)
-        self.cate_models = clone(cate_models, safe=False)
-        self.propensity_model = clone(propensity_model, safe=False)
+        self.models = models
+        self.cate_models = cate_models
+        self.propensity_model = (LogisticRegression() if propensity_model is _DEFAULT_PROPENSITY_MODEL
+                                 else propensity_model)
         self.categories = categories
         self.allow_missing = allow_missing
         super().__init__()
@@ -411,27 +419,21 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         n_models = self._d_t[0] + 1
-        models, models_spec = _model_spec(self, 'models', n_models)
-        cate_models, cate_models_spec = _model_spec(self, 'cate_models', n_models)
-        _set_resolved_models(self, 'models', models_spec, check_models(models, n_models))
-        if cate_models is None:
-            _set_resolved_models(self, 'cate_models', cate_models_spec,
-                                 [clone(model, safe=False) for model in self.models])
-        else:
-            _set_resolved_models(self, 'cate_models', cate_models_spec, check_models(cate_models, n_models))
+        self.models_ = _clone_models(self.models, n_models)
+        cate_models = check_models(self.models if self.cate_models is None else self.cate_models, n_models)
         self.propensity_models = []
         self.cate_treated_models = []
         self.cate_controls_models = []
 
         # Estimate response function
         for ind in range(self._d_t[0] + 1):
-            self.models[ind].fit(X[T == ind], Y[T == ind])
+            self.models_[ind].fit(X[T == ind], Y[T == ind])
         for ind in range(self._d_t[0]):
-            self.cate_treated_models.append(clone(self.cate_models[ind + 1], safe=False))
-            self.cate_controls_models.append(clone(self.cate_models[0], safe=False))
+            self.cate_treated_models.append(clone(cate_models[ind + 1], safe=False))
+            self.cate_controls_models.append(clone(cate_models[0], safe=False))
             self.propensity_models.append(clone(self.propensity_model, safe=False))
-            imputed_effect_on_controls = self.models[ind + 1].predict(X[T == 0]) - Y[T == 0]
-            imputed_effect_on_treated = Y[T == ind + 1] - self.models[0].predict(X[T == ind + 1])
+            imputed_effect_on_controls = self.models_[ind + 1].predict(X[T == 0]) - Y[T == 0]
+            imputed_effect_on_treated = Y[T == ind + 1] - self.models_[0].predict(X[T == ind + 1])
             self.cate_controls_models[ind].fit(X[T == 0], imputed_effect_on_controls)
             self.cate_treated_models[ind].fit(X[T == ind + 1], imputed_effect_on_treated)
             X_concat = np.concatenate((X[T == 0], X[T == ind + 1]), axis=0)
@@ -488,7 +490,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         estimators with ones estimator per treatments (excluding control).
         Must implement `fit` and `predict` methods.
 
-    propensity_model : estimator for the propensity function
+    propensity_model : estimator for the propensity function, default LogisticRegression()
         Must implement `fit` and `predict_proba` methods. The `fit` method must
         be able to accept X and T, where T is a shape (n, 1) array.
 
@@ -499,6 +501,11 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     allow_missing: bool
         Whether to allow missing values in X. If True, will need to supply models, final_models, and
         propensity_model that can handle missing values.
+
+    Attributes
+    ----------
+    final_models_ : list or tuple of estimators
+        Fitted treatment effect models in treatment order, excluding control.
 
     Examples
     --------
@@ -533,12 +540,13 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  models,
                  final_models,
-                 propensity_model=LogisticRegression(),
+                 propensity_model=_DEFAULT_PROPENSITY_MODEL,
                  categories='auto',
                  allow_missing=False):
-        self.models = clone(models, safe=False)
-        self.final_models = clone(final_models, safe=False)
-        self.propensity_model = clone(propensity_model, safe=False)
+        self.models = models
+        self.final_models = final_models
+        self.propensity_model = (LogisticRegression() if propensity_model is _DEFAULT_PROPENSITY_MODEL
+                                 else propensity_model)
         self.categories = categories
         self.allow_missing = allow_missing
         super().__init__()
@@ -580,16 +588,14 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
-        models, models_spec = _model_spec(self, 'models', self._d_t[0] + 1)
-        final_models, final_models_spec = _model_spec(self, 'final_models', self._d_t[0])
-        _set_resolved_models(self, 'models', models_spec, check_models(models, self._d_t[0] + 1))
-        _set_resolved_models(self, 'final_models', final_models_spec, check_models(final_models, self._d_t[0]))
+        models = check_models(self.models, self._d_t[0] + 1)
+        self.final_models_ = _clone_models(self.final_models, self._d_t[0])
         self.propensity_models = []
         self.models_control = []
         self.models_treated = []
         for ind in range(self._d_t[0]):
-            self.models_control.append(clone(self.models[0], safe=False))
-            self.models_treated.append(clone(self.models[ind + 1], safe=False))
+            self.models_control.append(clone(models[0], safe=False))
+            self.models_treated.append(clone(models[ind + 1], safe=False))
             self.propensity_models.append(clone(self.propensity_model, safe=False))
 
             X_concat = np.concatenate((X[T == 0], X[T == ind + 1]), axis=0)
@@ -610,7 +616,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             imputed_effect_on_treated = Y[T == ind + 1] - self.models_control[ind].predict(X[T == ind + 1])
 
             imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
-            self.final_models[ind].fit(X_concat, imputed_effects_concat)
+            self.final_models_[ind].fit(X_concat, imputed_effects_concat)
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -633,7 +639,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = False
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         taus = []
-        for model in self.final_models:
+        for model in getattr(self, 'final_models_', self.final_models):
             taus.append(model.predict(X))
         taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
@@ -648,7 +654,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        return _shap_explain_model_cate(self.const_marginal_effect, self.final_models, X, self._d_t, self._d_y,
+        models = getattr(self, 'final_models_', self.final_models)  # fitted estimators from older versions
+        return _shap_explain_model_cate(self.const_marginal_effect, models, X, self._d_t, self._d_y,
                                         featurizer=None,
                                         feature_names=feature_names,
                                         treatment_names=treatment_names,
