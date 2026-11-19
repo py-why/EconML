@@ -18,8 +18,8 @@ from ..utilities import (check_input_arrays, check_inputs, check_models, broadca
 from .._shap import _shap_explain_model_cate
 
 
-# Distinguish omission from an explicitly supplied propensity model.
-_DEFAULT_PROPENSITY_MODEL = object()
+# Use a fresh default configuration for each learner without cloning supplied estimators.
+_DEFAULT_PROPENSITY_MODEL = LogisticRegression()
 
 
 def _clone_models(models, n):
@@ -151,10 +151,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             force_all_finite = False
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
-        models = getattr(self, 'models_', self.models)  # fitted estimators from older versions
         taus = []
         for ind in range(self._d_t[0]):
-            taus.append(models[ind + 1].predict(X) - models[0].predict(X))
+            taus.append(self.models_[ind + 1].predict(X) - self.models_[0].predict(X))
         taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
             taus = transpose(taus, (0, 2, 1))  # shape as of m*d_y*d_t
@@ -292,8 +291,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
-        model = getattr(self, 'overall_model_', self.overall_model)  # fitted estimators from older versions
-        prediction = model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
+        prediction = self.overall_model_.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
         if self._d_y:
             prediction = transpose(prediction, (0, 2, 1))
             taus = (prediction - np.repeat(prediction[:, :, 0], self._d_t[0] + 1).reshape(prediction.shape))[:, :, 1:]
@@ -639,7 +637,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             force_all_finite = False
         X, = check_input_arrays(X, force_all_finite=force_all_finite, ensure_2d=True)
         taus = []
-        for model in getattr(self, 'final_models_', self.final_models):
+        for model in self.final_models_:
             taus.append(model.predict(X))
         taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
@@ -654,8 +652,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        models = getattr(self, 'final_models_', self.final_models)  # fitted estimators from older versions
-        return _shap_explain_model_cate(self.const_marginal_effect, models, X, self._d_t, self._d_y,
+        return _shap_explain_model_cate(self.const_marginal_effect, self.final_models_, X, self._d_t, self._d_y,
                                         featurizer=None,
                                         feature_names=feature_names,
                                         treatment_names=treatment_names,
