@@ -1,0 +1,116 @@
+#econml-docs-versions {
+    display: block;
+    box-sizing: border-box;
+    padding: 1rem;
+    background: #fcfcfc;
+    color: #24292f;
+    border: 1px solid #767676;
+    font: .85rem/1.5 sans-serif;
+}
+
+.econml-has-versions .wy-side-scroll {
+    height: calc(100% - 3rem);
+}
+
+#econml-docs-versions.rst-versions {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 70vh;
+    overflow: auto;
+    padding: 0;
+    border: 0;
+    background: #272525;
+    color: #d9d9d9;
+}
+
+#econml-docs-versions .rst-current-version {
+    display: block;
+    box-sizing: border-box;
+    min-height: 3rem;
+    padding: .75rem;
+    line-height: 1.5rem;
+    text-align: left;
+    list-style: none;
+    cursor: pointer;
+    background: #272525;
+    color: #65cf91;
+}
+
+#econml-docs-versions summary::-webkit-details-marker {
+    display: none;
+}
+
+#econml-docs-versions summary::after {
+    content: "";
+    float: right;
+    margin: .6rem 0 0 .75rem;
+    border: .3rem solid transparent;
+    border-bottom: 0;
+    border-top: .4rem solid currentColor;
+}
+
+#econml-docs-versions details[open] summary::after {
+    transform: rotate(180deg);
+}
+
+#econml-docs-versions .rst-other-versions {
+    display: none;
+    padding: .75rem;
+    border-top: 1px solid #555;
+    color: inherit;
+}
+
+#econml-docs-versions details[open] .rst-other-versions {
+    display: block;
+}
+
+#econml-docs-versions strong,
+#econml-docs-versions a,
+#econml-docs-versions label,
+#econml-docs-versions [role="status"] {
+    display: block;
+}
+
+#econml-docs-versions label {
+    color: inherit;
+}
+
+#econml-docs-versions a {
+    color: #075a9c;
+    text-decoration: underline;
+}
+
+#econml-docs-versions.rst-versions a {
+    color: #d9eaff;
+}
+
+#econml-docs-versions select {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: .3rem;
+    background: #fff;
+    color: #24292f;
+    font: inherit;
+}
+
+.econml-docs-prerelease,
+.econml-docs-notice {
+    margin-bottom: 1.5rem;
+    padding: .75rem 1rem;
+    border-left: .25rem solid #b77900;
+    background: #fff4d6;
+    color: #442e00;
+}
+
+.econml-docs-notice [role="status"] {
+    display: block;
+}
+
+@media print {
+    #econml-docs-versions {
+        display: none;
+    }
+}
