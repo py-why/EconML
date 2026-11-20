@@ -1,5 +1,7 @@
 name: Build and publish the documentation
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       publish:
@@ -7,14 +9,14 @@ on:
         required: false
         default: true
         type: boolean
-      environment:
-        description: 'Whether to publish to production or test environment'
+      publication:
+        description: 'Release promotion (approved) or latest main prerelease'
         required: false
-        default: prod
+        default: release
         type: choice
-        options: [prod, test]
+        options: [release, prerelease]
       ref:
-        description: 'The git ref to build the documentation for'
+        description: 'Release tag or commit (required for release publishing); build-only source ref'
         required: false
         default: ''
         type: string
@@ -36,14 +38,13 @@ on:
         required: false
         default: true
         type: boolean
-      # choice type only supported for workflow_dispatch, not workflow_call
-      environment:
-        description: 'Whether to publish to production or test environment'
+      publication:
+        description: 'release or prerelease'
         required: false
-        default: prod
+        default: release
         type: string
       ref:
-        description: 'The git ref to build the documentation for'
+        description: 'Release tag or commit (required for release publishing); build-only source ref'
         required: false
         default: ''
         type: string
@@ -58,16 +59,73 @@ on:
         default: True
         type: boolean
 
+permissions:
+  contents: read
+
 jobs:
-  create_docs:
-    name: Create and publish documentation
+  check_site:
+    name: Check documentation publisher
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout publisher
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Test archive and workflow contracts
+        run: pip install pytest pyyaml packaging && pytest .github/workflows/tests/ -q -o addopts=""
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Test shared version picker
+        run: node --test .github/workflows/tests/versions.test.cjs
+
+  create_docs:
+    name: Build documentation
+    needs: check_site
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      source-sha: ${{ steps.metadata.outputs.source_sha }}
+      version: ${{ steps.metadata.outputs.version }}
+      candidate-id: ${{ steps.candidate.outputs.artifact-id }}
+      candidate-digest: ${{ steps.candidate.outputs.artifact-digest }}
 
     steps:
+      - name: Validate publication request
+        env:
+          PUBLISH: ${{ github.event_name == 'push' || inputs.publish }}
+          MODE: ${{ github.event_name == 'push' && 'prerelease' || inputs.publication }}
+          SOURCE_REF: ${{ inputs.ref }}
+        run: |
+          if [[ "$PUBLISH" == true ]]; then
+            case "$MODE" in
+              release)
+                if [[ -z "$SOURCE_REF" ]]; then
+                  echo "::error::Release publishing requires an explicit source tag or commit."
+                  exit 1
+                fi
+                ;;
+              prerelease)
+                if [[ -n "$SOURCE_REF" ]]; then
+                  echo "::error::Prerelease publishing always builds main; do not supply ref."
+                  exit 1
+                fi
+                ;;
+              *) echo "::error::Unknown publication mode: $MODE"; exit 1 ;;
+            esac
+          fi
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event_name == 'push' && github.sha || inputs.publication == 'prerelease' && 'main' || inputs.ref || github.sha }}
+          persist-credentials: false
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -75,7 +133,7 @@ jobs:
       - name: Ensure latest pip and setuptools
         run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       - name: Install econml[all]
-        run: pip install -e .[all] ${{ inputs.use_lkg && '-r lkg.txt' || '' }}
+        run: pip install -e .[all] ${{ (github.event_name == 'push' || inputs.use_lkg) && '-r lkg.txt' || '' }}
       - name: Install graphviz
         run: sudo apt-get -yq install graphviz
       - name: Build documentation
@@ -83,39 +141,162 @@ jobs:
       - name: Upload docs as artifact
         uses: actions/upload-artifact@v6
         with:
-          name: docs
+          name: docs-${{ github.run_attempt }}
           path: build/sphinx/html/
+          if-no-files-found: error
       - name: Run doctests
         run: sphinx-build ./doc/ ./build/sphinx/doctest/ -b doctest
-        if : ${{ inputs.run_doctests }}
+        if: ${{ github.event_name == 'push' || inputs.run_doctests }}
+      - name: Record immutable build candidate
+        id: metadata
+        run: |
+          mkdir -p build/docs-candidate
+          cp -a build/sphinx/html build/docs-candidate/html
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import econml
+
+          sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          info = {
+              "source_sha": sha,
+              "version": econml.__version__,
+              "builder_sha": os.environ["GITHUB_WORKFLOW_SHA"],
+              "python": sys.version,
+              "built_at": datetime.now(timezone.utc).isoformat(),
+              "requirements": subprocess.check_output([sys.executable, "-m", "pip", "freeze", "--all"], text=True).splitlines(),
+          }
+          Path("build/docs-candidate/build.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+              stream.write(f"source_sha={sha}\nversion={econml.__version__}\n")
+          PY
+      - name: Upload immutable build candidate
+        id: candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: docs-candidate-${{ github.run_attempt }}
+          path: build/docs-candidate/
+          if-no-files-found: error
+      - name: Describe release candidate for approval
+        env:
+          SOURCE_SHA: ${{ steps.metadata.outputs.source_sha }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+          DIGEST: ${{ steps.candidate.outputs.artifact-digest }}
+        run: |
+          printf 'Documentation %s\n\nSource: `%s`\n\nCandidate SHA-256: `%s`\n' \
+            "$VERSION" "$SOURCE_SHA" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+      - name: Package documentation for GitHub Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          name: docs-build-pages-${{ github.run_attempt }}
+          path: build/sphinx/html/
         
   publish-docs:
-    name: Publish documentation
+    name: Publish ${{ github.event_name == 'push' && 'prerelease' || inputs.publication }} ${{ needs.create_docs.outputs.version }} at ${{ needs.create_docs.outputs.source-sha }}
     needs: create_docs
     permissions:
-      id-token: write # needed to publish to Azure
-    environment: ${{ inputs.environment }}
-    if: ${{ inputs.publish }}
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: ${{ (github.event_name == 'push' || inputs.publication == 'prerelease') && 'docs-prerelease' || 'prod' }}
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    if: ${{ github.event_name == 'push' || inputs.publish }}
     runs-on: ubuntu-latest
+    env:
+      MODE: ${{ github.event_name == 'push' && 'prerelease' || inputs.publication }}
+      SOURCE_SHA: ${{ needs.create_docs.outputs.source-sha }}
     steps:
-      - name: Download docs artifact
+      - name: Checkout publisher, not candidate code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: tooling
+          persist-credentials: false
+      - name: Skip superseded prerelease builds
+        id: fresh
+        run: |
+          latest=$(git -C tooling ls-remote origin refs/heads/main | cut -f1)
+          if [[ -z "$latest" ]]; then
+            echo "::error::Could not resolve the current main branch."
+            exit 1
+          fi
+          if [[ "$MODE" == prerelease && "$SOURCE_SHA" != "$latest" ]]; then
+            echo "::notice::Skipping superseded main build $SOURCE_SHA; current main is $latest."
+            echo "Skipped superseded main build $SOURCE_SHA; current main is $latest." >> "$GITHUB_STEP_SUMMARY"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Configure GitHub Pages
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/configure-pages@v5
+      - name: Locate durable archive
+        if: steps.fresh.outputs.current == 'true'
+        id: archive
+        run: |
+          archive=$(git -C tooling ls-remote --heads origin refs/heads/docs-archive)
+          if [[ -n "$archive" ]]; then
+            echo "ref=docs-archive" >> "$GITHUB_OUTPUT"
+          else
+            # Bootstrap only from the known 0.16.0 HTML; the assembler checks its version.
+            echo "ref=gh-pages" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout durable archive
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.archive.outputs.ref }}
+          path: docs-store
+      - name: Download approved candidate by immutable artifact ID
+        if: steps.fresh.outputs.current == 'true'
         uses: actions/download-artifact@v8
         with:
-          name: docs
-          path: html
-      - name: Zip docs for publishing
-        run: |-
-          pushd html
-          zip -r docs.zip *
-          popd
-      - name: Login to Azure
-        uses: azure/login@v2
+          artifact-ids: ${{ needs.create_docs.outputs.candidate-id }}
+          merge-multiple: true
+          path: candidate
+      - name: Setup publisher Python
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/setup-python@v6
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy documentation to Azure web app
-        uses: azure/webapps-deploy@v2
+          python-version: '3.12'
+      - name: Assemble and verify complete site
+        if: steps.fresh.outputs.current == 'true'
+        run: |
+          python -m pip install packaging
+          python tooling/.github/workflows/docs_site.py \
+            --archive docs-store --candidate candidate --output site \
+            --mode "$MODE" --expected-sha "$SOURCE_SHA" \
+            --bootstrap-commit "$(git -C docs-store rev-parse HEAD)"
+      - name: Persist exact deployment tree
+        if: steps.fresh.outputs.current == 'true'
+        run: |
+          rsync -a --delete --exclude=.git site/ docs-store/
+          git -C docs-store add --all --force
+          if ! git -C docs-store diff --cached --quiet; then
+            git -C docs-store \
+              -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit --signoff -m "Publish $MODE documentation from $SOURCE_SHA"
+          fi
+          git -C docs-store push origin HEAD:refs/heads/docs-archive
+          printf 'Archive commit: `%s`\n' "$(git -C docs-store rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload complete GitHub Pages site
+        if: steps.fresh.outputs.current == 'true'
+        uses: actions/upload-pages-artifact@v4
         with:
-          app-name: ${{ inputs.environment == 'prod' && 'econml' || 'econml-dev' }}
-          package: html/docs.zip
+          name: github-pages-${{ github.run_attempt }}
+          path: site
+      - name: Deploy documentation to GitHub Pages
+        if: steps.fresh.outputs.current == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
