@@ -409,26 +409,31 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return _OrthoIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept)
 
     def _gen_ortho_learner_model_nuisance(self):
+        n_jobs = getattr(self, 'n_jobs', None)
         model_y = _make_first_stage_selector(self.model_y_xw,
                                              is_discrete=self.discrete_outcome,
-                                             random_state=self.random_state)
+                                             random_state=self.random_state,
+                                             n_jobs=n_jobs)
 
         model_t = _make_first_stage_selector(self.model_t_xw,
                                              is_discrete=self.discrete_treatment,
-                                             random_state=self.random_state)
+                                             random_state=self.random_state,
+                                             n_jobs=n_jobs)
 
         if self.projection:
             # train E[T|X,W,Z]
             model_z = _make_first_stage_selector(self.model_t_xwz,
                                                  is_discrete=self.discrete_treatment,
-                                                 random_state=self.random_state)
+                                                 random_state=self.random_state,
+                                                 n_jobs=n_jobs)
 
         else:
             # train E[Z|X,W]
             # note: discrete_instrument rather than discrete_treatment in call to _make_first_stage_selector
             model_z = _make_first_stage_selector(self.model_z_xw,
                                                  is_discrete=self.discrete_instrument,
-                                                 random_state=self.random_state)
+                                                 random_state=self.random_state,
+                                                 n_jobs=n_jobs)
 
         return _OrthoIVNuisanceSelector(model_y, model_t, model_z,
                                         self.projection)
@@ -1189,13 +1194,16 @@ class DMLIV(_BaseDMLIV):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y_xw(self):
-        return _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t_xw(self):
-        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t_xwz(self):
-        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1576,13 +1584,16 @@ class NonParamDMLIV(_BaseDMLIV):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y_xw(self):
-        return _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y_xw, self.discrete_outcome, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t_xw(self):
-        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_t_xwz(self):
-        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state)
+        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state,
+                                          n_jobs=getattr(self, 'n_jobs', None))
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
