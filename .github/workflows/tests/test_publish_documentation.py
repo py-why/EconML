@@ -19,6 +19,16 @@ WORKFLOW = yaml.load(
 CI = yaml.load((WORKFLOW_DIR / "ci.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
 
 
+def test_publisher_preflight_uses_the_ci_workflow_test_environment():
+    """Install the full helper-test dependencies, including upstream's TOML parser."""
+    ci_step = next(step for step in CI["jobs"]["lint"]["steps"] if step.get("name") == "Test workflow helpers")
+    publisher_step = next(
+        step for step in WORKFLOW["jobs"]["check_site"]["steps"]
+        if step.get("name") == "Test archive and workflow contracts"
+    )
+    assert publisher_step["run"] == ci_step["run"]
+
+
 @pytest.mark.parametrize("trigger", ["workflow_dispatch", "workflow_call"])
 def test_inputs_keep_build_only_without_azure_test_environment(trigger):
     """Both entry points support build-only runs without an obsolete test destination."""

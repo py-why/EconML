@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test archive and workflow contracts
-        run: pip install pytest pyyaml packaging && pytest .github/workflows/tests/ -q -o addopts=""
+        run: python -m pip install pytest pyyaml tomli packaging && python -m pytest .github/workflows/tests/ -q -o addopts=""
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
