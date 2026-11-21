@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from sklearn.utils import check_random_state
 
 
 def calculate_dr_outcomes(
@@ -53,7 +54,8 @@ def calc_uplift(
     dr_val: np.array,
     percentiles: np.array,
     metric: str,
-    n_bootstrap: int = 1000
+    n_bootstrap: int = 1000,
+    random_state=None
 ) -> Tuple[float, float, pd.DataFrame]:
     """
     Calculate uplift curve points, integral, and errors on both points and integral.
@@ -76,6 +78,9 @@ def calc_uplift(
         String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
     n_bootstrap: integer, default 1000
         Number of bootstrap samples to run when calculating uniform confidence bands.
+    random_state: int, RandomState instance or None, default None
+        Controls the multiplier bootstrap draws used for the uniform confidence bands. Pass an int or a
+        RandomState instance for reproducible bands.
 
     Returns
     -------
@@ -102,7 +107,7 @@ def calc_uplift(
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
 
-    w = np.random.normal(0, 1, size=(n, n_bootstrap))
+    w = check_random_state(random_state).normal(0, 1, size=(n, n_bootstrap))
     mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
 
     max_mboot = np.max(np.abs(mboot), axis=0)
