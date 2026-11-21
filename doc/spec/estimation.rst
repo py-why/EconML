@@ -12,3 +12,5 @@ had a direct effect on the treatment decision in the collected data and the obse
     estimation/dr.rst
     estimation/forest.rst
     estimation/metalearners.rst
+    estimation/survival.rst
+    estimation/competing_risks.rst

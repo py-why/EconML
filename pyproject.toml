@@ -66,6 +66,9 @@ dowhy = [
 ray = [
     "ray >= 2.40.0"
 ]
+censor = [
+    "scikit-survival >= 0.25.0"
+]
 all = [
     # Disabled due to incompatibility with scikit-learn
     # azureml-sdk[explain,automl] == 1.0.83
@@ -73,7 +76,8 @@ all = [
     "graphviz >= 0.20.3",
     "matplotlib >= 3.9.4",
     "dowhy >= 0.13, < 0.15",
-    "ray >= 2.40.0"
+    "ray >= 2.40.0",
+    "scikit-survival >= 0.25.0"
 ]
 
 [build-system]
