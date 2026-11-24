@@ -27,6 +27,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 from collections import namedtuple
 from abc import abstractmethod
 from typing import List, Union
+from warnings import warn
 
 import numpy as np
 from sklearn.base import clone
@@ -307,6 +308,8 @@ def _crossfit(models: Union[ModelSelector, List[ModelSelector]], folds, use_ray,
     return accumulated_nuisances, model_list, fitted_inds, accumulated_scores
 
 
+# NOTE: user-supplied propensities are deliberately not cached: refit_final only refits the
+#       final stage, which consumes the cached nuisances that were already computed from them
 CachedValues = namedtuple('CachedValues', ['nuisances',
                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
                                            'sample_var', 'groups'])
@@ -666,9 +669,55 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
 
+    @property
+    def _supports_user_propensity(self):
+        """Whether this estimator supports user-supplied propensities at fit time."""
+        return False
+
+    def _expand_and_validate_propensity(self, propensity):
+        """
+        Validate user-supplied propensities and expand them to one column per treatment category.
+
+        A single column is allowed for binary treatments and is interpreted as the probability of the
+        non-control treatment. Returns an (n, n_categories) array whose columns are ordered to match
+        the fitted treatment categories.
+        """
+        n_categories = len(self.transformer.categories_[0])
+        propensity = np.asarray(propensity)
+        if propensity.ndim == 1 or (propensity.ndim == 2 and propensity.shape[1] == 1):
+            if n_categories != 2:
+                raise ValueError(f"A single propensity column was supplied, but there are {n_categories} "
+                                 "treatment categories; propensity must have one column per category "
+                                 f"(shape (n, {n_categories})), ordered to match the fitted categories "
+                                 f"{self.transformer.categories_[0]}.")
+            p = propensity.reshape(-1)
+            propensity = np.column_stack([1 - p, p])
+        elif propensity.ndim == 2:
+            if propensity.shape[1] != n_categories:
+                raise ValueError(f"propensity has {propensity.shape[1]} columns, but there are {n_categories} "
+                                 "treatment categories; propensity must have one column per category "
+                                 "(including control as the first column), ordered to match the fitted "
+                                 f"categories {self.transformer.categories_[0]}.")
+        else:
+            raise ValueError("propensity must be a vector or a 2D array, "
+                             f"but got an array with {propensity.ndim} dimensions.")
+        if np.any(propensity < 0) or np.any(propensity > 1):
+            raise ValueError("propensity values must lie in [0, 1].")
+        # a loose tolerance, to accommodate rounding in user-computed probabilities
+        # (e.g. lower-precision dtypes); actual mistakes like passing only some of the
+        # categories' probabilities will be off by far more than this
+        if not np.allclose(propensity.sum(axis=1), 1, atol=1e-3):
+            raise ValueError("propensity rows must sum to 1.")
+        if np.any((propensity == 0) | (propensity == 1)):
+            warn("Some user-supplied propensities are exactly 0 or 1, meaning that some treatment "
+                 "values are impossible for some samples; effect estimates for such samples rely on "
+                 "extrapolation. Verify that the supplied columns are ordered to match the treatment "
+                 "categories.", UserWarning)
+        return propensity
+
     def _strata(self, Y, T, X=None, W=None, Z=None,
                 sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-                cache_values=False, only_final=False, check_input=True):
+                propensity=None, cache_values=False, only_final=False, check_input=True):
         arrs = []
         if self.discrete_outcome:
             arrs.append(Y)
@@ -691,7 +740,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None, only_final=False, check_input=True):
+            propensity=None, cache_values=False, inference=None, only_final=False, check_input=True):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -720,6 +769,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the cv argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment assignment probabilities for each sample, e.g. the known
+            assignment probabilities in a randomized experiment. These should be the true,
+            by-design probabilities of treatment conditional on everything that influenced
+            assignment, including any design variables (such as randomization blocks) even if
+            they are not part of X or W; probabilities estimated from, or marginalized over,
+            (X, W) alone are not generally sufficient. When provided, the treatment/propensity
+            nuisance model is not fitted and these known values are used in its place. Only
+            supported by estimators whose first stage models treatment propensities and only
+            when the treatment is discrete. If a single column is passed, the treatment must be
+            binary and the values are interpreted as the probability of the non-control treatment;
+            otherwise there must be one column per treatment category (including control as the first
+            column), ordered to match the fitted categories (the sorted unique values of T, or the
+            ``categories`` initializer argument if it was set).
         cache_values: bool, default False
             Whether to cache the inputs and computed nuisances, which will allow refitting a different final model
         inference: str, :class:`.Inference` instance, or None
@@ -743,16 +806,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             sample_var is None), "Sample variances and frequency weights must be provided together!"
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
+        if propensity is not None and not self._supports_user_propensity:
+            raise ValueError("This estimator does not support user-supplied propensities.")
         if check_input:
-            Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, Z, sample_weight, freq_weight, sample_var, groups)
+            Y, T, Z, sample_weight, freq_weight, sample_var, groups, propensity = check_input_arrays(
+                Y, T, Z, sample_weight, freq_weight, sample_var, groups, propensity)
             X, = check_input_arrays(
                 X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True,
                 ensure_2d=True)
             W, = check_input_arrays(
                 W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True,
                 ensure_2d=True)
-            self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+            self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups, propensity)
 
         if not only_final:
 
@@ -791,6 +856,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             else:
                 self.z_transformer = None
 
+            if propensity is not None:
+                propensity = self._expand_and_validate_propensity(propensity)
+            self._fit_with_user_propensity = propensity is not None
+
             all_nuisances = []
             fitted_inds = None
             if sample_weight is None:
@@ -812,19 +881,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.ray_remote_func_options = self.ray_remote_func_options or {}
 
                 # Define Ray remote function (Ray remote wrapper of the _fit_nuisances function)
-                def _fit_nuisances(Y, T, X, W, Z, sample_weight, groups):
-                    return self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
+                def _fit_nuisances(Y, T, X, W, Z, sample_weight, groups, propensity):
+                    return self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups,
+                                               propensity=propensity)
 
                 # Create Ray remote jobs for parallel processing
                 self.nuisances_ref = [ray.remote(_fit_nuisances).options(**self.ray_remote_func_options).remote(
-                    Y, T, X, W, Z, sample_weight_nuisances, groups) for _ in range(self.mc_iters or 1)]
+                    Y, T, X, W, Z, sample_weight_nuisances, groups, propensity) for _ in range(self.mc_iters or 1)]
 
             for idx in range(self.mc_iters or 1):
                 if self.use_ray:
                     nuisances, fitted_models, new_inds, scores = ray.get(self.nuisances_ref[idx])
                 else:
                     nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
-                        Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
+                        Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups, propensity=propensity)
                 all_nuisances.append(nuisances)
                 self._models_nuisance.append(fitted_models)
                 if scores is None:
@@ -926,7 +996,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                           cache_values=True, inference=inference, only_final=True, check_input=False)
         return self
 
-    def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, propensity=None):
 
         # use a binary array to get stratified split in case of discrete treatment
         stratify = self.discrete_treatment or self.discrete_instrument or self.discrete_outcome
@@ -976,7 +1046,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
                                                                   self.use_ray, self.ray_remote_func_options, Y, T,
                                                                   X=X, W=W, Z=Z, sample_weight=sample_weight,
-                                                                  groups=groups)
+                                                                  groups=groups, propensity=propensity)
         return nuisances, fitted_models, fitted_inds, scores
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
@@ -1054,7 +1124,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, scoring=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None, scoring=None, propensity=None):
         """
         Score the fitted CATE model on a new data set.
 
@@ -1085,6 +1155,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         scoring: name of an sklearn scoring function to use instead of the default, optional
             Supports f1_score, log_loss, mean_absolute_error, mean_squared_error, r2_score,
             and roc_auc_score.
+        propensity: {(n,), (n, n_categories)} array_like, optional
+            User-supplied treatment probabilities for each sample, in the same format as the
+            ``propensity`` argument to ``fit``. Required if the estimator was fit with user-supplied
+            propensities, since in that case no propensity model was fitted that could generate
+            them for the new data.
 
         Returns
         -------
@@ -1095,6 +1170,16 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
         Y, T, Z = check_input_arrays(Y, T, Z)
+        if propensity is not None:
+            if not self._supports_user_propensity:
+                raise ValueError("This estimator does not support user-supplied propensities.")
+            propensity, = check_input_arrays(propensity)
+            propensity = self._expand_and_validate_propensity(propensity)
+            if propensity.shape[0] != np.shape(Y)[0]:
+                raise ValueError("propensity must have the same number of rows as Y.")
+        elif getattr(self, '_fit_with_user_propensity', False):
+            raise ValueError("This estimator was fit with user-supplied propensities, so the `propensity` "
+                             "argument must also be supplied when scoring on new data.")
         X, = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         self._check_fitted_dims(X)
@@ -1115,7 +1200,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             n_selectors = len(self._models_nuisance[0])
             n_splits = len(self._models_nuisance[0][0])
 
-        kwargs = filter_none_kwargs(X=X, W=W, Z=Z, groups=groups)
+        kwargs = filter_none_kwargs(X=X, W=W, Z=Z, groups=groups, propensity=propensity)
 
         accumulated_nuisances = []
 
