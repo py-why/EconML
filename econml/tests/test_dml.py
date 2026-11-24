@@ -981,6 +981,26 @@ class TestDML(unittest.TestCase):
         est.ate__inference()
         est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
 
+    def test_cfdml_summary_treatment_names(self):
+        rng = np.random.default_rng(123)
+        n = 500
+        X = rng.normal(size=(n, 3))
+        T = rng.permutation(np.arange(n) % 3)
+        y = T + X[:, 0] + rng.normal(size=n)
+        est = CausalForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
+                              discrete_treatment=True, n_estimators=40, random_state=123, n_jobs=1)
+        est.fit(y, T, X=X)
+
+        tables = est.summary(treatment_names=['drug']).tables
+        expected_titles = ['Doubly Robust ATE on Training Data Results'] + [
+            f'Doubly Robust ATT(T={t}) on Training Data Results' for t in range(3)
+        ]
+        assert len(tables) == len(expected_titles) == 4
+        assert [table.title for table in tables] == expected_titles
+        assert [row[0] for row in tables[0].data[1:]] == ['ATE|drug_1', 'ATE|drug_2']
+        for table in tables[1:]:
+            assert [row[0] for row in table.data[1:]] == ['ATT|drug_1', 'ATT|drug_2']
+
     def test_cfdml_ate_inference(self):
         np.random.seed(1234)
         n = 20000  # number of raw samples

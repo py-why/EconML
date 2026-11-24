@@ -1051,6 +1051,7 @@ class CausalForestDML(_BaseDML):
                 intercept_table = self.att__inference(T=t).summary_frame(alpha=alpha,
                                                                          value=value, decimals=decimals,
                                                                          feature_names=None,
+                                                                         treatment_names=treatment_names,
                                                                          output_names=output_names)
                 intercept_array = intercept_table.values
                 intercept_headers = intercept_table.columns.tolist()
