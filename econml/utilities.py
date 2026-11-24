@@ -132,16 +132,16 @@ def inverse_onehot(T):
     """
     Given a one-hot encoding of a value, return a vector reversing the encoding to get numeric treatment indices.
 
+    Note that we assume that the first column has been removed from the input, as in the output of
+    :class:`sklearn.preprocessing.OneHotEncoder` with ``drop='first'``: the implicit all-zeros row
+    encodes the first (baseline) category and the j-th remaining column encodes category j. Feeding
+    an encoding that still contains all category columns (e.g. a full one-hot encoding or the output
+    of :func:`pandas.get_dummies`) decodes every label to a one-shifted index instead.
+
     Parameters
     ----------
-    T : array (shape (n, d_t-1)) or DataFrame (shape (n, d_t))
-        The one-hot-encoded array. For a pandas DataFrame (e.g. the output of
-        :func:`pandas.get_dummies`), all ``d_t`` columns of the one-hot encoding are
-        assumed to be present, and the encoding is reversed using zero-based column
-        indices. For any other array-like input, the first column is assumed to have
-        been removed from the input (as in the output of
-        :class:`sklearn.preprocessing.OneHotEncoder` with ``drop='first'``), and the
-        encoding is reversed so that the implicit all-zeros category decodes to index 0.
+    T : array (shape (n, d_t-1))
+        The one-hot-encoded array
 
     Returns
     -------
@@ -149,20 +149,8 @@ def inverse_onehot(T):
         The un-encoded 0-based category indices
     """
     assert ndim(T) == 2
-    if isinstance(T, pd.DataFrame):
-        # A DataFrame (e.g. the output of pandas.get_dummies) contains all d_t columns of the
-        # one-hot encoding, so we decode with zero-based column indices. Its columns can be of
-        # boolean or unsigned dtype, so convert to a numeric ndarray before the matmul.
-        indices = np.arange(T.shape[1])
-        arr = np.asarray(T)
-    else:
-        # An ndarray is assumed to have the first (baseline) column removed, as produced by
-        # OneHotEncoder(drop='first'): the all-zeros row is category 0 and column j-1 marks
-        # category j, so we decode with one-based column indices.
-        indices = np.arange(1, T.shape[1] + 1)
-        arr = T
     # note that by default OneHotEncoder returns float64s, so need to convert to int
-    return (arr @ indices).astype(int)
+    return (T @ np.arange(1, T.shape[1] + 1)).astype(int)
 
 
 def issparse(X):

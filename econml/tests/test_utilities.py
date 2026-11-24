@@ -136,18 +136,6 @@ class TestUtilities(unittest.TestCase):
                                         drop='first').fit_transform(T.reshape(-1, 1))
         np.testing.assert_array_equal(T, inverse_onehot(T_oh_drop_first))
 
-    def test_inverse_onehot_pandas_get_dummies(self):
-        # Regression test for issue #1006: a pd.get_dummies one-hot DataFrame contains
-        # all k columns of the encoding, so it must be decoded with zero-based column
-        # indices. The previous implementation always used one-based indices, shifting
-        # every decoded label by one (e.g. binary 0/1 labels decoded as 1/2).
-        import pandas as pd
-        rng = np.random.default_rng(1234)
-        for labels in [rng.integers(2, size=100), rng.integers(3, size=100)]:
-            T_inv = inverse_onehot(pd.get_dummies(pd.Series(labels)))
-            assert isinstance(T_inv, np.ndarray)
-            np.testing.assert_array_equal(labels, T_inv)
-
     # TODO: set up proper flag for this
     @pytest.mark.slow
     def test_einsum_random(self):
