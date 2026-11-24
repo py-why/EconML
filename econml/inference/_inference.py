@@ -284,6 +284,14 @@ class LinearModelFinalInference(GenericModelFinalInference):
         XT = cross_product(X, T1 - T0)
         e_pred = reshape_outcomewise_effects(self._predict(XT), self._d_y)
         e_stderr = reshape_outcomewise_effects(self._prediction_stderr(XT), self._d_y)
+        if self._d_y == () and e_stderr is not None and (np.shape(e_stderr) != np.shape(e_pred)) \
+                and (np.size(e_stderr) == np.size(e_pred)):
+            # Some final models (e.g. the GRF forests, whose predict methods return outputs that match
+            # the fit-time dimensionality of their target input) return a 1-dimensional prediction when
+            # Y was passed as a vector at fit time, while their prediction_stderr remains 2-dimensional.
+            # Align the two so that the normal-based inference calculations below and in the returned
+            # InferenceResults can broadcast the point estimates against the standard errors.
+            e_stderr = e_stderr.reshape(np.shape(e_pred))
         d_y = self._d_y[0] if self._d_y else 1
 
         mean_XT = XT.mean(axis=0, keepdims=True)

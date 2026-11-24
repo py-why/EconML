@@ -222,6 +222,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         -------
         self : object
         """
+        # Record the shapes of the caller-provided treatment and outcome arguments, before any
+        # internal handling/reshaping, so that the prediction methods can return outputs whose
+        # dimensionality matches the fit-time dimensionality of the corresponding input
+        # (scikit-learn style "vector in, vector out"). Note that the parameters estimated and
+        # returned by all GRF forests are indexed by the columns of the input passed as the `T`
+        # argument of this method: for CausalForest/CausalIVForest these are the treatments,
+        # while RegressionForest passes its outcome vector through this argument (and passes a
+        # constant dummy outcome as `y`).
+        self._input_t_shape = tuple(np.asarray(T).shape)
+        self._input_y_shape = tuple(np.asarray(y).shape)
+
         # TODO: support freq_weight and sample_var
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
@@ -471,6 +482,37 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
+    def _squeeze_vector_fit_dim(self, y_hat):
+        """
+        Reshape a prediction of this forest to match the fit-time dimensionality of its input.
+
+        The parameters returned by the prediction methods of the GRF forests correspond to the
+        columns of the input that was passed as the `T` argument of :meth:`fit` (the treatments
+        for CausalForest/CausalIVForest; the outcome for RegressionForest, which passes its
+        outcome vector through this argument). If that input was passed as a one-dimensional
+        vector at fit time, then the trailing (singleton) parameter axis of the prediction is
+        dropped, so that the returned shape matches the shape passed at fit time, analogously to
+        scikit-learn estimators. Estimators fitted with a two-dimensional input, or models that
+        were unpickled from before this behavior was introduced, return the input unchanged.
+
+        Parameters
+        ----------
+        y_hat : ndarray of shape (n_samples, d)
+            A prediction output whose trailing axis indexes the parameters of the forest.
+
+        Returns
+        -------
+        y_hat : ndarray of shape (n_samples,) or (n_samples, d)
+            The prediction, with its trailing axis removed if the fit-time input that indexes
+            the parameters was one-dimensional and this axis had a single column.
+        """
+        # Guard with getattr so that legacy (pre-fix) pickled models retain the old behavior.
+        input_shape = getattr(self, '_input_t_shape', None)
+        if (input_shape is not None and len(input_shape) == 1
+                and hasattr(y_hat, 'shape') and y_hat.ndim > 1 and y_hat.shape[-1] == 1):
+            return y_hat[..., 0]
+        return y_hat
+
     def predict_tree_average_full(self, X):
         """
         Return the fitted local parameters for each X, i.e. theta(X).
@@ -526,13 +568,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Returns
         -------
-        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
-            The estimated relevant parameters for each row of X
+        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs) or (n_samples,)
+            The estimated relevant parameters for each row of X. If the input that indexes these
+            parameters (the `T` input of CausalForest/CausalIVForest, the `y` input of
+            RegressionForest) was one-dimensional at fit time, then the output is one-dimensional
+            too.
         """
         y_hat = self.predict_tree_average_full(X)
-        if self.n_relevant_outputs_ == self.n_outputs_:
-            return y_hat
-        return y_hat[:, :self.n_relevant_outputs_]
+        if self.n_relevant_outputs_ != self.n_outputs_:
+            y_hat = y_hat[:, :self.n_relevant_outputs_]
+        return self._squeeze_vector_fit_dim(y_hat)
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
         """
@@ -841,23 +886,30 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Returns
         -------
-        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
-            The estimated relevant parameters for each row of X
-        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs)
-            The lower and upper end of the confidence interval for each parameter. Return value is omitted if
+        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs) or (n_samples,)
+            The estimated relevant parameters for each row of X. If the input that indexes these
+            parameters (the `T` input of CausalForest/CausalIVForest, the `y` input of
+            RegressionForest) was one-dimensional at fit time, then the output is one-dimensional
+            too.
+        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs) or (n_samples,)
+            The lower and upper end of the confidence interval for each parameter. Their shape
+            matches the shape of the point predictions. Return value is omitted if
             `interval=False`.
         """
         if interval:
             y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
-            if self.n_relevant_outputs_ == self.n_outputs_:
-                return y_hat, lb, ub
-            return (y_hat[:, :self.n_relevant_outputs_],
-                    lb[:, :self.n_relevant_outputs_], ub[:, :self.n_relevant_outputs_])
+            if self.n_relevant_outputs_ != self.n_outputs_:
+                y_hat = y_hat[:, :self.n_relevant_outputs_]
+                lb = lb[:, :self.n_relevant_outputs_]
+                ub = ub[:, :self.n_relevant_outputs_]
+            return (self._squeeze_vector_fit_dim(y_hat),
+                    self._squeeze_vector_fit_dim(lb),
+                    self._squeeze_vector_fit_dim(ub))
         else:
             y_hat = self.predict_full(X, interval=False)
-            if self.n_relevant_outputs_ == self.n_outputs_:
-                return y_hat
-            return y_hat[:, :self.n_relevant_outputs_]
+            if self.n_relevant_outputs_ != self.n_outputs_:
+                y_hat = y_hat[:, :self.n_relevant_outputs_]
+            return self._squeeze_vector_fit_dim(y_hat)
 
     def predict_interval(self, X, alpha=0.05):
         """
@@ -874,8 +926,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Returns
         -------
-        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs)
-            The lower and upper end of the confidence interval for each parameter. Return value is omitted if
+        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs) or (n_samples,)
+            The lower and upper end of the confidence interval for each parameter. Their shape
+            matches the shape of the point predictions. Return value is omitted if
             `interval=False`.
         """
         _, lb, ub = self.predict(X, interval=True, alpha=alpha)
@@ -893,12 +946,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Returns
         -------
-        theta(x)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
-            The estimated relevant parameters for each row of X
+        theta(x)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs) or (n_samples,)
+            The estimated relevant parameters for each row of X. If the input that indexes these
+            parameters (the `T` input of CausalForest/CausalIVForest, the `y` input of
+            RegressionForest) was one-dimensional at fit time, then the output is one-dimensional
+            too.
         var(theta(x)) : array_like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
             The covariance of theta(x)[1, .., n_relevant_outputs]
         """
-        return self._predict_point_and_var(X, full=False, point=True, var=True)
+        pred, pred_var = self._predict_point_and_var(X, full=False, point=True, var=True)
+        return self._squeeze_vector_fit_dim(pred), pred_var
 
     def predict_var(self, X):
         """

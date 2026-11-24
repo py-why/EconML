@@ -5,9 +5,11 @@ import unittest
 import numpy as np
 import pandas as pd
 import joblib
+from econml.dml import DML
 from econml.grf import RegressionForest, CausalForest, CausalIVForest, MultiOutputGRF
 from econml.utilities import cross_product
 from copy import deepcopy
+from sklearn.linear_model import LinearRegression
 from sklearn.utils import check_random_state
 import scipy.stats
 
@@ -582,9 +584,11 @@ class TestGRFPython(unittest.TestCase):
         np.testing.assert_allclose(pred, forest.predict(list(X)))
         forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(pd.DataFrame(X), pd.DataFrame(y))
         np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
+        # a one-dimensional pandas Series target leads to a one-dimensional vector prediction
+        # (issue #416); the values are unchanged with respect to the column-vector fit above
         forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(
             pd.DataFrame(X), pd.Series(y.ravel()))
-        np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
+        np.testing.assert_allclose(pred.ravel(), forest.predict(pd.DataFrame(X)))
         return
 
     def test_raise_exceptions(self,):
@@ -706,3 +710,150 @@ class TestGRFPython(unittest.TestCase):
         loaded_forest = joblib.load('forest.jbl')
         np.testing.assert_equal(loaded_forest.n_estimators, forest.n_estimators)
         np.testing.assert_allclose(loaded_forest.predict(X), pred1)
+
+    def test_fit_predict_shape_consistency(self,):
+        # test that the prediction methods return an output whose shape matches the shape of the
+        # input that was used at fit time (vector in -> vector out; issue #416)
+        random_state = 123
+        n, n_features = 100, 2
+        config = {'n_estimators': 8, 'subforest_size': 4, 'n_jobs': 1,
+                  'max_depth': 3, 'random_state': random_state}
+
+        # RegressionForest: vector y in -> vector predictions out
+        X, y2d, truth = self._get_regression_data(n, n_features, random_state)
+        y1d = y2d.ravel()
+        forest1d = RegressionForest(**config).fit(X, y1d)
+        np.testing.assert_array_equal(forest1d.predict(X).shape, (n,))
+        pred_cav, pred_var = forest1d.predict_and_var(X)
+        np.testing.assert_array_equal(pred_cav.shape, (n,))
+        np.testing.assert_array_equal(pred_var.shape, (n, 1, 1))
+
+        # the same holds for the confidence intervals
+        config_inference = dict(config)
+        config_inference['inference'] = True
+        forest1d_inf = RegressionForest(**config_inference).fit(X, y1d)
+        lb, ub = forest1d_inf.predict_interval(X)
+        np.testing.assert_array_equal(lb.shape, (n,))
+        np.testing.assert_array_equal(ub.shape, (n,))
+        pred, lb, ub = forest1d_inf.predict(X, interval=True)
+        np.testing.assert_array_equal(pred.shape, (n,))
+        np.testing.assert_array_equal(lb.shape, (n,))
+        np.testing.assert_array_equal(ub.shape, (n,))
+
+        # matrix y in -> matrix predictions out (unchanged behavior)
+        # Note: the GRF tree splitter consumes randomness from numpy's legacy global random
+        # state (pre-existing behavior), so we re-seed the global state before each fit that
+        # needs to be bitwise comparable to another fit.
+        np.random.seed(random_state)
+        forest2d = RegressionForest(**config).fit(X, y2d)
+        pred2d = forest2d.predict(X)
+        np.testing.assert_array_equal(pred2d.shape, (n, 1))
+        y_multi = np.hstack([y2d, y2d])
+        pred_multi = RegressionForest(**config).fit(X, y_multi).predict(X)
+        np.testing.assert_array_equal(pred_multi.shape, (n, 2))
+
+        # vector-fitted and column-vector-fitted forests produce identical predictions
+        np.random.seed(random_state)
+        forest1d = RegressionForest(**config).fit(X, y1d)
+        np.testing.assert_allclose(forest1d.predict(X), pred2d.ravel(), atol=1e-10)
+
+        # minimal reproduction of the snippet from issue #416
+        Xs = np.array([[0, 1], [2, 3], [4, 5]])
+        ys = np.array([1, 2, 3])
+        pred = RegressionForest(n_estimators=8, max_depth=3, inference=False,
+                                random_state=123).fit(Xs, ys).predict(Xs)
+        np.testing.assert_array_equal(pred.shape, (3,))
+
+        # legacy pickled models that do not record the fit-time input shape keep the old behavior
+        legacy = RegressionForest(**config).fit(X, y1d)
+        del legacy._input_t_shape
+        np.testing.assert_array_equal(legacy.predict(X).shape, (n, 1))
+
+        # CausalForest/CausalIVForest: vector T in -> vector effect predictions out
+        Xc, T2d, y2c, _, _ = self._get_causal_data(n, n_features, 2, random_state)
+        y1c = y2c.ravel()
+        T1d = T2d[:, 0]
+        np.random.seed(random_state)
+        cf1d = CausalForest(**config).fit(Xc, T1d, y1c)
+        np.testing.assert_array_equal(cf1d.predict(Xc).shape, (n,))
+        pred_cav, pred_var = cf1d.predict_and_var(Xc)
+        np.testing.assert_array_equal(pred_cav.shape, (n,))
+        np.testing.assert_array_equal(pred_var.shape, (n, 1, 1))
+        np.random.seed(random_state)
+        civ1d = CausalIVForest(**config).fit(Xc, T1d, y1c, Z=T1d)
+        np.testing.assert_array_equal(civ1d.predict(Xc).shape, (n,))
+
+        # matrix T in -> (n, n_treatments) predictions out (unchanged behavior)
+        cf2d = CausalForest(**config).fit(Xc, T2d, y1c)
+        np.testing.assert_array_equal(cf2d.predict(Xc).shape, (n, 2))
+        civ2d = CausalIVForest(**config).fit(Xc, T2d, y1c, Z=T2d)
+        np.testing.assert_array_equal(civ2d.predict(Xc).shape, (n, 2))
+
+        # vector-fitted and column-vector-fitted causal forests produce identical predictions
+        np.random.seed(random_state)
+        cf1d_col = CausalForest(**config).fit(Xc, T1d.reshape((-1, 1)), y1c)
+        np.testing.assert_allclose(cf1d.predict(Xc), cf1d_col.predict(Xc).ravel(), atol=1e-10)
+
+        # MultiOutputGRF stacks the per-outcome sub-estimator predictions, preserving a trailing
+        # treatment axis irrespective of the dimensionality of T
+        y_multi_c = np.hstack([y2c, y2c])
+        mog1d = MultiOutputGRF(CausalForest(**config)).fit(Xc, T1d, y_multi_c)
+        np.testing.assert_array_equal(mog1d.predict(Xc).shape, (n, 2, 1))
+        mog2d = MultiOutputGRF(CausalForest(**config)).fit(Xc, T2d, y_multi_c)
+        np.testing.assert_array_equal(mog2d.predict(Xc).shape, (n, 2, 2))
+
+    def test_forest_as_dml_final_model_inference(self,):
+        # regression test for the LinearModelFinalInference interactions with the sklearn-style
+        # vector in -> vector out behavior of the GRF forests introduced for issue #416: when a
+        # forest is used as the `model_final` of a DML estimator and Y was a vector at fit time,
+        # the forest's predictions are 1-dimensional while its prediction_stderr remains 2-dimensional;
+        # the inference code must align the two rather than crash in `effect_interval`/`effect_inference`
+        random_state = 123
+        n = 100
+        X = np.random.RandomState(random_state).normal(0, 1, size=(n, 2))
+        T = np.random.RandomState(random_state + 1).normal(0, 1, size=(n,))
+        y = T + X[:, 0] + np.random.RandomState(random_state + 2).normal(0, .1, size=(n,))
+        config = {'n_estimators': 8, 'subforest_size': 4, 'max_depth': 3, 'inference': True,
+                  'min_samples_leaf': 10, 'n_jobs': 1, 'random_state': random_state}
+        est = DML(model_y=LinearRegression(), model_t=LinearRegression(),
+                  model_final=RegressionForest(**config), cv=2)
+        est.fit(y, T, X=X)
+
+        # vector Y: effect and its confidence interval are 1-dimensional and the interval brackets
+        # the point estimates
+        eff = est.effect(X[:5])
+        np.testing.assert_array_equal(eff.shape, (5,))
+        lb, ub = est.effect_interval(X[:5], T0=0, T1=1)
+        np.testing.assert_array_equal(lb.shape, (5,))
+        np.testing.assert_array_equal(ub.shape, (5,))
+        np.testing.assert_array_less(lb, eff + 1e-12)
+        np.testing.assert_array_less(eff, ub + 1e-12)
+        inf = est.effect_inference(X[:5], T0=0, T1=1)
+        np.testing.assert_array_equal(inf.point_estimate.shape, (5,))
+        np.testing.assert_array_equal(inf.stderr.shape, (5,))
+
+        # the other inference methods, which reshape their inputs explicitly, keep their shapes
+        lb, ub = est.const_marginal_effect_interval(X[:5])
+        np.testing.assert_array_equal(lb.shape, (5,))
+        ate_lb, ate_ub = est.ate_interval(X[:5], T0=0, T1=1)
+        np.testing.assert_array_equal(ate_lb.shape, (1,))
+        np.testing.assert_array_equal(ate_ub.shape, (1,))
+
+        # matrix Y: shapes are (n, 1) throughout (unchanged behavior)
+        est2d = DML(model_y=LinearRegression(), model_t=LinearRegression(),
+                    model_final=RegressionForest(**config), cv=2)
+        est2d.fit(y.reshape(-1, 1), T, X=X)
+        eff2d = est2d.effect(X[:5])
+        np.testing.assert_array_equal(eff2d.shape, (5, 1))
+        lb2d, ub2d = est2d.effect_interval(X[:5], T0=0, T1=1)
+        np.testing.assert_array_equal(lb2d.shape, (5, 1))
+        np.testing.assert_array_equal(ub2d.shape, (5, 1))
+
+        # a forest fitted before the vector in -> vector out behavior was introduced (i.e. one that
+        # did not record its fit-time input shape) keeps the old (n, 1)-shaped outputs end to end
+        del est.rlearner_model_final_._model._input_t_shape
+        lb, ub = est.effect_interval(X[:5], T0=0, T1=1)
+        np.testing.assert_array_equal(lb.shape, (5, 1))
+        np.testing.assert_array_equal(ub.shape, (5, 1))
+
+        return

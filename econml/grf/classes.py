@@ -33,6 +33,13 @@ class MultiOutputGRF(BaseEstimator):
         y = np.atleast_1d(y)
         if y.ndim == 1:
             y = np.reshape(y, (-1, 1))
+        # Ensure the sub-estimators are always fitted with two-dimensional T and y arrays: the
+        # GRF forests return predictions that match the fit-time dimensionality of their input
+        # (a vector input leads to a vector prediction), and this wrapper relies on the stacked
+        # outputs of the per-outcome sub-estimators retaining a trailing parameter axis.
+        T = np.atleast_1d(T)
+        if T.ndim == 1:
+            T = np.reshape(T, (-1, 1))
         self.estimators_ = [clone(self.estimator) for _ in range(y.shape[1])]
         [estimator.fit(X, T, y[:, [it]], sample_weight=sample_weight, **kwargs)
          for it, estimator in enumerate(self.estimators_)]
@@ -960,7 +967,7 @@ class RegressionForest(BaseGRF):
     >>> regr.feature_importances_
     array([0.2869952 , 0.03651571, 0.59767877, 0.07881031])
     >>> regr.predict(np.ones((1, 4)), interval=True, alpha=.05)
-    (array([[194.5075591]]), array([[159.10510002]]), array([[229.91001818]]))
+    (array([194.5075591]), array([159.10510002]), array([229.91001818]))
 
     References
     ----------
