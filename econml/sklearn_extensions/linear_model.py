@@ -537,13 +537,13 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         try:
             self._fit_weighted_linear_model(X, y, sample_weight)
         except ValueError as e:
-            # The delegated LassoCV fit rejects 2D targets with a redirect error
-            # whose class name is built from the runtime subclass (e.g.
-            # "For multi-task outputs, use MultiTaskLassoCV" in older sklearn,
-            # "For multi-task outputs, use MultiTaskWeightedLassoCV" in newer
-            # sklearn), so match on the stable prefix and point users at our
-            # weighted multitask wrapper. Any other ValueError propagates
-            # unchanged.
+            # The delegated sklearn LassoCV fit rejects 2D targets with a
+            # redirect error whose suggested class name sklearn builds from
+            # the runtime subclass ("MultiTask" + type(self).__name__, e.g.
+            # "For multi-task outputs, use MultiTaskWeightedLassoCV" for this
+            # wrapper, "MultiTaskLassoCV" for plain sklearn LassoCV), so match
+            # on the stable prefix and point users at our weighted multitask
+            # wrapper. Any other ValueError propagates unchanged.
             if "For multi-task outputs, use MultiTask" in str(e):
                 raise ValueError(
                     "For multi-task outputs, use WeightedMultiTaskLassoCV") from e
