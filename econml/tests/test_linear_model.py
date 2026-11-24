@@ -446,6 +446,39 @@ class TestLassoExtensions(unittest.TestCase):
         WeightedLassoCV(cv=3).fit(X, y_1d)
         WeightedMultiTaskLassoCV(cv=3).fit(X, y_2d)
 
+    def test_multi_task_error_redirects_to_weighted_multitask(self):
+        # Regression test for #192. Fitting WeightedLassoCV with a 2D y surfaces
+        # sklearn's "For multi-task outputs, use MultiTask<LassoCV/...>" redirect
+        # error, which points at sklearn's own class rather than at our weighted
+        # wrapper. Both the unweighted and the sample_weight code paths must
+        # redirect the user to WeightedMultiTaskLassoCV instead.
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(30, 5))
+        y_2d = rng.normal(size=(30, 2))
+        alphas_kw = {'alphas': 5} if SKLEARN_GE_17 else {'n_alphas': 5}
+        for sample_weight in (None, np.ones(30)):
+            with self.subTest(weighted=sample_weight is not None):
+                with self.assertRaises(ValueError) as cm:
+                    WeightedLassoCV(cv=2, **alphas_kw).fit(X, y_2d, sample_weight=sample_weight)
+                self.assertIn('For multi-task outputs, use WeightedMultiTaskLassoCV', str(cm.exception))
+
+    def test_single_task_still_fits_after_redirect_guard(self):
+        # Regression guard for the redirect above: a 1D y must still fit
+        # normally and populate the fitted attributes, and unrelated ValueErrors
+        # from the delegated LassoCV fit must propagate unchanged.
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(30, 5))
+        y_1d = rng.normal(size=30)
+        alphas_kw = {'alphas': 5} if SKLEARN_GE_17 else {'n_alphas': 5}
+        est = WeightedLassoCV(cv=2, **alphas_kw).fit(X, y_1d)
+        self.assertEqual(est.coef_.shape, (5,))
+        self.assertTrue(hasattr(est, 'alpha_'))
+        # InvalidParameterError subclasses ValueError; it must not be
+        # mangled into the multi-task redirect message.
+        with self.assertRaises(ValueError) as cm:
+            WeightedLassoCV(cv=2, tol=-1, **alphas_kw).fit(X, y_1d)
+        self.assertNotIn('WeightedMultiTaskLassoCV', str(cm.exception))
+
     #################
     # DebiasedLasso #
     #################
