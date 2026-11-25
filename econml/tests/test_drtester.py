@@ -163,8 +163,9 @@ class TestDRTester(unittest.TestCase):
     def test_binary_discrete_outcome(self):
         # Regression test for issue #875: the DRTester failed with a
         # "ValueError: Only implemented for 2-dimensional arrays" when the cate model was fitted with
-        # discrete_outcome=True and the treatment was binary, because the cate predictions then have
-        # trailing singleton dimensions (shape (n, 1, 1) instead of (n, 1))
+        # discrete_outcome=True and the treatment was binary, because the cate model's effect method then
+        # returns predictions of shape (n, 1) instead of (n,), so that the per-treatment stack produced a
+        # 3-dimensional array that statsmodels' add_constant cannot handle
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(
             num_treatments=1, binarize_outcome=True, N=2000)
 

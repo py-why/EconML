@@ -18,7 +18,7 @@ def _collapse_trailing_singletons(arr: np.array) -> np.array:
     Collapse any trailing singleton dimensions of the given array.
 
     Some CATE estimators (e.g. estimators fitted with ``discrete_outcome=True``) return predictions with one
-    or more trailing singleton dimensions, e.g. shape ``(n, 1, 1)`` instead of ``(n,)``, because the outcome
+    or more trailing singleton dimensions, e.g. shape ``(n, 1)`` instead of ``(n,)``, because the outcome
     is internally converted to a one-column matrix before the final model is fitted. The downstream
     evaluations in the DRTester expect either vectors of length n (in the binary treatment case) or an
     (n x n_treat) matrix of predictions, so these trailing singleton dimensions need to be collapsed.
