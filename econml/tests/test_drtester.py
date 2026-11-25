@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 import pandas as pd
 import scipy.stats as st
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
+from sklearn.ensemble import (RandomForestClassifier, GradientBoostingRegressor,
+                              GradientBoostingClassifier)
 
 from econml.validate.drtester import DRTester
 from econml.dml import DML
@@ -12,10 +13,9 @@ from econml.dml import DML
 class TestDRTester(unittest.TestCase):
 
     @staticmethod
-    def _get_data(num_treatments=1):
+    def _get_data(num_treatments=1, binarize_outcome=False, N=20000):
         np.random.seed(576)
 
-        N = 20000  # number of units
         K = 5  # number of covariates
 
         # Generate random Xs
@@ -43,6 +43,10 @@ class TestDRTester(unittest.TestCase):
         Y_sig = 1  # Variance of random outcome noise
         Y = X @ X_beta + (D_dum @ D_beta) + X[:, 1] * (D_dum @ DX1_beta) + np.random.normal(0, Y_sig, N)
         Y = Y.to_numpy()
+        if binarize_outcome:
+            # Binarize the outcome to simulate a discrete outcome, so that the cate model can be
+            # fitted with discrete_outcome=True, while preserving the heterogeneous effect on X[:, 1]
+            Y = (Y > np.median(Y)).astype(int)
 
         train_prop = .5
         train_N = np.ceil(train_prop * N)
@@ -155,6 +159,122 @@ class TestDRTester(unittest.TestCase):
         self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
         self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
         self.assertLess(res_df.autoc_pval.values[0], 0.05)  # heterogeneity
+
+    def test_binary_discrete_outcome(self):
+        # Regression test for issue #875: the DRTester failed with a
+        # "ValueError: Only implemented for 2-dimensional arrays" when the cate model was fitted with
+        # discrete_outcome=True and the treatment was binary, because the cate predictions then have
+        # trailing singleton dimensions (shape (n, 1, 1) instead of (n, 1))
+        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(
+            num_treatments=1, binarize_outcome=True, N=2000)
+
+        # Simple classifiers for propensity and outcome and a regressor for the cate final model,
+        # as would be used with binary outcome data
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingClassifier(random_state=0)
+        reg_final = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_final,
+            discrete_treatment=True,
+            discrete_outcome=True
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+
+        my_dr_tester = DRTester(
+            model_regression=GradientBoostingRegressor(random_state=0),
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+
+        # cate preds should be collapsed to a single column, despite the extra singleton dimensions
+        # returned by the cate model's effect method with discrete_outcome=True (get_cate_preds is
+        # invoked lazily within evaluate_all)
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        self.assertEqual(my_dr_tester.cate_preds_val_.shape, (Xval.shape[0], 1))
+        self.assertEqual(my_dr_tester.cate_preds_train_.shape, (Xtrain.shape[0], 1))
+
+        res_df = res.summary()
+
+        for k in range(3):
+            if k in [0, 2]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatment, k = 1
+                self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k, 'ucb2') is not None)
+                self.assertTrue(res.plot_toc(k, 'ucb1') is not None)
+
+        self.assertEqual(len(res_df), 1)
+        # the collapsed predictions should exactly match the cate model's raw predictions
+        # (only the extra singleton dimensions are removed)
+        raw_preds_val = np.stack([cate.effect(X=Xval, T0=0, T1=1)]).T
+        np.testing.assert_array_equal(my_dr_tester.cate_preds_val_, raw_preds_val.reshape(Xval.shape[0], 1))
+        # all test statistics should be finite
+        self.assertTrue(np.all(np.isfinite(res_df[['blp_est', 'blp_se', 'blp_pval', 'qini_est', 'qini_se',
+                                                   'qini_pval', 'autoc_est', 'autoc_se', 'autoc_pval',
+                                                   'cal_r_squared']].values)))
+
+    def test_multi_discrete_outcome(self):
+        # Guard that the normalization of the cate predictions also applies in the multi-treatment case
+        # when the cate model is fitted with discrete_outcome=True
+        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(
+            num_treatments=2, binarize_outcome=True, N=2000)
+
+        # Simple classifiers for propensity and outcome and a regressor for the cate final model,
+        # as would be used with binary outcome data
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingClassifier(random_state=0)
+        reg_final = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_final,
+            discrete_treatment=True,
+            discrete_outcome=True
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+
+        my_dr_tester = DRTester(
+            model_regression=GradientBoostingRegressor(random_state=0),
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+
+        # cate preds should have one column per treatment, despite the extra singleton dimensions
+        # returned by the cate model's effect method with discrete_outcome=True (get_cate_preds is
+        # invoked lazily within evaluate_all)
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        self.assertEqual(my_dr_tester.cate_preds_val_.shape, (Xval.shape[0], 2))
+        self.assertEqual(my_dr_tester.cate_preds_train_.shape, (Xtrain.shape[0], 2))
+
+        res_df = res.summary()
+
+        for k in range(4):
+            if k in [0, 3]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatments, k = 1 or 2
+                self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k) is not None)
+                self.assertTrue(res.plot_toc(k) is not None)
+
+        self.assertEqual(len(res_df), 2)
+        # the collapsed predictions should exactly match the cate model's raw predictions
+        # (only the extra singleton dimensions are removed)
+        raw_preds_val = np.stack([cate.effect(X=Xval, T0=0, T1=t) for t in [1, 2]]).T
+        np.testing.assert_array_equal(my_dr_tester.cate_preds_val_, raw_preds_val.reshape(Xval.shape[0], 2))
+        # all test statistics should be finite
+        self.assertTrue(np.all(np.isfinite(res_df[['blp_est', 'blp_se', 'blp_pval', 'qini_est', 'qini_se',
+                                                   'qini_pval', 'autoc_est', 'autoc_se', 'autoc_pval',
+                                                   'cal_r_squared']].values)))
 
     def test_nuisance_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)

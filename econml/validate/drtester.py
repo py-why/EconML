@@ -13,6 +13,33 @@ from .utils import calculate_dr_outcomes, calc_uplift
 _statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for evaluate_blp()
 
 
+def _collapse_trailing_singletons(arr: np.array) -> np.array:
+    """
+    Collapse any trailing singleton dimensions of the given array.
+
+    Some CATE estimators (e.g. estimators fitted with ``discrete_outcome=True``) return predictions with one
+    or more trailing singleton dimensions, e.g. shape ``(n, 1, 1)`` instead of ``(n,)``, because the outcome
+    is internally converted to a one-column matrix before the final model is fitted. The downstream
+    evaluations in the DRTester expect either vectors of length n (in the binary treatment case) or an
+    (n x n_treat) matrix of predictions, so these trailing singleton dimensions need to be collapsed.
+    Non-singleton trailing dimensions (e.g. for multi-output predictions) are left untouched.
+
+    Parameters
+    ----------
+    arr: array_like
+        Array whose trailing singleton dimensions should be collapsed
+
+    Returns
+    -------
+    arr: array
+        Array with trailing singleton dimensions collapsed
+    """
+    arr = np.asarray(arr)
+    while arr.ndim > 1 and arr.shape[-1] == 1:
+        arr = arr[..., 0]
+    return arr
+
+
 class DRTester:
     """
     Validation tests for CATE models.
@@ -361,11 +388,13 @@ class DRTester:
         data is provided, attribute cate_preds_train_ for predicted CATE values on the training set
         """
         base = self.treatments[0]
-        vals = [self.cate.effect(X=Xval, T0=base, T1=t) for t in self.treatments[1:]]
+        vals = [_collapse_trailing_singletons(self.cate.effect(X=Xval, T0=base, T1=t))
+                for t in self.treatments[1:]]
         self.cate_preds_val_ = np.stack(vals).T
 
         if Xtrain is not None:
-            trains = [self.cate.effect(X=Xtrain, T0=base, T1=t) for t in self.treatments[1:]]
+            trains = [_collapse_trailing_singletons(self.cate.effect(X=Xtrain, T0=base, T1=t))
+                      for t in self.treatments[1:]]
             self.cate_preds_train_ = np.stack(trains).T
 
     def evaluate_cal(
