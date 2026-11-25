@@ -130,6 +130,32 @@ class TestUtilities(unittest.TestCase):
         T_oh = OneHotEncoder(categories='auto', sparse_output=False).fit_transform(T.reshape(-1, 1))[:, 1:]
         T_inv = inverse_onehot(T_oh)
         np.testing.assert_array_equal(T, T_inv)
+        # OneHotEncoder(drop='first') output (the first column already removed) should
+        # also decode back to the same zero-based category labels.
+        T_oh_drop_first = OneHotEncoder(categories='auto', sparse_output=False,
+                                        drop='first').fit_transform(T.reshape(-1, 1))
+        np.testing.assert_array_equal(T, inverse_onehot(T_oh_drop_first))
+        # The ndarray drop-first contract from the docstring is unchanged:
+        # the implicit all-zeros row is category 0 and column j-1 marks category j.
+        np.testing.assert_array_equal(inverse_onehot(np.array([[0, 0], [1, 0], [0, 1]])), [0, 1, 2])
+        np.testing.assert_array_equal(inverse_onehot(np.array([[0], [1]])), [0, 1])
+        assert inverse_onehot(np.array([[0, 0], [1, 0], [0, 1]])).dtype.kind == 'i'
+
+    def test_inverse_onehot_pandas_get_dummies(self):
+        # Regression test for issue #1006: a pd.get_dummies one-hot DataFrame contains
+        # all k columns of the encoding, so it must be decoded with zero-based column
+        # indices. The previous implementation always used one-based indices, shifting
+        # every decoded label by one (e.g. binary 0/1 labels decoded as 1/2).
+        import pandas as pd
+        T_inv = inverse_onehot(pd.get_dummies(np.array([0, 1, 1, 0])))
+        assert isinstance(T_inv, np.ndarray)
+        assert T_inv.dtype.kind == 'i'
+        np.testing.assert_array_equal(T_inv, [0, 1, 1, 0])
+        rng = np.random.default_rng(1234)
+        for labels in [rng.integers(2, size=100), rng.integers(3, size=100)]:
+            T_inv = inverse_onehot(pd.get_dummies(pd.Series(labels)))
+            assert isinstance(T_inv, np.ndarray)
+            np.testing.assert_array_equal(labels, T_inv)
 
     # TODO: set up proper flag for this
     @pytest.mark.slow

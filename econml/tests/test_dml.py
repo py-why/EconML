@@ -901,6 +901,12 @@ class TestDML(unittest.TestCase):
         s5 = est.score(Y=y, T=T, X=X, W=W, scoring=pearsonr)
         np.testing.assert_allclose(s5[0], 0.337, rtol=0, atol=0.005 )
 
+        # The T nuisance score expectations below reflect the #1006 fix: score_nuisances now
+        # encodes discrete treatments with the same fitted OneHotEncoder(drop='first') used at
+        # training time, whereas it previously built a full pd.get_dummies one-hot that
+        # inverse_onehot decoded to one-shifted labels. The old values (T_MSE ~1.5, T_MAE ~1.0,
+        # T_R2 ~-5.1) silently encoded that off-by-one label shift, which pushed the
+        # treatment-fit scores ~1 away from the corrected values below.
         sn1 = est.score_nuisances(Y=y, T=T, X=X, W=W,
                                   t_scoring='mean_squared_error',
                                   y_scoring='mean_squared_error')
