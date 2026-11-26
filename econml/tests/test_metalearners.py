@@ -10,6 +10,25 @@ from sklearn.preprocessing import PolynomialFeatures
 from econml.metalearners import SLearner, TLearner, XLearner, DomainAdaptationLearner
 
 
+class _KeywordOnlyWeightRegressor:
+    """Minimal regressor whose `fit` accepts `sample_weight` only as a keyword argument.
+
+    Mirrors third-party estimators (e.g. XGBoost, LightGBM) that reject a third
+    positional argument, so passing sample_weight positionally raises a TypeError.
+    """
+
+    def fit(self, X, y, *, sample_weight=None):
+        if sample_weight is not None:
+            scale = np.sqrt(sample_weight)
+            X = X * scale[:, np.newaxis]
+            y = y * scale
+        self.coef_ = np.linalg.lstsq(X, y, rcond=None)[0]
+        return self
+
+    def predict(self, X):
+        return np.dot(X, self.coef_)
+
+
 class TestMetalearners(unittest.TestCase):
 
     @classmethod
@@ -96,6 +115,19 @@ class TestMetalearners(unittest.TestCase):
         for te_type in ["const", "heterogeneous"]:
             for multi_y in [False, True]:
                 self._test_te(DA_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
+
+    def test_DALearner_sample_weight_as_kwarg(self):
+        """Non-pipeline models must receive `sample_weight` as a keyword argument (issue #774)."""
+        # Fit with models that only accept sample_weight as a keyword parameter; passing it
+        # positionally would raise a TypeError. Uses the shared const treatment effect data.
+        X, T, Y = self.const_te_data
+        DA_learner = DomainAdaptationLearner(models=_KeywordOnlyWeightRegressor(),
+                                             final_models=_KeywordOnlyWeightRegressor(),
+                                             propensity_model=LogisticRegression())
+        DA_learner.fit(Y, T, X=X)
+        te_hat = DA_learner.effect(self.X_test, T0=3, T1=5)
+        self.assertEqual(te_hat.shape, (self.n_test,))
+        self.assertTrue(np.all(np.isfinite(te_hat)))
 
     def test_refit_with_different_number_of_treatments(self):
         """Construction and refitting leave the supplied model specifications intact."""

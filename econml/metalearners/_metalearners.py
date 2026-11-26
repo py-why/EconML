@@ -646,7 +646,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def _fit_weighted_pipeline(self, model_instance, X, y, sample_weight):
         if not isinstance(model_instance, Pipeline):
-            model_instance.fit(X, y, sample_weight)
+            model_instance.fit(X, y, sample_weight=sample_weight)
         else:
             last_step_name = model_instance.steps[-1][0]
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
