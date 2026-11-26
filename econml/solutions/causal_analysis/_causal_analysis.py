@@ -1652,7 +1652,11 @@ class CausalAnalysis:
 
         if result.feature_baseline is None:
             # apply 10% of a typical treatment for this feature
-            effect = result.estimator.effect_inference(Xtest, T1=result.treatment_value * 0.1)
+            treatment_level = result.treatment_value * 0.1
+            effect = result.estimator.effect_inference(Xtest, T1=treatment_level)
+            # for continuous features the costs are marginal costs per unit of treatment,
+            # so scale them to the cost of the treatment change whose effect we computed
+            treatment_costs = np.multiply(treatment_costs, treatment_level)
         else:
             effect = result.estimator.const_marginal_effect_inference(Xtest)
 

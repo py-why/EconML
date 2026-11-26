@@ -677,6 +677,45 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 ca._individualized_policy_dict(X, 'a')
 
+    def test_individualized_policy_continuous_treatment_costs(self):
+        # For continuous features, treatment_costs is a per-unit (marginal) cost, while the effect reported by
+        # individualized_policy is for a change of 10% of the typical treatment value, so the cost must be
+        # scaled by the same amount; otherwise the recommendation depends on the units of the feature.
+        rng = np.random.default_rng(123)
+        n = 1000
+        X = pd.DataFrame({'a': rng.normal(size=n), 'b': rng.normal(size=n)})
+        y = 2 * X['a'] + X['b'] + rng.normal(scale=0.1, size=n)
+        cost = 1.0
+
+        ca = CausalAnalysis(['a'], [], ['b'], heterogeneity_model='linear', nuisance_models='linear',
+                            random_state=123)
+        ca.fit(X, y)
+        level = 0.1 * ca.typical_treatment_value('a')
+        cme = ca.local_causal_effect(X)['point'].values
+        expected = level * (cme - cost)
+
+        for costs in [cost, np.full(n, cost)]:
+            df = ca.individualized_policy(X, 'a', treatment_costs=costs).sort_index()
+            np.testing.assert_array_equal(df['Treatment'].values,
+                                          np.where(expected > 0, 'increase', 'decrease'))
+            np.testing.assert_allclose(df['Effect of treatment'].values, np.abs(expected))
+            self.assertTrue(np.all(df['Effect of treatment lower bound'] <= df['Effect of treatment']))
+            self.assertTrue(np.all(df['Effect of treatment'] <= df['Effect of treatment upper bound']))
+
+        # the recommendations should agree with the policy tree, which also treats costs as marginal costs
+        policy = ca._policy_tree_output(X, 'a', treatment_costs=cost)
+        np.testing.assert_allclose(policy.always_treat['increase'], np.mean(expected))
+        self.assertTrue(np.all(df['Treatment'] == 'increase'))
+
+        # measuring the feature in different units (with the per-unit cost adjusted accordingly)
+        # should not change the recommendations
+        X_scaled = X.assign(a=X['a'] * 100)
+        ca_scaled = CausalAnalysis(['a'], [], ['b'], heterogeneity_model='linear', nuisance_models='linear',
+                                   random_state=123)
+        ca_scaled.fit(X_scaled, y)
+        df_scaled = ca_scaled.individualized_policy(X_scaled, 'a', treatment_costs=cost / 100).sort_index()
+        np.testing.assert_array_equal(df_scaled['Treatment'].values, df['Treatment'].values)
+
     def test_random_state(self):
         # verify that using the same state returns the same results each time
         y = np.random.choice([0, 1], size=(500,))
