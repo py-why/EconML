@@ -481,7 +481,7 @@ class DRTester:
             self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:  # binary treatment
-            reg = _statsmodels_api.OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
+            reg = _statsmodels_api.OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit(cov_type='HC1')
             params = [reg.params[1]]
             errs = [reg.bse[1]]
             pvals = [reg.pvalues[1]]

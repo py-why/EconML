@@ -156,6 +156,27 @@ class TestDRTester(unittest.TestCase):
         self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
         self.assertLess(res_df.autoc_pval.values[0], 0.05)  # heterogeneity
 
+    def test_blp_binary_robust_se(self):
+        # DR outcomes are heteroskedastic; the binary BLP should use the same HC1 errors as the categorical case
+        import statsmodels.api as sm
+
+        rng = np.random.default_rng(0)
+        n = 2000
+        cate_preds = rng.normal(size=(n, 1))
+        dr = cate_preds + rng.normal(size=(n, 1)) * (0.5 + 2 * np.abs(cate_preds))
+
+        my_dr_tester = DRTester(model_regression=None, model_propensity=None, cate=None)
+        my_dr_tester.n_treat = 1
+        my_dr_tester.treatments = [0, 1]
+        my_dr_tester.dr_val_ = dr
+        my_dr_tester.cate_preds_val_ = cate_preds
+        blp_res = my_dr_tester.evaluate_blp()
+
+        expected = sm.OLS(dr[:, 0], sm.add_constant(cate_preds[:, 0])).fit(cov_type='HC1')
+        np.testing.assert_allclose(blp_res.params[0], expected.params[1])
+        np.testing.assert_allclose(blp_res.errs[0], expected.bse[1])
+        np.testing.assert_allclose(blp_res.pvals[0], expected.pvalues[1])
+
     def test_nuisance_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
 
