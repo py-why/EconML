@@ -388,13 +388,13 @@ class DRTester:
         data is provided, attribute cate_preds_train_ for predicted CATE values on the training set
         """
         base = self.treatments[0]
-        vals = [_collapse_trailing_singletons(self.cate.effect(X=Xval, T0=base, T1=t))
-                for t in self.treatments[1:]]
+        vals = [_collapse_trailing_singletons(self.cate.effect(X=Xval, T0=base, T1=t)) for t in self.treatments[1:]]
         self.cate_preds_val_ = np.stack(vals).T
 
         if Xtrain is not None:
-            trains = [_collapse_trailing_singletons(self.cate.effect(X=Xtrain, T0=base, T1=t))
-                      for t in self.treatments[1:]]
+            trains = [
+                _collapse_trailing_singletons(self.cate.effect(X=Xtrain, T0=base, T1=t)) for t in self.treatments[1:]
+            ]
             self.cate_preds_train_ = np.stack(trains).T
 
     def evaluate_cal(
